@@ -58,6 +58,9 @@ impl Vec3{
             return p;
         }
     }
+    pub fn rand_unit_vector() -> Self{
+        return Self::rand_in_unit_sphere().unit();
+    }
 }
 
 use std::ops::{Neg,Index,IndexMut,AddAssign,SubAssign,MulAssign,DivAssign,Add,Sub,Mul,Div};
