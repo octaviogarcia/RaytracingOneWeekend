@@ -61,6 +61,13 @@ impl Vec3{
     pub fn rand_unit_vector() -> Self{
         return Self::rand_in_unit_sphere().unit();
     }
+    pub fn rand_in_hemisphere(normal: &Self) -> Self{
+        let in_unit_sphere = Self::rand_in_unit_sphere();
+        if in_unit_sphere.dot(*normal) > 0. {//Same hemisphere
+            return in_unit_sphere;
+        }
+        return -in_unit_sphere;//Invert it
+    }
 }
 
 use std::ops::{Neg,Index,IndexMut,AddAssign,SubAssign,MulAssign,DivAssign,Add,Sub,Mul,Div};
