@@ -22,10 +22,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
         Some(hr) => {
             let new_dir = hr.normal.unit() + Vec3::rand_in_unit_sphere().unit();
             let new_ray = Ray::new(hr.point,new_dir);
-            return ray_color(&new_ray, world,depth-1);
-            //return 0.5*ray_color(&new_ray, world,depth-1);
-            //let offset = Color::new(0.5,0.5,0.5);
-            //return 0.5*hr.normal + offset;
+            return 0.5*ray_color(&new_ray, world,depth-1);
         },
         None => {
             let unit_dir: Vec3 = r.dir.unit();

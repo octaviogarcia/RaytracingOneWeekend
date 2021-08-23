@@ -24,9 +24,9 @@ pub fn lerp(t: f64,c1: Color,c2: Color) -> Color{
 }
 pub fn write_color(&color: &Color,samples_per_pixel: u64){
     let scale = 1.0/(samples_per_pixel as f64);
-    let r = clamp(color.x() * scale,0.,0.999);
-    let g = clamp(color.y() * scale,0.,0.999);
-    let b = clamp(color.z() * scale,0.,0.999);
+    let r = clamp((color.x() * scale).sqrt(),0.,0.999);
+    let g = clamp((color.y() * scale).sqrt(),0.,0.999);
+    let b = clamp((color.z() * scale).sqrt(),0.,0.999);
     println!("{} {} {}",256.*r,256.*g,256.*b);
 }
 
