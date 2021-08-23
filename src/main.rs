@@ -17,6 +17,7 @@ mod materials;
 use materials::Lambertian;
 use materials::Metal;
 use materials::MaterialScatterResult;
+use materials::Dieletric;
 
 fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
     if depth == 0 {
@@ -70,8 +71,8 @@ fn main() {
     */
     //METAL AND LAMBERTIAN SCENE
     let mat_ground = Rc::new(Lambertian::new(Color::new(0.8,0.8,0.0)));
-    let mat_center = Rc::new(Lambertian::new(Color::new(0.7,0.3,0.3)));
-    let mat_left   = Rc::new(Metal::new_fuzz(Color::new(0.8,0.8,0.8),0.3));
+    let mat_center = Rc::new(Dieletric::new(1.5));
+    let mat_left   = Rc::new(Dieletric::new(1.5));
     let mat_right  = Rc::new(Metal::new_fuzz(Color::new(0.8,0.6,0.2),1.0));
     world.add(Box::new(Sphere{center: Point3::new( 0.0, -100.5, -1.0), radius: 100.0, material: mat_ground}));
     world.add(Box::new(Sphere{center: Point3::new( 0.0,    0.0, -1.0), radius: 0.5  , material: mat_center}));

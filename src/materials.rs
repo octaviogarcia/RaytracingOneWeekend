@@ -1,6 +1,7 @@
 use crate::ray::Ray;
 use crate::vec3::*;
 use crate::hits::HitRecord;
+use crate::utils::min;
 
 pub struct MaterialScatterResult {
     pub attenuation: Color,
@@ -56,5 +57,34 @@ impl Material for Metal {
         let reflected: Vec3 = reflect(&r_in.dir.unit(), &hr.normal);
         let new_ray = Ray::new(hr.point, reflected + self.fuzz*Vec3::rand_in_unit_sphere());
         return Some(MaterialScatterResult{attenuation: self.albedo,ray: new_ray});
+    }
+}
+
+fn refract(uv: &Vec3,n: &Vec3,etai_over_etat: f64) -> Vec3 {
+    let cos_theta = min((-*uv).dot(*n),1.0);
+    let r_out_perp = etai_over_etat * ((*uv) + cos_theta*(*n));
+    let aux = -(1.0 - r_out_perp.length_squared()).abs().sqrt();
+    let r_out_parallel = aux*(*n);
+    return r_out_perp + r_out_parallel;
+}
+
+pub struct Dieletric{
+    pub ior: f64,
+}
+impl Dieletric{
+    pub fn new(index_of_refraction: f64) -> Self{
+        return Self{ior: index_of_refraction};
+    }
+}
+impl Material for Dieletric {
+    fn scatter(&self,r_in: &Ray,hr: &HitRecord) -> Option<MaterialScatterResult>{
+        let mut refraction_ratio = self.ior;
+        if hr.front_face {
+            refraction_ratio = 1.0 / self.ior;
+        }
+        let refracted = refract(&r_in.dir.unit(),&hr.normal,refraction_ratio);
+        let new_ray   = Ray::new(hr.point,refracted);
+        let attenuation = Color::new(1.0,1.0,1.0);
+        return Some(MaterialScatterResult{attenuation: attenuation,ray: new_ray});
     }
 }
