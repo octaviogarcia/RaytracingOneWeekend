@@ -31,14 +31,13 @@ pub fn write_color(&color: &Color,samples_per_pixel: u64){
 }
 
 use rand::Rng;
-pub fn rand_u8() -> u8{
-    return rand::thread_rng().gen_range(0..=255);
+pub trait MyRandom{
+    fn rand() -> Self;
+    fn rand_range(fmin: f64,fmax: f64) -> Self;
 }
-pub fn rand_f64() -> f64{
-    return rand::thread_rng().gen();
-}
-pub fn rand_f64_range(min: f64,max: f64) -> f64{
-    return rand_f64()*(max-min) + min;
+impl MyRandom for f64{
+    fn rand() -> Self{ rand::thread_rng().gen() }
+    fn rand_range(min: f64,max: f64) -> f64{ Self::rand()*(max-min) + min }
 }
 
 pub const PI:  f64 = 3.1415926535897932385;

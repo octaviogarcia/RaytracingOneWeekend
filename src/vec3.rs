@@ -6,6 +6,9 @@ pub struct Vec3 {
 pub type Point3 = Vec3;   // 3D point
 pub type Color  = Vec3;   // RGB color
 
+use crate::utils;
+use utils::MyRandom;
+
 impl Vec3{
     pub const ZERO : Self = Self{ e: [0.,0.,0.]};
     pub fn new(x: f64,y: f64,z: f64) -> Self { Self{e: [x,y,z]} }
@@ -13,6 +16,7 @@ impl Vec3{
     pub fn x(&self) -> &f64{ &self.e[0] }
     pub fn y(&self) -> &f64{ &self.e[1] }
     pub fn z(&self) -> &f64{ &self.e[2] }
+
     pub fn dot(&self,other: Self) -> f64{
         self.e[0]*other.e[0]+self.e[1]*other.e[1]+self.e[2]*other.e[2]
     }
@@ -31,6 +35,28 @@ impl Vec3{
             self.e[2]*other.e[0] - self.e[0]*other.e[2],
             self.e[0]*other.e[1] - self.e[1]*other.e[0],
         ]}
+    }
+}
+
+//Random implementations
+impl MyRandom for Vec3{
+    fn rand() -> Self { Self{e: [f64::rand(),f64::rand(),f64::rand()]} }
+    fn rand_range(fmin: f64,fmax: f64) -> Self {
+        Self{e: [
+            f64::rand_range(fmin,fmax),
+            f64::rand_range(fmin,fmax),
+            f64::rand_range(fmin,fmax),
+        ]}
+    }
+}
+
+impl Vec3{
+    pub fn rand_in_unit_sphere() -> Self{
+        loop {
+            let p = Self::rand_range(-1.,1.);
+            if p.length_squared() >= 1. {continue};
+            return p;
+        }
     }
 }
 
