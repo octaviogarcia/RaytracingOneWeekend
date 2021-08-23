@@ -1,13 +1,16 @@
 use crate::vec3;
 use vec3::Vec3;
 use vec3::Point3;
+use vec3::Color;
 
-use crate::ray;
-use ray::Ray;
+use crate::ray::Ray;
+use crate::materials::Material;
+use std::rc::Rc;
 
 pub struct HitRecord {
     pub point: Point3,
     pub normal: Vec3,
+    pub material: Rc<dyn Material>,
     pub t: f64,
     pub front_face: bool,
 }
@@ -27,6 +30,7 @@ impl HitRecord{
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
+    pub material: Rc<dyn Material>
 }
 
 pub trait Hittable {
@@ -53,7 +57,7 @@ impl Hittable for Sphere {
         }
         let point = r.at(root);
         let outward_normal = (point - self.center)/self.radius;
-        let mut rec = HitRecord{t: root,point: point,normal: Vec3::ZERO, front_face: false};
+        let mut rec = HitRecord{t: root,point: point,normal: Vec3::ZERO, front_face: false,material: self.material.clone()};
         rec.set_face_normal(r,&outward_normal);
         return Some(rec);
     }

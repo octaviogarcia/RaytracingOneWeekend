@@ -13,6 +13,9 @@ use hits::*;
 mod camera;
 use camera::*;
 
+mod materials;
+use materials::Lambertian;
+use materials::MaterialScatterResult;
 
 fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
     if depth == 0 {
@@ -20,11 +23,13 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
     }
     match world.hit(r,0.001,INF) {
         Some(hr) => {
-            //let new_dir = hr.normal + Vec3::rand_in_unit_sphere();
-            let new_dir = hr.normal + Vec3::rand_unit_vector();
-            //let new_dir = Vec3::rand_in_hemisphere(&hr.normal);
-            let new_ray = Ray::new(hr.point,new_dir);
-            return 0.5*ray_color(&new_ray, world,depth-1);
+            let rslt = hr.material.scatter(r,&hr);
+            match rslt {
+                Some(r) => {
+                    return r.attenuation*ray_color(&r.ray, world,depth-1);
+                }
+                None => { return Color::ZERO; } //Nevear reached by Lambertian
+            }
         },
         None => {
             let unit_dir: Vec3 = r.dir.unit();
@@ -33,6 +38,8 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
         },
     }
 }
+
+use std::rc::Rc;
 
 fn main() {
     //IMAGE
@@ -51,8 +58,11 @@ fn main() {
 
     //OBJECTS
     let mut world = HittableList::new();
-    world.add(Box::new(Sphere{center: Point3::new(0.,0.,-1.),radius: 0.5}));
-    world.add(Box::new(Sphere{center: Point3::new(0.,-100.5,-1.),radius: 100.}));
+    //Creating objects with only 1 instance is bad practice, should be a function really...
+    let albedo = Color::new(0.5,0.5,0.5);
+    let lambertian = Rc::new(Lambertian::new(albedo));
+    world.add(Box::new(Sphere{center: Point3::new(0.,   0. ,-1.),radius: 0.5  ,material: lambertian.clone()}));
+    world.add(Box::new(Sphere{center: Point3::new(0.,-100.5,-1.),radius: 100.,material: lambertian.clone()}));
 
     eprintln!("Inicio");
     println!("P3\n{} {}\n255",image_width,image_height);

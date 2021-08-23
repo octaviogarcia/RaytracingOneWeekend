@@ -36,6 +36,10 @@ impl Vec3{
             self.e[0]*other.e[1] - self.e[1]*other.e[0],
         ]}
     }
+    pub fn near_zero(&self) -> bool {
+        let eps = 1e-8;
+        return (self.e[0].abs() < eps) && (self.e[1].abs() < eps) && (self.e[2].abs() < eps);
+    }
 }
 
 //Random implementations
