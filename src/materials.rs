@@ -11,10 +11,10 @@ pub trait Material {
     fn scatter(&self,r_in: &Ray,rec: &HitRecord) -> Option<MaterialScatterResult>;
 }
 
+//LAMBERTIAN
 pub struct Lambertian {
     pub albedo: Color,
 }
-
 impl Lambertian{
     pub fn new(a: Color) -> Self{
         return Self{albedo: a};
@@ -29,6 +29,28 @@ impl Material for Lambertian {
         }
         //let new_dir = Vec3::rand_in_hemisphere(&hr.normal);
         let new_ray = Ray::new(hr.point, new_dir);
+        return Some(MaterialScatterResult{attenuation: self.albedo,ray: new_ray});
+    }
+}
+
+//METAL
+pub struct Metal {
+    pub albedo: Color,
+}
+impl Metal{
+    pub fn new(a: Color) -> Self{
+        return Self{albedo: a};
+    }
+}
+
+fn reflect(v: &Vec3,n: &Vec3) -> Vec3{
+    return *v - 2.*v.dot(*n)*(*n);
+}
+
+impl Material for Metal {
+    fn scatter(&self,r_in: &Ray,hr: &HitRecord) -> Option<MaterialScatterResult>{
+        let reflected: Vec3 = reflect(&r_in.dir.unit(), &hr.normal);
+        let new_ray = Ray::new(hr.point, reflected);
         return Some(MaterialScatterResult{attenuation: self.albedo,ray: new_ray});
     }
 }

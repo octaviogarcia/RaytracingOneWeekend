@@ -15,6 +15,7 @@ use camera::*;
 
 mod materials;
 use materials::Lambertian;
+use materials::Metal;
 use materials::MaterialScatterResult;
 
 fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
@@ -28,7 +29,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
                 Some(r) => {
                     return r.attenuation*ray_color(&r.ray, world,depth-1);
                 }
-                None => { return Color::ZERO; } //Nevear reached by Lambertian
+                None => { return Color::ZERO; } //Nevear reached by Lambertian, Metal
             }
         },
         None => {
@@ -59,10 +60,23 @@ fn main() {
     //OBJECTS
     let mut world = HittableList::new();
     //Creating objects with only 1 instance is bad practice, should be a function really...
+
+    //LAMBERTIAN SCENE
+    /*
     let albedo = Color::new(0.5,0.5,0.5);
     let lambertian = Rc::new(Lambertian::new(albedo));
     world.add(Box::new(Sphere{center: Point3::new(0.,   0. ,-1.),radius: 0.5  ,material: lambertian.clone()}));
     world.add(Box::new(Sphere{center: Point3::new(0.,-100.5,-1.),radius: 100.,material: lambertian.clone()}));
+    */
+    //METAL AND LAMBERTIAN SCENE
+    let mat_ground = Rc::new(Lambertian::new(Color::new(0.8,0.8,0.0)));
+    let mat_center = Rc::new(Lambertian::new(Color::new(0.7,0.3,0.3)));
+    let mat_left   = Rc::new(Metal::new(Color::new(0.8,0.8,0.8)));
+    let mat_right  = Rc::new(Metal::new(Color::new(0.8,0.6,0.2)));
+    world.add(Box::new(Sphere{center: Point3::new( 0.0, -100.5, -1.0), radius: 100.0, material: mat_ground}));
+    world.add(Box::new(Sphere{center: Point3::new( 0.0,    0.0, -1.0), radius: 0.5  , material: mat_center}));
+    world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius: 0.5  , material: mat_left}));
+    world.add(Box::new(Sphere{center: Point3::new( 1.0,    0.0, -1.0), radius: 0.5  , material: mat_right}));
 
     eprintln!("Inicio");
     println!("P3\n{} {}\n255",image_width,image_height);
