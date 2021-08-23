@@ -18,7 +18,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
     if depth == 0 {
         return Color::ZERO;
     }
-    match world.hit(r,0.,INF) {
+    match world.hit(r,0.001,INF) {
         Some(hr) => {
             let new_dir = hr.normal.unit() + Vec3::rand_in_unit_sphere().unit();
             let new_ray = Ray::new(hr.point,new_dir);
