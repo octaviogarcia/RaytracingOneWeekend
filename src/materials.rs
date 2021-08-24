@@ -78,12 +78,25 @@ impl Dieletric{
 }
 impl Material for Dieletric {
     fn scatter(&self,r_in: &Ray,hr: &HitRecord) -> Option<MaterialScatterResult>{
-        let mut refraction_ratio = self.ior;
+        let refraction_ratio: f64;
         if hr.front_face {
             refraction_ratio = 1.0 / self.ior;
         }
-        let refracted = refract(&r_in.dir.unit(),&hr.normal,refraction_ratio);
-        let new_ray   = Ray::new(hr.point,refracted);
+        else{
+            refraction_ratio = self.ior;
+        }
+
+        let cos_theta = min((-r_in.dir.unit()).dot(hr.normal),1.0);
+        let sin_theta = (1.0 - cos_theta*cos_theta).sqrt();
+        let cannot_refract = (refraction_ratio * sin_theta) > 1.0;
+        let new_dir: Vec3;
+        if cannot_refract {//Reflect
+            new_dir = reflect(&r_in.dir.unit(), &hr.normal);
+        }
+        else {
+            new_dir = refract(&r_in.dir.unit(),&hr.normal,refraction_ratio);
+        }
+        let new_ray   = Ray::new(hr.point,new_dir);
         let attenuation = Color::new(1.0,1.0,1.0);
         return Some(MaterialScatterResult{attenuation: attenuation,ray: new_ray});
     }
