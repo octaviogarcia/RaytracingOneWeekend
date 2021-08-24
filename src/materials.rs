@@ -2,6 +2,7 @@ use crate::ray::Ray;
 use crate::vec3::*;
 use crate::hits::HitRecord;
 use crate::utils::min;
+use crate::utils::MyRandom;
 
 pub struct MaterialScatterResult {
     pub attenuation: Color,
@@ -67,6 +68,13 @@ fn refract(uv: &Vec3,n: &Vec3,etai_over_etat: f64) -> Vec3 {
     let r_out_parallel = aux*(*n);
     return r_out_perp + r_out_parallel;
 }
+fn reflectance(cos: f64, ref_idx: f64) -> f64{
+    // Use Schlick's approximation for reflectance.
+    let r0 = (1.-ref_idx)/(1.+ref_idx);
+    let r0_2 = r0*r0;
+    let cos_5 = (1.-cos)*(1.-cos)*(1.-cos)*(1.-cos)*(1.-cos);
+    return r0_2 + (1.-r0_2)*cos_5;
+}
 
 pub struct Dieletric{
     pub ior: f64,
@@ -89,8 +97,9 @@ impl Material for Dieletric {
         let cos_theta = min((-r_in.dir.unit()).dot(hr.normal),1.0);
         let sin_theta = (1.0 - cos_theta*cos_theta).sqrt();
         let cannot_refract = (refraction_ratio * sin_theta) > 1.0;
+        let reflect_by_reflectante = reflectance(cos_theta, refraction_ratio) > f64::rand();
         let new_dir: Vec3;
-        if cannot_refract {//Reflect
+        if cannot_refract || reflect_by_reflectante {//Reflect
             new_dir = reflect(&r_in.dir.unit(), &hr.normal);
         }
         else {
