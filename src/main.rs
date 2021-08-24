@@ -75,9 +75,10 @@ fn main() {
     let mat_left   = Rc::new(Dieletric::new(1.5));
     let mat_right  = Rc::new(Metal::new_fuzz(Color::new(0.8,0.6,0.2),0.0));
     world.add(Box::new(Sphere{center: Point3::new( 0.0, -100.5, -1.0), radius: 100.0, material: mat_ground}));
-    world.add(Box::new(Sphere{center: Point3::new( 0.0,    0.0, -1.0), radius: 0.5  , material: mat_center}));
-    world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius: 0.5  , material: mat_left}));
-    world.add(Box::new(Sphere{center: Point3::new( 1.0,    0.0, -1.0), radius: 0.5  , material: mat_right}));
+    world.add(Box::new(Sphere{center: Point3::new( 0.0,    0.0, -1.0), radius:   0.5, material: mat_center}));
+    world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:   0.5, material: mat_left.clone()}));
+    world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:  -0.4, material: mat_left.clone()}));
+    world.add(Box::new(Sphere{center: Point3::new( 1.0,    0.0, -1.0), radius:   0.5, material: mat_right}));
 
     eprintln!("Inicio");
     println!("P3\n{} {}\n255",image_width,image_height);
