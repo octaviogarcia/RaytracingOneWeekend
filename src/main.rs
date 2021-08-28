@@ -17,7 +17,6 @@ mod materials;
 use materials::Material;
 use materials::Lambertian;
 use materials::Metal;
-use materials::MaterialScatterResult;
 use materials::Dieletric;
 
 fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
@@ -88,11 +87,21 @@ fn random_scene() -> HittableList{
     return world;
 }
 
+fn round_n(f: f64,n: u64) -> f64 {
+    let mut mul = 1.0;
+    for _n in 0..n{
+        mul *= 10.0;
+    }
+    return (f*mul).round()/mul;
+}
+
 fn main() {
     //IMAGE
     let aspect_ratio: f64 = 3.0 / 2.0;
-    let image_width:  u64  = 1200;
-    let image_height: u64 = ((image_width as f64) / aspect_ratio) as u64;
+    let image_width:    u64 = 400;
+    let image_width_f:  f64 = image_width as f64;
+    let image_height_f: f64 = image_width_f/ aspect_ratio;
+    let image_height:   u64 = image_height_f as u64;
 
     let camera: Camera;
     {
@@ -104,26 +113,29 @@ fn main() {
         camera = Camera::new(lookfrom,lookat,vup,20.,aspect_ratio,aperture,dist_to_focus);
     }
 
-    let samples_per_pixel = 500;
+    let samples_per_pixel = 4;
     let max_depth = 50;
-    
+
     let world = random_scene();
 
     eprintln!("Inicio");
     println!("P3\n{} {}\n255",image_width,image_height);
     for j in (0..image_height).rev() {
-        eprint!("Faltan {} lineas        \r",j);
+        let j_f = j as f64;
+        let progress = (j_f+1.0)/image_height_f;
+        let progress100 = round_n(100.0 - 100.0*progress,2);
+        eprint!("{}%\r",progress100);
         for i in 0..image_width{
+            let i_f = i as f64;
             let mut pixel_color = Color::ZERO;
             for _s in 0..samples_per_pixel{
-                let u = ((i as f64)+f64::rand())/(image_width as f64-1.);
-                let v = ((j as f64)+f64::rand())/(image_height as f64-1.);
+                let u = (i_f+f64::rand())/(image_width_f-1.);
+                let v = (j_f+f64::rand())/(image_height_f-1.);
                 let ray = camera.get_ray(u,v);
                 pixel_color += ray_color(&ray,&world,max_depth);
             }
             write_color(&pixel_color,samples_per_pixel);
         }
     }
-    eprintln!("                         ");
     eprintln!("Finalizo");
 }
