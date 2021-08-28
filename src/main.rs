@@ -95,6 +95,13 @@ fn round_n(f: f64,n: u64) -> f64 {
     return (f*mul).round()/mul;
 }
 
+fn print_progress(progress: f64) -> (){
+    let progress100 = round_n(100.0*progress,2);
+    let frac = progress100 % 1.;
+    let int =  progress100 - frac;
+    eprint!("{:>3}.{:0>2}%\r",(int as u64),((frac*100.) as u64));
+}
+
 fn main() {
     //IMAGE
     let aspect_ratio: f64 = 3.0 / 2.0;
@@ -114,28 +121,28 @@ fn main() {
     }
 
     let samples_per_pixel = 4;
-    let max_depth = 50;
+    let max_depth = 20;
 
     let world = random_scene();
 
-    eprintln!("Inicio");
-    println!("P3\n{} {}\n255",image_width,image_height);
-    for j in (0..image_height).rev() {
-        let j_f = j as f64;
-        let progress = (j_f+1.0)/image_height_f;
-        let progress100 = round_n(100.0 - 100.0*progress,2);
-        eprint!("{}%\r",progress100);
-        for i in 0..image_width{
-            let i_f = i as f64;
+    let mut colors: Vec<Color> = vec!(Color::ZERO;(image_height*image_width) as usize);
+
+    for line in 0..image_height {
+        let j_f = line as f64;
+        print_progress(j_f/image_height_f);
+        for col in 0..image_width{
+            let i_f = col as f64;
             let mut pixel_color = Color::ZERO;
             for _s in 0..samples_per_pixel{
                 let u = (i_f+f64::rand())/(image_width_f-1.);
                 let v = (j_f+f64::rand())/(image_height_f-1.);
-                let ray = camera.get_ray(u,v);
+                let ray = camera.get_ray(u,1.0-v);
                 pixel_color += ray_color(&ray,&world,max_depth);
             }
-            write_color(&pixel_color,samples_per_pixel);
+            let pos = line*image_width+col;
+            colors[pos as usize] = normalize_color(pixel_color, samples_per_pixel);
         }
     }
-    eprintln!("Finalizo");
+    print_progress(1.0);
+    write_ppm(&colors,image_width,image_height);
 }

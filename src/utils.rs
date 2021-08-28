@@ -22,12 +22,22 @@ pub fn clamp(x: f64,fmin: f64,fmax: f64) -> f64{
 pub fn lerp(t: f64,c1: Color,c2: Color) -> Color{
     return (1.0-t)*c1 + t*c2;
 }
-pub fn write_color(&color: &Color,samples_per_pixel: u64){
+pub fn normalize_color(color: Color,samples_per_pixel: u64) -> Color{
     let scale = 1.0/(samples_per_pixel as f64);
     let r = clamp((color.x() * scale).sqrt(),0.,0.999);
     let g = clamp((color.y() * scale).sqrt(),0.,0.999);
     let b = clamp((color.z() * scale).sqrt(),0.,0.999);
-    println!("{} {} {}",256.*r,256.*g,256.*b);
+    return Color::new(r,g,b);
+}
+
+pub fn write_ppm(colors: &Vec<Color>,image_width: u64,image_height: u64){
+    let mut colors_str: String = "".to_owned();
+    for c in colors{
+        let c_str: String = format!("{} {} {}\n",256.*c.x(),256.*c.y(),256.*c.z()).to_owned();
+        colors_str.push_str(&c_str);
+    }
+    println!("P3\n{} {}\n255",image_width,image_height);
+    print!("{}",colors_str);
 }
 
 use rand::Rng;
