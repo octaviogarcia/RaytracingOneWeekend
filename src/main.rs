@@ -49,36 +49,31 @@ fn main() {
     let image_width:  u64  = 400;
     let image_height: u64 = ((image_width as f64) / aspect_ratio) as u64;
     
-    //VIEWPORT
-    let viewport_height: f64 = 2.0;
-    let viewport_width:  f64 = viewport_height * aspect_ratio;
-    let focal_length:    f64 = 1.0;
-
-    let camera = Camera::new(viewport_height,viewport_width,focal_length);
+    let camera = Camera::new(90.0,aspect_ratio);
     let samples_per_pixel = 100;
     let max_depth = 50;
 
     //OBJECTS
     let mut world = HittableList::new();
-    //Creating objects with only 1 instance is bad practice, should be a function really...
-
-    //LAMBERTIAN SCENE
-    /*
-    let albedo = Color::new(0.5,0.5,0.5);
-    let lambertian = Rc::new(Lambertian::new(albedo));
-    world.add(Box::new(Sphere{center: Point3::new(0.,   0. ,-1.),radius: 0.5  ,material: lambertian.clone()}));
-    world.add(Box::new(Sphere{center: Point3::new(0.,-100.5,-1.),radius: 100.,material: lambertian.clone()}));
-    */
-    //METAL AND LAMBERTIAN SCENE
-    let mat_ground = Rc::new(Lambertian::new(Color::new(0.8,0.8,0.0)));
-    let mat_center = Rc::new(Lambertian::new(Color::new(0.1,0.2,0.5)));
-    let mat_left   = Rc::new(Dieletric::new(1.5));
-    let mat_right  = Rc::new(Metal::new_fuzz(Color::new(0.8,0.6,0.2),0.0));
-    world.add(Box::new(Sphere{center: Point3::new( 0.0, -100.5, -1.0), radius: 100.0, material: mat_ground}));
-    world.add(Box::new(Sphere{center: Point3::new( 0.0,    0.0, -1.0), radius:   0.5, material: mat_center}));
-    world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:   0.5, material: mat_left.clone()}));
-    world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:  -0.4, material: mat_left.clone()}));
-    world.add(Box::new(Sphere{center: Point3::new( 1.0,    0.0, -1.0), radius:   0.5, material: mat_right}));
+    /*{//10.5
+        //Creating objects with only 1 instance is bad practice, should be a function really...
+        let mat_ground = Rc::new(Lambertian::new(Color::new(0.8,0.8,0.0)));
+        let mat_center = Rc::new(Lambertian::new(Color::new(0.1,0.2,0.5)));
+        let mat_left   = Rc::new(Dieletric::new(1.5));
+        let mat_right  = Rc::new(Metal::new_fuzz(Color::new(0.8,0.6,0.2),0.0));
+        world.add(Box::new(Sphere{center: Point3::new( 0.0, -100.5, -1.0), radius: 100.0, material: mat_ground}));
+        world.add(Box::new(Sphere{center: Point3::new( 0.0,    0.0, -1.0), radius:   0.5, material: mat_center}));
+        world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:   0.5, material: mat_left.clone()}));
+        world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:  -0.4, material: mat_left.clone()}));
+        world.add(Box::new(Sphere{center: Point3::new( 1.0,    0.0, -1.0), radius:   0.5, material: mat_right}));
+    }*/ 
+    {//11.1
+        let mat_left  = Rc::new(Lambertian::new(Color::new(0.,0.,1.)));
+        let mat_right = Rc::new(Lambertian::new(Color::new(1.,0.,0.)));
+        let r = (PI/4.0).cos();
+        world.add(Box::new(Sphere{center: Point3::new(-r, 0.,-1.0), radius: r, material: mat_left}));
+        world.add(Box::new(Sphere{center: Point3::new( r, 0.,-1.0), radius: r, material: mat_right}));
+    }
 
     eprintln!("Inicio");
     println!("P3\n{} {}\n255",image_width,image_height);
