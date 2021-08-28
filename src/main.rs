@@ -50,10 +50,17 @@ fn main() {
     let image_height: u64 = ((image_width as f64) / aspect_ratio) as u64;
     
     //"Normal" world camera
-    //let camera = Camera::new(Point3::ZERO,Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),90.,aspect_ratio);
+    let camera = Camera::world_camera(90.,aspect_ratio);
     //Weird camera
-    //let camera = Camera::new(Point3::new(-2.,2.,1.),Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),90.,aspect_ratio);
-    let camera = Camera::new(Point3::new(-2.,2.,1.),Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),20.,aspect_ratio);
+    //let camera = Camera::new(Point3::new(-2.,2.,1.),Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),90.,aspect_ratio,0.,1.);
+    //let camera = Camera::new(Point3::new(-2.,2.,1.),Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),20.,aspect_ratio,0.,1.);
+    //12.2 
+    let lookfrom = Point3::new(3.,3.,2.);
+    let lookat   = Point3::new(0.,0.,-1.);
+    let vup      = Vec3::new(0.,1.,0.);
+    let aperture = 2.;
+    let dist_to_focus = (lookfrom-lookat).length();
+    let camera = Camera::new(lookfrom,lookat,vup,20.,aspect_ratio,aperture,dist_to_focus);
 
     let samples_per_pixel = 100;
     let max_depth = 50;

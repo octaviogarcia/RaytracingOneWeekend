@@ -13,9 +13,9 @@ impl Vec3{
     pub const ZERO : Self = Self{ e: [0.,0.,0.]};
     pub fn new(x: f64,y: f64,z: f64) -> Self { Self{e: [x,y,z]} }
 
-    pub fn x(&self) -> &f64{ &self.e[0] }
-    pub fn y(&self) -> &f64{ &self.e[1] }
-    pub fn z(&self) -> &f64{ &self.e[2] }
+    pub fn x(&self) -> f64{ self.e[0] }
+    pub fn y(&self) -> f64{ self.e[1] }
+    pub fn z(&self) -> f64{ self.e[2] }
 
     pub fn dot(&self,other: Self) -> f64{
         self.e[0]*other.e[0]+self.e[1]*other.e[1]+self.e[2]*other.e[2]
@@ -58,8 +58,7 @@ impl Vec3{
     pub fn rand_in_unit_sphere() -> Self{
         loop {
             let p = Self::rand_range(-1.,1.);
-            if p.length_squared() >= 1. {continue};
-            return p;
+            if p.length_squared() < 1. {return p;};
         }
     }
     pub fn rand_unit_vector() -> Self{
@@ -71,6 +70,12 @@ impl Vec3{
             return in_unit_sphere;
         }
         return -in_unit_sphere;//Invert it
+    }
+    pub fn rand_in_unit_disc() -> Self{
+        loop {
+            let p = Self::new(f64::rand_range(-1.,1.),f64::rand_range(-1.,1.),0.);
+            if p.length_squared() < 1. {return p;};
+        }
     }
 }
 
