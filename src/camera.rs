@@ -10,7 +10,8 @@ pub struct Camera{
 }
 
 impl Camera{
-    pub fn new(vfov_in_degrees: f64,aspect_ratio: f64) -> Self{
+    //vup defines the rotation of the camera, so where your hair is (or baldspot)
+    pub fn new(lookfrom: Point3,lookat: Point3,vup: Vec3,vfov_in_degrees: f64,aspect_ratio: f64) -> Self{
         let vfov = degrees_to_radians(vfov_in_degrees);
         //if vfov is the angle between the bottom of the cone to the top of the cone, vfov/2 is angle the right triangle
         //if we set our plane at z=-1 then tan(vfov/2) = opposite/adjacent = opposite/1
@@ -18,14 +19,17 @@ impl Camera{
         let h = (vfov/2.0).tan();
         let viewport_height = 2.0*h;
         let viewport_width = viewport_height * aspect_ratio;
-        let focal_length = 1.0;
 
-        let h   = Vec3::new(viewport_width,0.,0.);
-        let v   = Vec3::new(0.,viewport_height,0.);
-        let fl  = Vec3::new(0.,0.,focal_length);
-        let o   = Point3::ZERO;//Assumes origin at zero, +y up, +x right,-z inside the screen (RH rule)
-        let llc = o - h/2. - v/2. - fl;
-        
+        let normal_plane_vector = (lookfrom - lookat).unit();
+        let u_in_plane = vup.cross(normal_plane_vector).unit();
+        let v_in_plane = normal_plane_vector.cross(u_in_plane);
+
+        let o   = lookfrom;
+        let h   = viewport_width * u_in_plane;
+        let v   = viewport_height * v_in_plane;
+
+        let llc = o - h/2. - v/2. - normal_plane_vector;
+
         return Camera{ origin: o, horizontal: h, vertical: v, lower_left_corner: llc };
     }
     pub fn get_ray(&self,u: f64,v: f64) -> Ray{

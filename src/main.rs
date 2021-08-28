@@ -49,13 +49,18 @@ fn main() {
     let image_width:  u64  = 400;
     let image_height: u64 = ((image_width as f64) / aspect_ratio) as u64;
     
-    let camera = Camera::new(90.0,aspect_ratio);
+    //"Normal" world camera
+    //let camera = Camera::new(Point3::ZERO,Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),90.,aspect_ratio);
+    //Weird camera
+    //let camera = Camera::new(Point3::new(-2.,2.,1.),Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),90.,aspect_ratio);
+    let camera = Camera::new(Point3::new(-2.,2.,1.),Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),20.,aspect_ratio);
+
     let samples_per_pixel = 100;
     let max_depth = 50;
 
     //OBJECTS
     let mut world = HittableList::new();
-    /*{//10.5
+    {//10.5
         //Creating objects with only 1 instance is bad practice, should be a function really...
         let mat_ground = Rc::new(Lambertian::new(Color::new(0.8,0.8,0.0)));
         let mat_center = Rc::new(Lambertian::new(Color::new(0.1,0.2,0.5)));
@@ -64,16 +69,19 @@ fn main() {
         world.add(Box::new(Sphere{center: Point3::new( 0.0, -100.5, -1.0), radius: 100.0, material: mat_ground}));
         world.add(Box::new(Sphere{center: Point3::new( 0.0,    0.0, -1.0), radius:   0.5, material: mat_center}));
         world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:   0.5, material: mat_left.clone()}));
-        world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:  -0.4, material: mat_left.clone()}));
+        //10.5
+        //world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:  -0.4, material: mat_left.clone()}));
+        //11.2
+        world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:  -0.45, material: mat_left.clone()}));
         world.add(Box::new(Sphere{center: Point3::new( 1.0,    0.0, -1.0), radius:   0.5, material: mat_right}));
-    }*/ 
-    {//11.1
+    }
+    /*{//11.1
         let mat_left  = Rc::new(Lambertian::new(Color::new(0.,0.,1.)));
         let mat_right = Rc::new(Lambertian::new(Color::new(1.,0.,0.)));
         let r = (PI/4.0).cos();
         world.add(Box::new(Sphere{center: Point3::new(-r, 0.,-1.0), radius: r, material: mat_left}));
         world.add(Box::new(Sphere{center: Point3::new( r, 0.,-1.0), radius: r, material: mat_right}));
-    }
+    }*/
 
     eprintln!("Inicio");
     println!("P3\n{} {}\n255",image_width,image_height);
