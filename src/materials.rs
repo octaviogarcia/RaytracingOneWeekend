@@ -18,8 +18,8 @@ pub struct Lambertian {
     pub albedo: Color,
 }
 impl Lambertian{
-    pub fn new(a: Color) -> Self{
-        return Self{albedo: a};
+    pub fn new(albedo: Color) -> Self{
+        return Self{albedo: albedo};
     }
 }
 impl Material for Lambertian {
@@ -41,11 +41,11 @@ pub struct Metal {
     pub fuzz:   f64,
 }
 impl Metal{
-    pub fn new(a: Color) -> Self{
-        return Self{albedo: a, fuzz: 0.};
+    pub fn new(albedo: Color) -> Self{
+        return Self{albedo: albedo, fuzz: 0.};
     }
-    pub fn new_fuzz(a: Color,f: f64) -> Self{
-        return Self{albedo: a, fuzz: f};
+    pub fn new_fuzz(albedo: Color,fuzz: f64) -> Self{
+        return Self{albedo: albedo, fuzz: fuzz};
     }
 }
 

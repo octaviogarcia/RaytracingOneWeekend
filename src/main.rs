@@ -14,6 +14,7 @@ mod camera;
 use camera::*;
 
 mod materials;
+use materials::Material;
 use materials::Lambertian;
 use materials::Metal;
 use materials::MaterialScatterResult;
@@ -43,52 +44,70 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
 
 use std::rc::Rc;
 
+fn random_scene() -> HittableList{
+    let mut world = HittableList::new();
+    let mat_ground = Rc::new(Lambertian::new(Color::new(0.5,0.5,0.5)));
+    world.add(Box::new(Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground}));
+    for a in -11..11{
+        let af = a as f64;
+        for b in -11..11{
+            let bf = b as f64;
+            let center = Point3::new(af+0.9*f64::rand(),0.2,bf+0.9*f64::rand());
+            let add_to_world = (center - Point3::new(4.,0.2,0.)).length() > 0.9;
+            if add_to_world{
+                let sphere_mat: Rc<dyn Material>;
+                let mat_prob = f64::rand();
+                if mat_prob < 0.8{
+                    let albedo = Color::rand() * Color::rand();
+                    sphere_mat = Rc::new(Lambertian::new(albedo));
+                }
+                else if mat_prob < 0.95{
+                    let albedo = Color::rand_range(0.5,1.);
+                    let fuzz   = f64::rand_range(0.,0.5);
+                    sphere_mat = Rc::new(Metal::new_fuzz(albedo,fuzz));
+                }
+                else{
+                    sphere_mat = Rc::new(Dieletric::new(1.5));
+                }
+                world.add(Box::new(Sphere{center: center, radius: 0.2, material: sphere_mat}));
+            }
+        }
+    }
+    {
+        let mat = Rc::new(Dieletric::new(1.5));
+        world.add(Box::new(Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat}));
+    }
+    {
+        let mat = Rc::new(Lambertian::new(Color::new(0.4,0.2,0.1)));
+        world.add(Box::new(Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat}));
+    }
+    {
+        let mat = Rc::new(Metal::new(Color::new(0.7,0.6,0.5)));
+        world.add(Box::new(Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat}));
+    }
+    return world;
+}
+
 fn main() {
     //IMAGE
-    let aspect_ratio: f64 = 16.0 / 9.0;
-    let image_width:  u64  = 400;
+    let aspect_ratio: f64 = 3.0 / 2.0;
+    let image_width:  u64  = 1200;
     let image_height: u64 = ((image_width as f64) / aspect_ratio) as u64;
-    
-    //"Normal" world camera
-    let camera = Camera::world_camera(90.,aspect_ratio);
-    //Weird camera
-    //let camera = Camera::new(Point3::new(-2.,2.,1.),Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),90.,aspect_ratio,0.,1.);
-    //let camera = Camera::new(Point3::new(-2.,2.,1.),Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),20.,aspect_ratio,0.,1.);
-    //12.2 
-    let lookfrom = Point3::new(3.,3.,2.);
-    let lookat   = Point3::new(0.,0.,-1.);
-    let vup      = Vec3::new(0.,1.,0.);
-    let aperture = 2.;
-    let dist_to_focus = (lookfrom-lookat).length();
-    let camera = Camera::new(lookfrom,lookat,vup,20.,aspect_ratio,aperture,dist_to_focus);
 
-    let samples_per_pixel = 100;
-    let max_depth = 50;
-
-    //OBJECTS
-    let mut world = HittableList::new();
-    {//10.5
-        //Creating objects with only 1 instance is bad practice, should be a function really...
-        let mat_ground = Rc::new(Lambertian::new(Color::new(0.8,0.8,0.0)));
-        let mat_center = Rc::new(Lambertian::new(Color::new(0.1,0.2,0.5)));
-        let mat_left   = Rc::new(Dieletric::new(1.5));
-        let mat_right  = Rc::new(Metal::new_fuzz(Color::new(0.8,0.6,0.2),0.0));
-        world.add(Box::new(Sphere{center: Point3::new( 0.0, -100.5, -1.0), radius: 100.0, material: mat_ground}));
-        world.add(Box::new(Sphere{center: Point3::new( 0.0,    0.0, -1.0), radius:   0.5, material: mat_center}));
-        world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:   0.5, material: mat_left.clone()}));
-        //10.5
-        //world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:  -0.4, material: mat_left.clone()}));
-        //11.2
-        world.add(Box::new(Sphere{center: Point3::new(-1.0,    0.0, -1.0), radius:  -0.45, material: mat_left.clone()}));
-        world.add(Box::new(Sphere{center: Point3::new( 1.0,    0.0, -1.0), radius:   0.5, material: mat_right}));
+    let camera: Camera;
+    {
+        let lookfrom = Point3::new(13.,2.,3.);
+        let lookat   = Point3::new(0.,0.,0.);
+        let vup      =   Vec3::new(0.,1.,0.);
+        let aperture = 0.1;
+        let dist_to_focus = 10.;
+        camera = Camera::new(lookfrom,lookat,vup,20.,aspect_ratio,aperture,dist_to_focus);
     }
-    /*{//11.1
-        let mat_left  = Rc::new(Lambertian::new(Color::new(0.,0.,1.)));
-        let mat_right = Rc::new(Lambertian::new(Color::new(1.,0.,0.)));
-        let r = (PI/4.0).cos();
-        world.add(Box::new(Sphere{center: Point3::new(-r, 0.,-1.0), radius: r, material: mat_left}));
-        world.add(Box::new(Sphere{center: Point3::new( r, 0.,-1.0), radius: r, material: mat_right}));
-    }*/
+
+    let samples_per_pixel = 500;
+    let max_depth = 50;
+    
+    let world = random_scene();
 
     eprintln!("Inicio");
     println!("P3\n{} {}\n255",image_width,image_height);
