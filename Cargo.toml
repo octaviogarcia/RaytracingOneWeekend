@@ -8,3 +8,4 @@ authors = ["Octavio Garcia Aguirre oaguirre@frsf.utn.edu.ar"]
 
 [dependencies]
 rand = "0.8.4"
+num_cpus = "1.0"

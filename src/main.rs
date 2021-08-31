@@ -1,3 +1,5 @@
+extern crate num_cpus;
+
 mod vec3;
 use vec3::*;
 
@@ -97,7 +99,6 @@ fn round_n(f: f64,n: u64) -> f64 {
 }
 
 use std::thread;
-use std::time::Duration;
 
 fn print_progress(progress: f64) -> (){
     let progress100 = round_n(100.0*progress,2);
@@ -106,13 +107,12 @@ fn print_progress(progress: f64) -> (){
     eprint!("{:>3}.{:0>2}%\r",(int as u64),((frac*100.) as u64));
 }
 
-fn draw(camera: &Camera,world: &RwLock<HittableList>,max_depth: u64,samples_per_pixel: u64,image_width: u64,image_height: u64,tx: &mpsc::SyncSender<f64>) -> Vec<Color>{
+fn draw(camera: &Camera,world: &RwLock<HittableList>,max_depth: u64,samples_per_pixel: u64,image_width: u64,image_height: u64,tx: &mpsc::SyncSender<bool>) -> Vec<Color>{
     let image_width_f  = image_width as f64;
     let image_height_f = image_height as f64;
     let mut colors: Vec<Color> = vec!(Color::ZERO;(image_height*image_width) as usize);
     for line in 0..image_height {
         let j_f = line as f64;
-        tx.send(j_f/image_height_f).unwrap();
         for col in 0..image_width{
             let i_f = col as f64;
             let mut pixel_color = Color::ZERO;
@@ -121,6 +121,7 @@ fn draw(camera: &Camera,world: &RwLock<HittableList>,max_depth: u64,samples_per_
                 let v = (j_f+f64::rand())/(image_height_f-1.);
                 let ray = camera.get_ray(u,1.0-v);
                 pixel_color += ray_color(&ray,&world.read().unwrap(),max_depth);
+                tx.send(false).unwrap();
             }
             let pos = line*image_width+col;
             colors[pos as usize] = pixel_color;
@@ -153,26 +154,41 @@ fn main() {
     let max_depth = 20;
 
     let world = RwLock::new(random_scene());
-    let (tx,rx) = mpsc::sync_channel(100);
+    let (tx,rx) = mpsc::sync_channel((image_width*image_height*samples_per_pixel) as usize);
     let arc_tx = Arc::new(tx);
 
-    thread::spawn(move || {
+    let log_thread = thread::spawn(move || {
+        let total_ticks = image_height*image_width*samples_per_pixel;
+        let mut current_ticks = 0;
         loop {
-            let progress = rx.recv();
-            if progress.is_err() { return; }
-
-            let p = progress.unwrap();
-            print_progress(p);
-            if p == 1.0{ return; }
-
-            thread::sleep(Duration::from_millis(1));
+            let progress = rx.recv();//Blocks
+            if progress.is_err() { break; }
+            let done = progress.unwrap();
+            current_ticks += 1;
+            if total_ticks == current_ticks || done { 
+                print_progress(1.0);
+                return;
+            }
+            loop {
+                let progress = rx.try_recv();
+                if progress.is_err() { break; }
+                let done = progress.unwrap();
+                current_ticks += 1;
+                if total_ticks == current_ticks || done { 
+                    print_progress(1.0);
+                    return;
+                }
+            }
+            print_progress((current_ticks as f64)/(total_ticks as f64));
+            //thread::sleep(Duration::from_millis(1));
         }
     });
 
     let mut handlers: Vec<thread::JoinHandle<Vec<Color>>> = Vec::new();
     let arc_camera = Arc::new(camera);
     let arc_world = Arc::new(world);
-    let num_threads = 10;
+    let num_threads = num_cpus::get() as u64;
+    eprintln!("Running {} threads",num_threads);
     let mut actual_samples = 0;
     for _i in 0..num_threads {
         let tx_thread = arc_tx.clone();
@@ -204,5 +220,5 @@ fn main() {
     }
 
     write_ppm(&colors,image_width,image_height);
-    arc_tx.clone().send(1.0).unwrap();
+    arc_tx.clone().send(true).unwrap_or(());
 }
