@@ -2,6 +2,7 @@ use crate::vec3::*;
 use crate::ray::*;
 use crate::utils::degrees_to_radians;
 
+#[derive(Copy,Clone)]
 pub struct Camera{
     //These are all related and shouldn't really be changed individually
     //Rust sadly doesnt have const fields
@@ -17,7 +18,7 @@ pub struct Camera{
 
 impl Camera{
     pub fn world_camera(vfov_in_degrees:f64,aspect_ratio: f64) -> Self{
-        return Self::new(Point3::ZERO,Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),90.,aspect_ratio,0.,1.);
+        return Self::new(Point3::ZERO,Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),vfov_in_degrees,aspect_ratio,0.,1.);
     }
     //vup defines the rotation of the camera, so where your hair is (or baldspot)
     //aperture = 0 focus_dist = 1 for "Normal camera"

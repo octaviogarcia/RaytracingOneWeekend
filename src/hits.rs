@@ -1,16 +1,15 @@
 use crate::vec3;
 use vec3::Vec3;
 use vec3::Point3;
-use vec3::Color;
 
 use crate::ray::Ray;
 use crate::materials::Material;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct HitRecord {
     pub point: Point3,
     pub normal: Vec3,
-    pub material: Rc<dyn Material>,
+    pub material: Arc<dyn Material>,
     pub t: f64,
     pub front_face: bool,
 }
@@ -30,7 +29,7 @@ impl HitRecord{
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
-    pub material: Rc<dyn Material>
+    pub material: Arc<dyn Material + Send + Sync>
 }
 
 pub trait Hittable {
@@ -64,14 +63,14 @@ impl Hittable for Sphere {
 }
 
 pub struct HittableList{
-    pub objects: Vec<Box<dyn Hittable>>
+    pub objects: Vec<Box<dyn Hittable + Send + Sync>>
 }
 
 impl HittableList{
     pub fn new() -> Self {
         return HittableList{objects: Vec::new()};
     }
-    pub fn add(&mut self,obj: Box<dyn Hittable>) -> () {
+    pub fn add(&mut self,obj: Box<dyn Hittable + Send + Sync>) -> () {
         self.objects.push(obj);
     }
     pub fn clear(&mut self) -> () {
