@@ -157,7 +157,8 @@ fn main() {
     let (tx,rx) = mpsc::sync_channel((image_width*image_height*samples_per_pixel) as usize);
     let arc_tx = Arc::new(tx);
 
-    let log_thread = thread::spawn(move || {
+    //Log thread
+    thread::spawn(move || {
         let total_ticks = image_height*image_width*samples_per_pixel;
         let mut current_ticks = 0;
         loop {
@@ -180,35 +181,39 @@ fn main() {
                 }
             }
             print_progress((current_ticks as f64)/(total_ticks as f64));
-            //thread::sleep(Duration::from_millis(1));
         }
     });
 
-    let mut handlers: Vec<thread::JoinHandle<Vec<Color>>> = Vec::new();
+    let num_threads = num_cpus::get() as u64;
+    let mut handlers: Vec<thread::JoinHandle<Vec<Color>>> = Vec::with_capacity(num_threads as usize);
     let arc_camera = Arc::new(camera);
     let arc_world = Arc::new(world);
-    let num_threads = num_cpus::get() as u64;
+    let samples_per_pixel_per_thread = samples_per_pixel / num_threads;
+    let missing_samples_per_pixel    = samples_per_pixel % num_threads;
     eprintln!("Running {} threads",num_threads);
-    let mut actual_samples = 0;
-    for _i in 0..num_threads {
+    for i in 0..num_threads {
         let tx_thread = arc_tx.clone();
         let cam = arc_camera.clone();
         let wrld = arc_world.clone();
-        let samples_per_pixel_per_thread = samples_per_pixel / num_threads;
-        actual_samples += samples_per_pixel_per_thread;
+        let samples: u64;
+        //Load the starting threads with an extra pixel so we get exactly what se set at the top
+        if i < missing_samples_per_pixel {
+            samples = samples_per_pixel_per_thread + 1;
+        }
+        else{
+            samples = samples_per_pixel_per_thread;
+        }
+
         let draw_thread = move || {
-            return draw(&cam,&wrld,max_depth,samples_per_pixel_per_thread,image_width,image_height,&tx_thread);
+            return draw(&cam,&wrld,max_depth,samples,image_width,image_height,&tx_thread);
         };
         handlers.push(thread::spawn(draw_thread));
     }
 
-    let missing_samples = samples_per_pixel - actual_samples;
     let mut colors: Vec<Color> = vec!(Color::ZERO;(image_height*image_width) as usize);
-    if missing_samples > 0{
-        colors = draw(&arc_camera.clone(),&arc_world.clone(),max_depth,missing_samples,image_width,image_height,&arc_tx.clone());
-    }
-
     for h in handlers{
+        //@Speed: This blocks threads sequentially from the order initialization, this order of join() is not optimal
+        //Rust has no try_join, so we need to work around it with channels... maybe once this is simpler I will complicate it
         let local_clrs = h.join().unwrap();
         for cidx in 0..local_clrs.len(){
             colors[cidx] += local_clrs[cidx];
