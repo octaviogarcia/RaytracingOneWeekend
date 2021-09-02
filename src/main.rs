@@ -106,10 +106,10 @@ fn print_progress(progress: f64) -> (){
 }
 
 use std::thread;
-use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
-fn draw(camera: &Camera,world: &HittableList,max_depth: u64,samples_per_pixel: u64,image_width: u64,image_height: u64,tx: &Mutex<mpsc::Sender<bool>>) -> Vec<Color>{
+fn draw(camera: &Camera,world: &HittableList,max_depth: u64,samples_per_pixel: u64,image_width: u64,image_height: u64,samples: &AtomicU64) -> Vec<Color>{
     let image_width_f  = image_width as f64;
     let image_height_f = image_height as f64;
     let mut colors: Vec<Color> = vec!(Color::ZERO;(image_height*image_width) as usize);
@@ -123,8 +123,8 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,samples_per_pixel: u
                 let v = (j_f+f64::rand())/(image_height_f-1.);
                 let ray = camera.get_ray(u,1.0-v);
                 pixel_color += ray_color(&ray,&world,max_depth);
-                tx.lock().unwrap().send(false).unwrap();
             }
+            samples.fetch_add(samples_per_pixel,Ordering::Relaxed);
             let pos = line*image_width+col;
             colors[pos as usize] = pixel_color;
         }
@@ -155,35 +155,22 @@ fn main() {
     let max_depth = 20;
     let world = random_scene();
 
-    let (tx,rx) = mpsc::channel();
-    let arc_tx = Arc::new(Mutex::new(tx));
-
-    //Log thread
-    thread::spawn(move || {
-        let total_ticks = image_height*image_width*samples_per_pixel;
-        let mut current_ticks = 0;
-        loop {
-            let progress = rx.recv();//Blocks
-            if progress.is_err() { break; }
-            let done = progress.unwrap();
-            current_ticks += 1;
-            if total_ticks == current_ticks || done { 
-                print_progress(1.0);
-                return;
-            }
+    let samples_atomic = AtomicU64::new(0);
+    let arc_samples_atomic = Arc::new(samples_atomic);
+    let total_samples = image_height*image_width*samples_per_pixel;
+    
+    {//Log thread
+        let smpls_atomic = arc_samples_atomic.clone();
+        thread::spawn(move || {
             loop {
-                let progress = rx.try_recv();
-                if progress.is_err() { break; }
-                let done = progress.unwrap();
-                current_ticks += 1;
-                if total_ticks == current_ticks || done { 
-                    print_progress(1.0);
+                let progress = smpls_atomic.load(Ordering::Relaxed);
+                print_progress((progress as f64)/(total_samples as f64));
+                if total_samples == progress{ 
                     return;
                 }
             }
-            print_progress((current_ticks as f64)/(total_ticks as f64));
-        }
-    });
+        });
+    }
 
     let num_threads = num_cpus::get() as u64;
     let mut handlers: Vec<thread::JoinHandle<Vec<Color>>> = Vec::with_capacity(num_threads as usize);
@@ -193,9 +180,10 @@ fn main() {
     let missing_samples_per_pixel    = samples_per_pixel % num_threads;
     eprintln!("Running {} threads",num_threads);
     for i in 0..num_threads {
-        let tx_thread = arc_tx.clone();
         let cam = arc_camera.clone();
         let wrld = arc_world.clone();
+        let smpls_atomic = arc_samples_atomic.clone();
+
         let samples: u64;
         //Load the starting threads with an extra pixel so we get exactly what se set at the top
         if i < missing_samples_per_pixel {
@@ -206,7 +194,7 @@ fn main() {
         }
 
         let draw_thread = move || {
-            return draw(&cam,&wrld,max_depth,samples,image_width,image_height,&tx_thread);
+            return draw(&cam,&wrld,max_depth,samples,image_width,image_height,&smpls_atomic);
         };
         handlers.push(thread::spawn(draw_thread));
     }
@@ -226,5 +214,5 @@ fn main() {
     }
 
     write_ppm(&colors,image_width,image_height);
-    arc_tx.clone().lock().unwrap().send(true).unwrap_or(());
+    arc_samples_atomic.clone().store(total_samples,Ordering::Relaxed);
 }
