@@ -105,7 +105,7 @@ fn print_progress(progress: f64) -> (){
     eprint!("{:>3}.{:0>2}%\r",(int as u64),((frac*100.) as u64));
 }
 
-use std::thread;
+use std::{thread,time};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -168,6 +168,7 @@ fn main() {
                 if total_samples == progress{ 
                     return;
                 }
+                thread::sleep(time::Duration::from_millis(100));
             }
         });
     }
