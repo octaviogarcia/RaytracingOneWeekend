@@ -63,12 +63,16 @@ impl Hittable for Sphere {
 }
 
 pub struct HittableList{
-    pub objects: Vec<Box<dyn Hittable + Send + Sync>>
+    pub spheres: Vec<Box<Sphere>>,
+    pub objects: Vec<Box<dyn Hittable + Send + Sync>>,
 }
 
 impl HittableList{
     pub fn new() -> Self {
-        return HittableList{objects: Vec::new()};
+        return HittableList{spheres: Vec::new(),objects: Vec::new()};
+    }
+    pub fn add_sphere(&mut self,obj: Box<Sphere>) -> () {
+        self.spheres.push(obj);
     }
     pub fn add(&mut self,obj: Box<dyn Hittable + Send + Sync>) -> () {
         self.objects.push(obj);
@@ -76,9 +80,21 @@ impl HittableList{
     pub fn clear(&mut self) -> () {
         self.objects.clear();
     }
+
     pub fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
+        for obj in &self.spheres{
+            match obj.hit(r,t_min,closest_so_far) {
+                Some(hr) => {
+                    if hr.t < closest_so_far {
+                        closest_so_far = hr.t;
+                        rec = Some(hr);
+                    }
+                }
+                None => {}
+            }
+        }
         for obj in &self.objects{
             match obj.hit(r,t_min,closest_so_far) {
                 Some(hr) => {

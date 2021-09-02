@@ -28,12 +28,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
     match world.hit(r,0.001,INF) {
         Some(hr) => {
             let rslt = hr.material.scatter(r,&hr);
-            match rslt {
-                Some(r) => {
-                    return r.attenuation*ray_color(&r.ray, world,depth-1);
-                }
-                None => { return Color::ZERO; } //Nevear reached by Lambertian, Metal
-            }
+            return rslt.attenuation*ray_color(&rslt.ray, world,depth-1);
         },
         None => {
             let unit_dir: Vec3 = r.dir.unit();
@@ -47,7 +42,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
 fn random_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Arc::new(Lambertian::new(Color::new(0.5,0.5,0.5)));
-    world.add(Box::new(Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground}));
+    world.add_sphere(Box::new(Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground}));
     for a in -11..11{
         let af = a as f64;
         for b in -11..11{
@@ -69,21 +64,21 @@ fn random_scene() -> HittableList{
                 else{
                     sphere_mat = Arc::new(Dieletric::new(1.5));
                 }
-                world.add(Box::new(Sphere{center: center, radius: 0.2, material: sphere_mat}));
+                world.add_sphere(Box::new(Sphere{center: center, radius: 0.2, material: sphere_mat}));
             }
         }
     }
     {
         let mat = Arc::new(Dieletric::new(1.5));
-        world.add(Box::new(Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat}));
+        world.add_sphere(Box::new(Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat}));
     }
     {
         let mat = Arc::new(Lambertian::new(Color::new(0.4,0.2,0.1)));
-        world.add(Box::new(Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat}));
+        world.add_sphere(Box::new(Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat}));
     }
     {
         let mat = Arc::new(Metal::new(Color::new(0.7,0.6,0.5)));
-        world.add(Box::new(Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat}));
+        world.add_sphere(Box::new(Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat}));
     }
     return world;
 }

@@ -10,7 +10,7 @@ pub struct MaterialScatterResult {
 }
 
 pub trait Material {
-    fn scatter(&self,r_in: &Ray,rec: &HitRecord) -> Option<MaterialScatterResult>;
+    fn scatter(&self,r_in: &Ray,rec: &HitRecord) -> MaterialScatterResult;
 }
 
 //LAMBERTIAN
@@ -23,7 +23,7 @@ impl Lambertian{
     }
 }
 impl Material for Lambertian {
-    fn scatter(&self,r_in: &Ray,hr: &HitRecord) -> Option<MaterialScatterResult>{
+    fn scatter(&self,r_in: &Ray,hr: &HitRecord) -> MaterialScatterResult{
         //let new_dir = hr.normal + Vec3::rand_in_unit_sphere();
         let mut new_dir = hr.normal + Vec3::rand_unit_vector();
         if new_dir.near_zero() {//If by offchance we make it zero, just use the normal
@@ -31,7 +31,7 @@ impl Material for Lambertian {
         }
         //let new_dir = Vec3::rand_in_hemisphere(&hr.normal);
         let new_ray = Ray::new(hr.point, new_dir);
-        return Some(MaterialScatterResult{attenuation: self.albedo,ray: new_ray});
+        return MaterialScatterResult{attenuation: self.albedo,ray: new_ray};
     }
 }
 
@@ -54,10 +54,10 @@ fn reflect(v: &Vec3,n: &Vec3) -> Vec3{
 }
 
 impl Material for Metal {
-    fn scatter(&self,r_in: &Ray,hr: &HitRecord) -> Option<MaterialScatterResult>{
+    fn scatter(&self,r_in: &Ray,hr: &HitRecord) -> MaterialScatterResult{
         let reflected: Vec3 = reflect(&r_in.dir.unit(), &hr.normal);
         let new_ray = Ray::new(hr.point, reflected + self.fuzz*Vec3::rand_in_unit_sphere());
-        return Some(MaterialScatterResult{attenuation: self.albedo,ray: new_ray});
+        return MaterialScatterResult{attenuation: self.albedo,ray: new_ray};
     }
 }
 
@@ -85,7 +85,7 @@ impl Dieletric{
     }
 }
 impl Material for Dieletric {
-    fn scatter(&self,r_in: &Ray,hr: &HitRecord) -> Option<MaterialScatterResult>{
+    fn scatter(&self,r_in: &Ray,hr: &HitRecord) -> MaterialScatterResult{
         let refraction_ratio: f64;
         if hr.front_face {
             refraction_ratio = 1.0 / self.ior;
@@ -107,6 +107,6 @@ impl Material for Dieletric {
         }
         let new_ray   = Ray::new(hr.point,new_dir);
         let attenuation = Color::new(1.0,1.0,1.0);
-        return Some(MaterialScatterResult{attenuation: attenuation,ray: new_ray});
+        return MaterialScatterResult{attenuation: attenuation,ray: new_ray};
     }
 }
