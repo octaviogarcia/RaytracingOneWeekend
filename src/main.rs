@@ -43,8 +43,6 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
     }
 }
 
-use std::sync::Arc;
-use std::sync::RwLock;
 
 fn random_scene() -> HittableList{
     let mut world = HittableList::new();
@@ -98,7 +96,7 @@ fn round_n(f: f64,n: u64) -> f64 {
     return (f*mul).round()/mul;
 }
 
-use std::thread;
+
 
 fn print_progress(progress: f64) -> (){
     let progress100 = round_n(100.0*progress,2);
@@ -107,7 +105,11 @@ fn print_progress(progress: f64) -> (){
     eprint!("{:>3}.{:0>2}%\r",(int as u64),((frac*100.) as u64));
 }
 
-fn draw(camera: &Camera,world: &RwLock<HittableList>,max_depth: u64,samples_per_pixel: u64,image_width: u64,image_height: u64,tx: &mpsc::SyncSender<bool>) -> Vec<Color>{
+use std::thread;
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+
+fn draw(camera: &Camera,world: &HittableList,max_depth: u64,samples_per_pixel: u64,image_width: u64,image_height: u64,tx: &Mutex<mpsc::Sender<bool>>) -> Vec<Color>{
     let image_width_f  = image_width as f64;
     let image_height_f = image_height as f64;
     let mut colors: Vec<Color> = vec!(Color::ZERO;(image_height*image_width) as usize);
@@ -120,8 +122,8 @@ fn draw(camera: &Camera,world: &RwLock<HittableList>,max_depth: u64,samples_per_
                 let u = (i_f+f64::rand())/(image_width_f-1.);
                 let v = (j_f+f64::rand())/(image_height_f-1.);
                 let ray = camera.get_ray(u,1.0-v);
-                pixel_color += ray_color(&ray,&world.read().unwrap(),max_depth);
-                tx.send(false).unwrap();
+                pixel_color += ray_color(&ray,&world,max_depth);
+                tx.lock().unwrap().send(false).unwrap();
             }
             let pos = line*image_width+col;
             colors[pos as usize] = pixel_color;
@@ -130,7 +132,6 @@ fn draw(camera: &Camera,world: &RwLock<HittableList>,max_depth: u64,samples_per_
     return colors;
 }
 
-use std::sync::mpsc;
 
 fn main() {
     //IMAGE
@@ -152,10 +153,10 @@ fn main() {
 
     let samples_per_pixel = 500;
     let max_depth = 20;
+    let world = random_scene();
 
-    let world = RwLock::new(random_scene());
-    let (tx,rx) = mpsc::sync_channel((image_width*image_height*samples_per_pixel) as usize);
-    let arc_tx = Arc::new(tx);
+    let (tx,rx) = mpsc::channel();
+    let arc_tx = Arc::new(Mutex::new(tx));
 
     //Log thread
     thread::spawn(move || {
@@ -225,5 +226,5 @@ fn main() {
     }
 
     write_ppm(&colors,image_width,image_height);
-    arc_tx.clone().send(true).unwrap_or(());
+    arc_tx.clone().lock().unwrap().send(true).unwrap_or(());
 }
