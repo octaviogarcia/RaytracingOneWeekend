@@ -39,7 +39,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
 fn random_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
-    world.add_sphere(Box::new(Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground}));
+    world.add_sphere(&Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground});
     for a in -11..11{
         let af = a as f64;
         for b in -11..11{
@@ -61,21 +61,21 @@ fn random_scene() -> HittableList{
                 else{
                     sphere_mat = Material::new_dielectric(1.5);
                 }
-                world.add_sphere(Box::new(Sphere{center: center, radius: 0.2, material: sphere_mat}));
+                world.add_sphere(&Sphere{center: center, radius: 0.2, material: sphere_mat});
             }
         }
     }
     {
         let mat = Material::new_dielectric(1.5);
-        world.add_sphere(Box::new(Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat}));
+        world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
     }
     {
         let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));
-        world.add_sphere(Box::new(Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat}));
+        world.add_sphere(&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
     }
     {
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));
-        world.add_sphere(Box::new(Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat}));
+        world.add_sphere(&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
     }
     return world;
 }

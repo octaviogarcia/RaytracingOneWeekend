@@ -25,6 +25,7 @@ impl HitRecord{
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
@@ -63,7 +64,7 @@ impl Hittable for Sphere {
 }
 
 pub struct HittableList{
-    pub spheres: Vec<Box<Sphere>>,
+    pub spheres: Vec<Sphere>,
     pub objects: Vec<Box<dyn Hittable + Send + Sync>>,
 }
 
@@ -71,8 +72,8 @@ impl HittableList{
     pub fn new() -> Self {
         return HittableList{spheres: Vec::new(),objects: Vec::new()};
     }
-    pub fn add_sphere(&mut self,obj: Box<Sphere>) -> () {
-        self.spheres.push(obj);
+    pub fn add_sphere(&mut self,obj: &Sphere) -> () {
+        self.spheres.push(*obj);
     }
     pub fn add(&mut self,obj: Box<dyn Hittable + Send + Sync>) -> () {
         self.objects.push(obj);
