@@ -9,7 +9,7 @@ use std::sync::Arc;
 pub struct HitRecord {
     pub point: Point3,
     pub normal: Vec3,
-    pub material: Arc<dyn Material>,
+    pub material: Arc<Material>,
     pub t: f64,
     pub front_face: bool,
 }
@@ -29,7 +29,7 @@ impl HitRecord{
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
-    pub material: Arc<dyn Material + Send + Sync>
+    pub material: Arc<Material>
 }
 
 pub trait Hittable {

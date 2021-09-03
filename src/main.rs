@@ -16,10 +16,7 @@ mod camera;
 use camera::*;
 
 mod materials;
-use materials::Material;
-use materials::Lambertian;
-use materials::Metal;
-use materials::Dieletric;
+use materials::*;
 
 fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
     if depth == 0 {
@@ -41,7 +38,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
 
 fn random_scene() -> HittableList{
     let mut world = HittableList::new();
-    let mat_ground = Arc::new(Lambertian::new(Color::new(0.5,0.5,0.5)));
+    let mat_ground = Arc::new(Material::new_lambertian(Color::new(0.5,0.5,0.5)));
     world.add_sphere(Box::new(Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground}));
     for a in -11..11{
         let af = a as f64;
@@ -50,34 +47,34 @@ fn random_scene() -> HittableList{
             let center = Point3::new(af+0.9*f64::rand(),0.2,bf+0.9*f64::rand());
             let add_to_world = (center - Point3::new(4.,0.2,0.)).length() > 0.9;
             if add_to_world{
-                let sphere_mat: Arc<dyn Material + Send + Sync>;
+                let sphere_mat: Arc<Material>;
                 let mat_prob = f64::rand();
                 if mat_prob < 0.8{
                     let albedo = Color::rand() * Color::rand();
-                    sphere_mat = Arc::new(Lambertian::new(albedo));
+                    sphere_mat = Arc::new(Material::new_lambertian(albedo));
                 }
                 else if mat_prob < 0.95{
                     let albedo = Color::rand_range(0.5,1.);
                     let fuzz   = f64::rand_range(0.,0.5);
-                    sphere_mat = Arc::new(Metal::new_fuzz(albedo,fuzz));
+                    sphere_mat = Arc::new(Material::new_metal_fuzz(albedo,fuzz));
                 }
                 else{
-                    sphere_mat = Arc::new(Dieletric::new(1.5));
+                    sphere_mat = Arc::new(Material::new_dielectric(1.5));
                 }
                 world.add_sphere(Box::new(Sphere{center: center, radius: 0.2, material: sphere_mat}));
             }
         }
     }
     {
-        let mat = Arc::new(Dieletric::new(1.5));
+        let mat = Arc::new(Material::new_dielectric(1.5));
         world.add_sphere(Box::new(Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat}));
     }
     {
-        let mat = Arc::new(Lambertian::new(Color::new(0.4,0.2,0.1)));
+        let mat = Arc::new(Material::new_lambertian(Color::new(0.4,0.2,0.1)));
         world.add_sphere(Box::new(Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat}));
     }
     {
-        let mat = Arc::new(Metal::new(Color::new(0.7,0.6,0.5)));
+        let mat = Arc::new(Material::new_metal(Color::new(0.7,0.6,0.5)));
         world.add_sphere(Box::new(Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat}));
     }
     return world;
