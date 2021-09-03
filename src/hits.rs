@@ -4,12 +4,11 @@ use vec3::Point3;
 
 use crate::ray::Ray;
 use crate::materials::Material;
-use std::sync::Arc;
 
 pub struct HitRecord {
     pub point: Point3,
     pub normal: Vec3,
-    pub material: Arc<Material>,
+    pub material: Material,
     pub t: f64,
     pub front_face: bool,
 }
@@ -29,7 +28,7 @@ impl HitRecord{
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
-    pub material: Arc<Material>
+    pub material: Material
 }
 
 pub trait Hittable {
@@ -56,7 +55,8 @@ impl Hittable for Sphere {
         }
         let point = r.at(root);
         let outward_normal = (point - self.center)/self.radius;
-        let mut rec = HitRecord{t: root,point: point,normal: Vec3::ZERO, front_face: false,material: self.material.clone()};
+        //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
+        let mut rec = HitRecord{t: root,point: point,normal: Vec3::ZERO, front_face: false,material: self.material};
         rec.set_face_normal(r,&outward_normal);
         return Some(rec);
     }
@@ -85,25 +85,19 @@ impl HittableList{
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         for obj in &self.spheres{
-            match obj.hit(r,t_min,closest_so_far) {
-                Some(hr) => {
-                    if hr.t < closest_so_far {
-                        closest_so_far = hr.t;
-                        rec = Some(hr);
-                    }
+            if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
+                if hr.t < closest_so_far {
+                    closest_so_far = hr.t;
+                    rec = Some(hr);
                 }
-                None => {}
             }
         }
         for obj in &self.objects{
-            match obj.hit(r,t_min,closest_so_far) {
-                Some(hr) => {
-                    if hr.t < closest_so_far {
-                        closest_so_far = hr.t;
-                        rec = Some(hr);
-                    }
+            if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
+                if hr.t < closest_so_far {
+                    closest_so_far = hr.t;
+                    rec = Some(hr);
                 }
-                None => {}
             }
         }
         return rec;

@@ -9,12 +9,14 @@ pub struct MaterialScatterResult {
     pub ray: Ray,
 }
 
+#[derive(Copy, Clone)]
 pub enum MaterialType {
     LAMBERTIAN,
     METAL,
     DIELECTRIC,
 }
 
+#[derive(Copy, Clone)]
 pub struct Material {//Used in:
     pub albedo: Color,//Lambertian, Metal
     pub fuzz: f64,//Metal
@@ -48,7 +50,7 @@ impl Material{
             }
         }
     }
-    pub fn scatter_lambertian(&self,r_in: &Ray,hr: &HitRecord) -> MaterialScatterResult {
+    pub fn scatter_lambertian(&self,_r_in: &Ray,hr: &HitRecord) -> MaterialScatterResult {
         //let new_dir = hr.normal + Vec3::rand_in_unit_sphere();
         let mut new_dir = hr.normal + Vec3::rand_unit_vector();
         if new_dir.near_zero() {//If by offchance we make it zero, just use the normal
