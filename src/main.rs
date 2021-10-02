@@ -133,7 +133,7 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,
                 let ray = camera.get_ray(u,1.0-v);
                 pixel_color += ray_color(&ray,&world,max_depth);
             }
-            unsafe { (*(colors_box.colors))[pos] = pixel_color; }
+            unsafe { (*(colors_box.colors))[pos] = normalize_color(pixel_color,samples_per_pixel); }
 
             pixels.fetch_add(1,Ordering::Relaxed);//Inform pixel is done to Log Thread
         }
@@ -177,12 +177,12 @@ fn main() {
                     print_progress(1.0);
                     return;
                 }
-                thread::sleep(time::Duration::from_millis(100));
+                ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 2));
             }
         });
     }
 
-    let num_threads = num_cpus::get() as u64;
+    let num_threads = (num_cpus::get()-1) as u64;//Leave 1 thread for logging and drawing
 
     let mut assigned_thread: Vec<u64> = Vec::with_capacity(image_size as usize);
     for cidx in 0..image_size{
@@ -213,18 +213,17 @@ fn main() {
         handlers.push(thread::spawn(draw_thread));
     }
 
-    for h in handlers{
-        h.join().unwrap();
-    }
 
     let colors: &mut Vec<Color> = unsafe {&mut (*colors_box.colors) };
-    for cidx in 0..colors.len(){
-        colors[cidx] = normalize_color(colors[cidx],samples_per_pixel);
-    }
-
-    arc_pixels_atomic.clone().store(image_size,Ordering::Relaxed);
-    //write_ppm(&colors,image_width,image_height);
     draw_to_sdl(&colors,image_width,image_height);
+    /*
+    {
+        for h in handlers{
+            h.join().unwrap();
+        }
+        arc_pixels_atomic.clone().store(image_size,Ordering::Relaxed);
+        write_ppm(&colors,image_width,image_height);
+    }*/
 }
 
 fn draw_to_sdl(colors: &Vec<Color>,image_width: u64,image_height: u64){
@@ -235,25 +234,28 @@ fn draw_to_sdl(colors: &Vec<Color>,image_width: u64,image_height: u64){
     .position_centered().build().unwrap();
 
     let mut canvas = window.into_canvas().build().unwrap();
-
-    let texture_creator = canvas.texture_creator();
-    let mut texture = texture_creator
-    .create_texture_target(texture_creator.default_pixel_format(), image_width as u32, image_height as u32)
-    .unwrap();
-
-    canvas.with_texture_canvas(&mut texture, |texture_canvas| {
-        texture_canvas.clear();
-        for y in 0..image_height {
-            for x in 0..image_width {
-                let c = colors[(image_width*y+x) as usize];
-                texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
-                texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
-            }
-        }
-    }).unwrap();
+    canvas.set_draw_color(sdl2::pixels::Color::RGB(0,0,0));
+    canvas.clear();
+    canvas.present();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     'running: loop {
+        let texture_creator = canvas.texture_creator();
+        let mut texture = texture_creator
+        .create_texture_target(texture_creator.default_pixel_format(), image_width as u32, image_height as u32)
+        .unwrap();
+
+        canvas.with_texture_canvas(&mut texture, |texture_canvas| {
+            texture_canvas.clear();
+            for y in 0..image_height {
+                for x in 0..image_width {
+                    let c = colors[(image_width*y+x) as usize];
+                    texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
+                    texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
+                }
+            }
+        }).unwrap();
+
         canvas.clear();
         for event in event_pump.poll_iter() {
             match event {
@@ -266,6 +268,6 @@ fn draw_to_sdl(colors: &Vec<Color>,image_width: u64,image_height: u64){
         }
         canvas.copy(&texture,None,None).unwrap();
         canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 15));
     }
 }
