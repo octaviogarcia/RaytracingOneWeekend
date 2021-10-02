@@ -113,7 +113,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 fn draw(camera: &Camera,world: &HittableList,max_depth: u64,
     samples_per_pixel: u64,image_width: u64,image_height: u64,
-    colorsBox: ColorsBox,
+    colors_box: ColorsBox,
     tid: u64,assigned_thread: &Vec<u64>,pixels: &AtomicU64)
 {
     let image_width_f  = image_width as f64;
@@ -133,7 +133,7 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,
                 let ray = camera.get_ray(u,1.0-v);
                 pixel_color += ray_color(&ray,&world,max_depth);
             }
-            unsafe { (*(colorsBox.colors))[pos] = pixel_color; }
+            unsafe { (*(colors_box.colors))[pos] = pixel_color; }
 
             pixels.fetch_add(1,Ordering::Relaxed);//Inform pixel is done to Log Thread
         }
@@ -192,7 +192,7 @@ fn main() {
     assigned_thread.shrink_to_fit();
     let arc_assigned_thread = Arc::new(assigned_thread);
 
-    let colorsBox = ColorsBox{colors: &mut vec!(Color::ZERO;image_size as usize)};
+    let colors_box = ColorsBox{colors: &mut vec!(Color::ZERO;image_size as usize)};
 
     let mut handlers: Vec<thread::JoinHandle<()>> = Vec::with_capacity(num_threads as usize);
     let arc_camera = Arc::new(camera);
@@ -207,7 +207,7 @@ fn main() {
         let draw_thread = move || {
             return draw(&cam,&wrld,max_depth,
                 samples_per_pixel,image_width,image_height,
-                colorsBox,
+                colors_box,
                 i,&assgn_th,&pxls_atom);
         };
         handlers.push(thread::spawn(draw_thread));
@@ -217,7 +217,7 @@ fn main() {
         h.join().unwrap();
     }
 
-    let colors: &mut Vec<Color> = unsafe {&mut (*colorsBox.colors) };
+    let colors: &mut Vec<Color> = unsafe {&mut (*colors_box.colors) };
     for cidx in 0..colors.len(){
         colors[cidx] = normalize_color(colors[cidx],samples_per_pixel);
     }
