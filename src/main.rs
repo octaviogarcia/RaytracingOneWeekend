@@ -51,6 +51,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
 fn random_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
+    //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground});
     world.add_sphere(&Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground});
     for a in -11..11{
         let af = a as f64;
@@ -107,7 +108,7 @@ fn print_progress(progress: f64) -> (){
     eprint!("{:>3}.{:0>2}%\r",(int as u64),((frac*100.) as u64));
 }
 
-use std::{thread,time};
+use std::thread;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -212,7 +213,6 @@ fn main() {
         };
         handlers.push(thread::spawn(draw_thread));
     }
-
 
     let colors: &mut Vec<Color> = unsafe {&mut (*colors_box.colors) };
     draw_to_sdl(&colors,image_width,image_height);

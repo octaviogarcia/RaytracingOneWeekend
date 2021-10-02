@@ -1,6 +1,7 @@
 use crate::vec3;
 use vec3::Vec3;
 use vec3::Point3;
+use crate::utils::INF;
 
 use crate::ray::Ray;
 use crate::materials::Material;
@@ -63,26 +64,60 @@ impl Hittable for Sphere {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct MarchedSphere {
+    pub center: Point3,
+    pub radius: f64,
+    pub material: Material
+}
+
+pub trait Marched {
+    fn sdf(&self,p: &Point3) -> f64;
+    fn get_outward_normal(&self,p: &Point3) -> Vec3;
+    fn material(&self) -> &Material;
+}
+
+impl Marched for MarchedSphere {
+    fn sdf(&self,p: &Point3) -> f64 {
+        return (*p - self.center).length() - self.radius;
+    }
+    fn get_outward_normal(&self,p: &Point3) -> Vec3 {
+        return (*p - self.center).unit();
+    }
+    fn material(&self) -> &Material{
+        return &self.material;
+    }
+}
+
 pub struct HittableList{
     pub spheres: Vec<Sphere>,
     pub objects: Vec<Box<dyn Hittable + Send + Sync>>,
+    pub marched_spheres: Vec<MarchedSphere>,
+    pub marched_objects: Vec<Box<dyn Marched + Send + Sync>>,
 }
 
 impl HittableList{
     pub fn new() -> Self {
-        return HittableList{spheres: Vec::new(),objects: Vec::new()};
+        return HittableList{spheres: Vec::new(),marched_spheres: Vec::new(),objects: Vec::new(),marched_objects: Vec::new()};
     }
     pub fn add_sphere(&mut self,obj: &Sphere) -> () {
         self.spheres.push(*obj);
     }
+    pub fn add_marched_sphere(&mut self,obj: &MarchedSphere) -> () {
+        self.marched_spheres.push(*obj);
+    }
     pub fn add(&mut self,obj: Box<dyn Hittable + Send + Sync>) -> () {
         self.objects.push(obj);
+    }
+    pub fn add_marched(&mut self,obj: Box<dyn Marched + Send + Sync>) -> () {
+        self.marched_objects.push(obj);
     }
     pub fn clear(&mut self) -> () {
         self.objects.clear();
     }
 
     pub fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
+        //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         for obj in &self.spheres{
@@ -101,6 +136,54 @@ impl HittableList{
                 }
             }
         }
+        //Ray marching section
+        const HIT_SIZE: f64 = 0.0001;
+        let mut t = t_min;   
+        'raymarch: while t < t_max{
+            let p = r.at(t);
+            let (d,normal,material) = self.get_closest_distance_normal_material(&p);
+            match material {
+                None => {
+                    break 'raymarch;
+                }
+                Some(m) => {
+                    if d < HIT_SIZE {//We hit something
+                        if t < closest_so_far {//Its better than what we got raytracing
+                            let mut hr = HitRecord{t: t,point: p,normal: Vec3::ZERO, front_face: false,material: m};
+                            hr.set_face_normal(r,&normal);
+                            rec = Some(hr);
+                        }
+                        //Else, We hit something but its not good enough
+                        break 'raymarch;
+                    }
+                    //Move forward
+                    else { t += d; }//Don't think this is correct
+                }
+            }
+        }
         return rec;
+    }
+
+    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f64,Vec3,Option<Material>){
+        let mut max_dis = INF;
+        let mut normal = Vec3::ZERO;
+        let mut material = None;
+        for obj in &self.marched_spheres {
+            let d = obj.sdf(p);//Not an actual vtable call, just a normal fast function call
+            if d < max_dis {
+                max_dis = d;
+                normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
+                material = Some(obj.material);
+            }
+        }
+        for obj in &self.marched_objects {
+            let d = obj.sdf(p);//Slow vtable call
+            if d < max_dis {
+                max_dis = d;
+                normal = obj.get_outward_normal(p);//Slow vtable call
+                material = Some(*obj.material());//Slow vtable call
+            }
+        }
+        return (max_dis,normal,material);
     }
 }
