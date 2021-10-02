@@ -1,4 +1,5 @@
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[repr(packed)]
 pub struct Vec3 {
     pub e: [f64;3]
 }

@@ -1,4 +1,5 @@
 extern crate num_cpus;
+extern crate sdl2;
 
 mod vec3;
 use vec3::*;
@@ -17,6 +18,12 @@ use camera::*;
 
 mod materials;
 use materials::*;
+
+use sdl2::surface::Surface;
+use sdl2::pixels::PixelFormatEnum;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use std::time::Duration;
 
 fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
     if depth == 0 {
@@ -128,7 +135,7 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,samples_per_pixel: u
 fn main() {
     //IMAGE
     let aspect_ratio: f64 = 3.0 / 2.0;
-    let image_width:    u64 = 400;
+    let image_width:    u64 = 1000;
     let image_width_f:  f64 = image_width as f64;
     let image_height_f: f64 = image_width_f/ aspect_ratio;
     let image_height:   u64 = image_height_f as u64;
@@ -143,7 +150,7 @@ fn main() {
         camera = Camera::new(lookfrom,lookat,vup,20.,aspect_ratio,aperture,dist_to_focus);
     }
 
-    let samples_per_pixel = 500;
+    let samples_per_pixel = 20;
     let max_depth = 20;
     let world = random_scene();
 
@@ -193,6 +200,7 @@ fn main() {
     }
 
     let mut colors: Vec<Color> = vec!(Color::ZERO;(image_height*image_width) as usize);
+    colors.shrink_to_fit();
     for h in handlers{
         //@Speed: This blocks threads sequentially from the order initialization, this order of join() is not optimal
         //Rust has no try_join, so we need to work around it with channels... maybe once this is simpler I will complicate it
@@ -206,6 +214,50 @@ fn main() {
         colors[cidx] = normalize_color(colors[cidx],samples_per_pixel);
     }
 
-    write_ppm(&colors,image_width,image_height);
     arc_samples_atomic.clone().store(total_samples,Ordering::Relaxed);
+    //write_ppm(&colors,image_width,image_height);
+    draw_to_sdl(&colors,image_width,image_height);
+}
+
+fn draw_to_sdl(colors: &Vec<Color>,image_width: u64,image_height: u64){
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+
+    let window = video_subsystem.window("raytracer", image_width as u32, image_height as u32)
+    .position_centered().build().unwrap();
+
+    let mut canvas = window.into_canvas().build().unwrap();
+
+    let texture_creator = canvas.texture_creator();
+    let mut texture = texture_creator
+    .create_texture_target(texture_creator.default_pixel_format(), image_width as u32, image_height as u32)
+    .unwrap();
+
+    canvas.with_texture_canvas(&mut texture, |texture_canvas| {
+        texture_canvas.clear();
+        for y in 0..image_height {
+            for x in 0..image_width {
+                let c = colors[(image_width*y+x) as usize];
+                texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
+                texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
+            }
+        }
+    }).unwrap();
+
+    let mut event_pump = sdl_context.event_pump().unwrap();
+    'running: loop {
+        canvas.clear();
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit {..} |
+                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    break 'running
+                },
+                _ => {}
+            }
+        }
+        canvas.copy(&texture,None,None).unwrap();
+        canvas.present();
+        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+    }
 }
