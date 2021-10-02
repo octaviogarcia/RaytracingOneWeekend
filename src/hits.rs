@@ -2,6 +2,8 @@ use crate::vec3;
 use vec3::Vec3;
 use vec3::Point3;
 use crate::utils::INF;
+use crate::utils::max;
+use crate::utils::min;
 
 use crate::ray::Ray;
 use crate::materials::Material;
@@ -77,12 +79,44 @@ pub trait Marched {
     fn material(&self) -> &Material;
 }
 
+pub fn get_outward_numeric_normal(marched: &dyn Marched,p: &Point3) -> Vec3{
+    let eps = 0.0001;
+    let ex = Point3::new(eps, 0., 0.);
+    let ey = Point3::new( 0.,eps, 0.);
+    let ez = Point3::new( 0., 0.,eps);
+    let x = marched.sdf(&(*p+ex)) - marched.sdf(&(*p-ex));
+    let y = marched.sdf(&(*p+ey)) - marched.sdf(&(*p-ey));
+    let z = marched.sdf(&(*p+ez)) - marched.sdf(&(*p-ez));
+    return Vec3::new(x,y,z).unit();
+}
+
 impl Marched for MarchedSphere {
     fn sdf(&self,p: &Point3) -> f64 {
         return (*p - self.center).length() - self.radius;
     }
     fn get_outward_normal(&self,p: &Point3) -> Vec3 {
         return (*p - self.center).unit();
+        //return get_outward_numeric_normal(self,p);
+    }
+    fn material(&self) -> &Material{
+        return &self.material;
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct MarchedBox {
+    pub center: Point3,
+    pub sizes: Vec3,
+    pub material: Material
+}
+
+impl Marched for MarchedBox {
+    fn sdf(&self,p: &Point3) -> f64 {
+        let q = (&(*p-self.center)).abs() - self.sizes;
+        return q.max(&Vec3::ZERO).length() + min(max(q.x(),max(q.y(),q.z())),0.);
+    }
+    fn get_outward_normal(&self,p: &Point3) -> Vec3 {
+        return get_outward_numeric_normal(self,p);
     }
     fn material(&self) -> &Material{
         return &self.material;
@@ -93,27 +127,40 @@ pub struct HittableList{
     pub spheres: Vec<Sphere>,
     pub objects: Vec<Box<dyn Hittable + Send + Sync>>,
     pub marched_spheres: Vec<MarchedSphere>,
+    pub marched_boxes: Vec<MarchedBox>,
     pub marched_objects: Vec<Box<dyn Marched + Send + Sync>>,
 }
 
 impl HittableList{
     pub fn new() -> Self {
-        return HittableList{spheres: Vec::new(),marched_spheres: Vec::new(),objects: Vec::new(),marched_objects: Vec::new()};
+        return HittableList{
+            spheres: Vec::new(),
+            objects: Vec::new(),
+            marched_spheres: Vec::new(),
+            marched_boxes: Vec::new(),
+            marched_objects: Vec::new()};
     }
     pub fn add_sphere(&mut self,obj: &Sphere) -> () {
         self.spheres.push(*obj);
     }
+    pub fn add(&mut self,obj: Box<dyn Hittable + Send + Sync>) -> () {
+        self.objects.push(obj);
+    }
     pub fn add_marched_sphere(&mut self,obj: &MarchedSphere) -> () {
         self.marched_spheres.push(*obj);
     }
-    pub fn add(&mut self,obj: Box<dyn Hittable + Send + Sync>) -> () {
-        self.objects.push(obj);
+    pub fn add_marched_box(&mut self,obj: &MarchedBox) -> () {
+        self.marched_boxes.push(*obj);
     }
     pub fn add_marched(&mut self,obj: Box<dyn Marched + Send + Sync>) -> () {
         self.marched_objects.push(obj);
     }
     pub fn clear(&mut self) -> () {
+        self.spheres.clear();
         self.objects.clear();
+        self.marched_spheres.clear();
+        self.marched_boxes.clear();
+        self.marched_objects.clear();
     }
 
     pub fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
@@ -137,27 +184,26 @@ impl HittableList{
             }
         }
         //Ray marching section
-        const HIT_SIZE: f64 = 0.0001;
+        const HIT_SIZE: f64 = 0.001;
+        const MAX_ITERS: u64 = 256;
+        let mut iter = 0;
         let mut t = t_min;   
-        'raymarch: while t < t_max{
+        'raymarch: while t < t_max && t < closest_so_far && iter < MAX_ITERS{
+            iter+=1;
             let p = r.at(t);
             let (d,normal,material) = self.get_closest_distance_normal_material(&p);
             match material {
-                None => {
+                None => {//No Marched objects in our scene
                     break 'raymarch;
                 }
                 Some(m) => {
                     if d < HIT_SIZE {//We hit something
-                        if t < closest_so_far {//Its better than what we got raytracing
-                            let mut hr = HitRecord{t: t,point: p,normal: Vec3::ZERO, front_face: false,material: m};
-                            hr.set_face_normal(r,&normal);
-                            rec = Some(hr);
-                        }
-                        //Else, We hit something but its not good enough
-                        break 'raymarch;
+                        let mut hr = HitRecord{t: t,point: p,normal: Vec3::ZERO, front_face: false,material: m};
+                        hr.set_face_normal(r,&normal);
+                        rec = Some(hr);
                     }
                     //Move forward
-                    else { t += d; }//Don't think this is correct
+                    else { t += d; }//This only works if our direction in our Ray is unit length!!!
                 }
             }
         }
@@ -169,6 +215,14 @@ impl HittableList{
         let mut normal = Vec3::ZERO;
         let mut material = None;
         for obj in &self.marched_spheres {
+            let d = obj.sdf(p);//Not an actual vtable call, just a normal fast function call
+            if d < max_dis {
+                max_dis = d;
+                normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
+                material = Some(obj.material);
+            }
+        }
+        for obj in &self.marched_boxes {
             let d = obj.sdf(p);//Not an actual vtable call, just a normal fast function call
             if d < max_dis {
                 max_dis = d;

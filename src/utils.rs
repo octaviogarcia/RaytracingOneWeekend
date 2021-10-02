@@ -13,6 +13,11 @@ pub fn max(x: f64,y: f64) -> f64{
     }
     return x;
 }
+pub fn abs(x: f64) -> f64{
+    let sign = x > 0.;
+    let map = [-1.,1.];
+    return x*map[sign as usize];
+}
 
 pub fn clamp(x: f64,fmin: f64,fmax: f64) -> f64{
     return min(max(x,fmin),fmax);

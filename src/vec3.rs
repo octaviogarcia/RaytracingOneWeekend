@@ -8,6 +8,7 @@ pub type Color  = Vec3;   // RGB color
 
 use crate::utils;
 use utils::MyRandom;
+use utils::{max,min,abs};
 
 impl Vec3{
     pub const ZERO : Self = Self{ e: [0.,0.,0.]};
@@ -28,6 +29,15 @@ impl Vec3{
     }
     pub fn unit(&self) -> Self {
         *self / self.length()
+    }
+    pub fn abs(&self) -> Self {
+        Vec3::new(abs(self.x()),abs(self.y()),abs(self.z()))
+    }
+    pub fn max(&self,v: &Vec3) -> Self {
+        Vec3::new(max(self.x(),v.x()),max(self.y(),v.y()),max(self.z(),v.z()))
+    }
+    pub fn min(&self,v: &Vec3) -> Self {
+        Vec3::new(min(self.x(),v.x()),min(self.y(),v.y()),min(self.z(),v.z()))
     }
     pub fn cross(&self, other: Self) -> Self{
         Self{ e : [
