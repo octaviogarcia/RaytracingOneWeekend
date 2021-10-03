@@ -4,6 +4,7 @@ use vec3::Point3;
 use crate::utils::INF;
 use crate::utils::max;
 use crate::utils::min;
+use crate::utils::abs;
 
 use crate::ray::Ray;
 use crate::materials::Material;
@@ -51,6 +52,33 @@ impl Hittable for Sphere {
     }
 }
 
+pub trait Marched {
+    fn sdf(&self,p: &Point3) -> f64;
+    fn get_outward_normal(&self,p: &Point3) -> Vec3;
+    fn material(&self) -> &Material;
+    fn center(&self) -> &Point3;
+}
+
+pub fn get_outward_numeric_normal(marched: &dyn Marched,p: &Point3) -> Vec3{
+    let eps = 0.0000001;
+    let ex = Point3::new(eps, 0., 0.);
+    let ey = Point3::new( 0.,eps, 0.);
+    let ez = Point3::new( 0., 0.,eps);
+    let x = marched.sdf(&(*p+ex)) - marched.sdf(&(*p-ex));
+    let y = marched.sdf(&(*p+ey)) - marched.sdf(&(*p-ey));
+    let z = marched.sdf(&(*p+ez)) - marched.sdf(&(*p-ez));
+    let normal = Vec3::new(x,y,z).unit();
+
+    //Flip the sign so always the SDF grows in the direction of the normal
+    let test_ray = Ray::new(*marched.center(),normal);
+    let start     = test_ray.at(0.);
+    let start_val = marched.sdf(&start);
+    let end     = test_ray.at(1.);
+    let end_val = marched.sdf(&end);
+    let sign = [-1.,1.][(end_val > start_val) as usize];//If it grows, keep the sign. Else flip it
+    return normal*sign;
+}
+
 #[derive(Copy, Clone)]
 pub struct MarchedSphere {
     pub center: Point3,
@@ -58,38 +86,19 @@ pub struct MarchedSphere {
     pub material: Material
 }
 
-pub trait Marched {
-    fn sdf(&self,p: &Point3) -> f64;
-    fn get_outward_normal(&self,p: &Point3) -> Vec3;
-    fn material(&self) -> &Material;
-}
-
-pub fn get_outward_numeric_normal(marched: &dyn Marched,p: &Point3) -> Vec3{
-    let eps = 0.0001;
-    let ex = Point3::new(eps, 0., 0.);
-    let ey = Point3::new( 0.,eps, 0.);
-    let ez = Point3::new( 0., 0.,eps);
-    let x = marched.sdf(&(*p+ex)) - marched.sdf(&(*p-ex));
-    let y = marched.sdf(&(*p+ey)) - marched.sdf(&(*p-ey));
-    let z = marched.sdf(&(*p+ez)) - marched.sdf(&(*p-ez));
-    let inside = marched.sdf(p) < 0.;
-    let map = [1.,-1.];//If inside, flip the sign
-    return Vec3::new(x,y,z).unit()*map[inside as usize];
-}
-
 impl Marched for MarchedSphere {
     fn sdf(&self,p: &Point3) -> f64 {
         return (*p - self.center).length() - self.radius;
     }
     fn get_outward_normal(&self,p: &Point3) -> Vec3 {
-        return get_outward_numeric_normal(self,p);
-        /*let normal = (*p - self.center).unit();
-        let inside = self.sdf(p) < 0.;
-        let map = [1.,-1.];//If inside, flip the sign
-        return normal*map[inside as usize];*/
+        let normal = (*p - self.center).unit();
+        return normal;
     }
     fn material(&self) -> &Material{
         return &self.material;
+    }
+    fn center(&self) -> &Point3{
+        return &self.center;
     }
 }
 
@@ -111,8 +120,10 @@ impl Marched for MarchedBox {
     fn material(&self) -> &Material{
         return &self.material;
     }
+    fn center(&self) -> &Point3{
+        return &self.center;
+    }
 }
-
 pub struct HittableList{
     pub spheres: Vec<Sphere>,
     pub objects: Vec<Box<dyn Hittable + Send + Sync>>,
@@ -173,59 +184,131 @@ impl HittableList{
                 }
             }
         }
+
         //Ray marching section
         const HIT_SIZE: f64 = 0.001;
-        const MAX_ITERS: u64 = 256;
-        let mut iter = 0;
-        let mut t = t_min;   
-        'raymarch: while t < t_max && t < closest_so_far && iter < MAX_ITERS{
-            iter+=1;
+        const MIN_STEP_SIZE: f64 = HIT_SIZE/2.;//@TODO: Find something that won't mess up DIELECTRICS
+
+        let mut t = t_min;
+        {//If we started stuck in a wall... unstuck ourselves
+            let (d,_,_,obj) = self.get_closest_distance_normal_material(&r.at(t));
+            if let Some(o) = obj{
+                let mut aux = d;
+                while aux < HIT_SIZE {
+                    t += MIN_STEP_SIZE;
+                    aux = o.sdf(&r.at(t));
+                }
+            }
+        }
+
+        let mut max_march_iter = 1024;
+        'raymarch: while t < t_max && t < closest_so_far && max_march_iter > 0{
+            max_march_iter-=1;
             let p = r.at(t);
-            let (d,outward_normal,material) = self.get_closest_distance_normal_material(&p);
+            let (d,outward_normal,material,obj) = self.get_closest_distance_normal_material(&p);
             match material {
                 None => {//No Marched objects in our scene
                     break 'raymarch;
                 }
                 Some(m) => {
-                    if d < HIT_SIZE {//We hit something
-                        rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: m});
+                    if  d < HIT_SIZE {//We hit something
+                        if m.mat_type == crate::materials::MaterialType::DIELECTRIC {
+                                //If its DIELECTRIC root find to ridiculous precision so it renders properly
+                                let o = obj.unwrap();
+                                
+                                let mut first_side_t   = t;
+                                let mut first_side_val = o.sdf(&p);
+                                //If positive ADD to the ray, (we are going inside the surface). Else, SUBSTRACT, we are going outside.
+                                let sign = [-1.,1.][(first_side_val > 0.) as usize];
+                                let mut other_side_t   = first_side_t + (sign)*HIT_SIZE;
+                                let mut other_side_val = o.sdf(&r.at(other_side_t));
+                                let mut max_iters = 10;
+                                while (first_side_val > 0.) == (other_side_val > 0.)  && max_iters > 0{//Find a point on the other side
+                                    other_side_t += (sign)*HIT_SIZE;
+                                    other_side_val = o.sdf(&r.at(other_side_t));
+                                    max_iters-=1;
+                                }
+                                if max_iters == 0 {break 'raymarch;}
+
+                                //Now bisect
+                                let mut middle_t   = (first_side_t + other_side_t)/2.;
+                                let mut middle_val = o.sdf(&r.at(middle_t));
+                                for _i in 0..5 {
+                                    if (middle_val > 0.) == (first_side_val > 0.){
+                                        first_side_t   = middle_t;
+                                        first_side_val = middle_val;
+                                    }
+                                    else if (middle_val > 0.) == (other_side_val > 0.){
+                                        other_side_t   = middle_t;
+                                        other_side_val = middle_val;
+                                    }
+                                    middle_t   = (first_side_t + other_side_t)/2.;
+                                    middle_val = o.sdf(&r.at(middle_t));
+                                }
+                                //Asume its good enough to do Newtons
+                                let mut ti = middle_t;
+                                let mut fi = middle_val;
+                                for _i in 0..20 {
+                                    let eps = HIT_SIZE/10.;
+                                    let feps = o.sdf(&r.at(ti+eps));
+                                    let dfi = (feps - fi)/eps;
+                                    ti = ti - fi/dfi;
+                                    fi = o.sdf(&r.at(ti)); 
+                                }
+                                let point  = r.at(ti);
+                                let normal = o.get_outward_normal(&point);
+                                rec = Some(HitRecord{t: ti,point: point,normal: normal, material: m});
+                            }
+                            else{
+                                rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: m});
+                            }
+                        }
+                        //Move forward
+                        else { t += max(d,0.);//,MIN_STEP_SIZE); }//This only works if our direction in our Ray is unit length!!!
                     }
-                    //Move forward
-                    else { t += d; }//This only works if our direction in our Ray is unit length!!!
                 }
             }
         }
-        return rec;
+        return rec; 
     }
 
-    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f64,Vec3,Option<Material>){
-        let mut max_dis = INF;
+    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f64,Vec3,Option<Material>,Option<Box<(dyn Marched + Send + Sync)>>){
+        let mut max_dis    = INF;
         let mut normal = Vec3::ZERO;
         let mut material = None;
+        let mut found_obj: Option<Box<(dyn Marched + Send + Sync)>> = None;
         for obj in &self.marched_spheres {
             let d = obj.sdf(p);//Not an actual vtable call, just a normal fast function call
-            if d < max_dis {
-                max_dis = d;
+            let absd = abs(d);
+            if absd < max_dis {
+                max_dis = absd;
                 normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
                 material = Some(obj.material);
+                found_obj = Some(Box::new(*obj));
             }
         }
         for obj in &self.marched_boxes {
             let d = obj.sdf(p);//Not an actual vtable call, just a normal fast function call
-            if d < max_dis {
-                max_dis = d;
+            let absd = abs(d);
+            if absd < max_dis {
+                max_dis = absd;
                 normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
                 material = Some(obj.material);
+                found_obj = Some(Box::new(*obj));
             }
         }
-        for obj in &self.marched_objects {
-            let d = obj.sdf(p);//Slow vtable call
-            if d < max_dis {
-                max_dis = d;
-                normal = obj.get_outward_normal(p);//Slow vtable call
-                material = Some(*obj.material());//Slow vtable call
+        //@TODO: See how I can return dynamic Marched objects
+        /*for obj in &self.marched_objects {
+            let d = obj.sdf(p);//Not an actual vtable call, just a normal fast function call
+            let absd = abs(d);
+            if absd < max_dis {
+                max_dis = absd;
+                let o = obj.clone();
+                normal = o.get_outward_normal(p);//Slow vtable call
+                material = Some(*o.material());//Slow vtable call
+                found_obj = Some(o);//I don't know if this is safe
             }
-        }
-        return (max_dis,normal,material);
+        }*/
+        return (max_dis,normal,material,found_obj);
     }
 }

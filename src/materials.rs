@@ -9,7 +9,7 @@ pub struct MaterialScatterResult {
     pub ray: Ray,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum MaterialType {
     LAMBERTIAN,
     METAL,
