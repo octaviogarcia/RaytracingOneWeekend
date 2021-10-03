@@ -83,6 +83,7 @@ fn random_scene() -> HittableList{
         world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
         //@BUG: Normal is not flipping correctly??, doesn't render correctly when marching
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
+        //world.add_marched_box(&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
     }
     {
         let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));
@@ -198,7 +199,7 @@ fn main() {
     assigned_thread.shrink_to_fit();
     let arc_assigned_thread = Arc::new(assigned_thread);
 
-    let colors_box = ColorsBox{colors: &mut vec!(Color::ZERO;image_size as usize)};
+    let colors_box = ColorsBox{colors: &mut vec!(-Color::ZERO;image_size as usize)};
 
     let mut handlers: Vec<thread::JoinHandle<()>> = Vec::with_capacity(num_threads as usize);
     let arc_camera = Arc::new(camera);
@@ -244,20 +245,27 @@ fn draw_to_sdl(colors: &Vec<Color>,image_width: u64,image_height: u64){
     canvas.present();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
-    'running: loop {
-        let texture_creator = canvas.texture_creator();
-        let mut texture = texture_creator
-        .create_texture_target(texture_creator.default_pixel_format(), image_width as u32, image_height as u32)
-        .unwrap();
+    let mut pixels_run = 0;//Cache the longest pixel run... to avoid retexturing too much. Requires initialization to -0.0
+    let texture_creator = canvas.texture_creator();
+    let mut texture = texture_creator
+    .create_texture_target(texture_creator.default_pixel_format(), image_width as u32, image_height as u32)
+    .unwrap();
 
+    'running: loop {
         canvas.with_texture_canvas(&mut texture, |texture_canvas| {
-            texture_canvas.clear();
-            for y in 0..image_height {
-                for x in 0..image_width {
-                    let c = colors[(image_width*y+x) as usize];
-                    texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
-                    texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
-                }
+            let mut run = true;
+            for pos in pixels_run..(image_width*image_height){
+                let c = colors[pos as usize];
+
+                let is_zero = c.x() == 0.;//@HACK: Expects intialization to -0.0, so we know if it actually was rendered or is just 0.
+                let is_neg = (1. as f64).copysign(c.x()) == -1.;
+                run = run && !(is_zero && is_neg);
+                pixels_run += run as u64;
+
+                texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
+                let y = pos / image_width;
+                let x = pos - y*image_width;
+                texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
             }
         }).unwrap();
 

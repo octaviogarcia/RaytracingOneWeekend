@@ -72,7 +72,9 @@ pub fn get_outward_numeric_normal(marched: &dyn Marched,p: &Point3) -> Vec3{
     let x = marched.sdf(&(*p+ex)) - marched.sdf(&(*p-ex));
     let y = marched.sdf(&(*p+ey)) - marched.sdf(&(*p-ey));
     let z = marched.sdf(&(*p+ez)) - marched.sdf(&(*p-ez));
-    return Vec3::new(x,y,z).unit();
+    let inside = marched.sdf(p) < 0.;
+    let map = [1.,-1.];//If inside, flip the sign
+    return Vec3::new(x,y,z).unit()*map[inside as usize];
 }
 
 impl Marched for MarchedSphere {
@@ -80,8 +82,11 @@ impl Marched for MarchedSphere {
         return (*p - self.center).length() - self.radius;
     }
     fn get_outward_normal(&self,p: &Point3) -> Vec3 {
-        return (*p - self.center).unit();
-        //return get_outward_numeric_normal(self,p);
+        return get_outward_numeric_normal(self,p);
+        /*let normal = (*p - self.center).unit();
+        let inside = self.sdf(p) < 0.;
+        let map = [1.,-1.];//If inside, flip the sign
+        return normal*map[inside as usize];*/
     }
     fn material(&self) -> &Material{
         return &self.material;
