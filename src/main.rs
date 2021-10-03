@@ -30,14 +30,14 @@ struct ColorsBox {
 }
 unsafe impl Send for ColorsBox{}
 
-fn ray_color(r: &Ray,world: &HittableList, depth: u64) -> Color{
+fn ray_color(r: &Ray,world: &HittableList, depth: u64,tmin: f64,tmax: f64) -> Color{
     if depth == 0 {
         return Color::ZERO;
     }
-    match world.hit(r,0.001,INF) {
+    match world.hit(r,tmin,tmax) {
         Some(hr) => {
             let rslt = hr.material.scatter(r,&hr);
-            return rslt.attenuation*ray_color(&rslt.ray, world,depth-1);
+            return rslt.attenuation*ray_color(&rslt.ray, world,depth-1,tmin,tmax);
         },
         None => {
             let unit_dir: Vec3 = r.dir.unit();
@@ -80,20 +80,21 @@ fn random_scene() -> HittableList{
     }
     {
         let mat = Material::new_dielectric(1.5);
-        world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
+        //world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
-        //world.add_marched_box(&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
+        world.add_marched_box(&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
     }
     {
         let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));
-        world.add_sphere(&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
+        //world.add_sphere(&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
+        world.add_marched_box(&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat});
     }
     {
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));
-        world.add_sphere(&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
+        //world.add_sphere(&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
-        //world.add_marched_box(&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
+        world.add_marched_box(&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
     }
     return world;
 }
@@ -117,7 +118,7 @@ use std::thread;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-fn draw(camera: &Camera,world: &HittableList,max_depth: u64,
+fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
     samples_per_pixel: u64,image_width: u64,image_height: u64,
     colors_box: ColorsBox,
     tid: u64,assigned_thread: &Vec<u64>,pixels: &AtomicU64)
@@ -137,7 +138,7 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,
                 let u = (i_f+f64::rand())/(image_width_f-1.);
                 let v = (j_f+f64::rand())/(image_height_f-1.);
                 let ray = camera.get_ray(u,1.0-v);
-                pixel_color += ray_color(&ray,&world,max_depth);
+                pixel_color += ray_color(&ray,&world,max_depth,tmin,tmax);
             }
             unsafe { (*(colors_box.colors))[pos] = normalize_color(pixel_color,samples_per_pixel); }
 
@@ -210,8 +211,10 @@ fn main() {
         let wrld = arc_world.clone();
         let pxls_atom = arc_pixels_atomic.clone();
         let assgn_th = arc_assigned_thread.clone();
+        let tmin = 0.001;
+        let tmax = 100.0;//@TODO: You could find these from bounding boxes from the scene
         let draw_thread = move || {
-            return draw(&cam,&wrld,max_depth,
+            return draw(&cam,&wrld,max_depth,tmin,tmax,
                 samples_per_pixel,image_width,image_height,
                 colors_box,
                 i,&assgn_th,&pxls_atom);
