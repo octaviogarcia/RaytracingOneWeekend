@@ -34,11 +34,19 @@ pub fn normalize_color(color: Color,samples_per_pixel: u64) -> Color{
     let b = clamp((color.z() * scale).sqrt(),0.,0.999);
     return Color::new(r,g,b);
 }
+pub fn denormalize_color(color: Color,samples_per_pixel: u64) -> Color{
+    let scale = samples_per_pixel as f64;
+    let r = clamp(color.x()*color.x()*scale,0.,scale);
+    let g = clamp(color.y()*color.y()*scale,0.,scale);
+    let b = clamp(color.z()*color.z()*scale,0.,scale);
+    return Color::new(r,g,b);
+}
 
-pub fn write_ppm(colors: &Vec<Color>,image_width: u64,image_height: u64){
+pub fn write_ppm(colors: &Vec<Color>,samples_per_pixel: u64,image_width: u64,image_height: u64){
     let mut colors_str: String = "".to_owned();
     for c in colors{
-        let c_str: String = format!("{} {} {}\n",256.*c.x(),256.*c.y(),256.*c.z()).to_owned();
+        let cn = normalize_color(*c,samples_per_pixel);
+        let c_str: String = format!("{} {} {}\n",256.*cn.x(),256.*cn.y(),256.*cn.z()).to_owned();
         colors_str.push_str(&c_str);
     }
     println!("P3\n{} {}\n255",image_width,image_height);

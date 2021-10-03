@@ -26,7 +26,8 @@ use rand::prelude::*;
 
 #[derive(Copy,Clone)]
 struct ColorsBox {
-    pub colors: *mut Vec<Color>
+    pub colors: *mut Vec<Color>,
+    pub samples: *mut Vec<u64>,
 }
 unsafe impl Send for ColorsBox{}
 
@@ -121,28 +122,52 @@ use std::sync::atomic::{AtomicU64, Ordering};
 fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
     samples_per_pixel: u64,image_width: u64,image_height: u64,
     colors_box: ColorsBox,
-    tid: u64,assigned_thread: &Vec<u64>,pixels: &AtomicU64)
+    tid: u64,assigned_thread: &Vec<u64>,samples_atom: &AtomicU64)
 {
     let image_width_f  = image_width as f64;
     let image_height_f = image_height as f64;
+    let image_size = (image_width*image_height) as usize;
 
-    for line in 0..image_height {
-        let j_f = line as f64;
-        for col in 0..image_width{
-            let pos = (line*image_width+col) as usize;
-            if assigned_thread[pos] != tid {continue;}
+    let mut thread_pixels: Vec<usize> = Vec::with_capacity(image_size);
+    for pos in 0..image_size {
+        if assigned_thread[pos] == tid {
+            thread_pixels.push(pos);
+        }
+    }
+    thread_pixels.shrink_to_fit();
+    //Flip it by thread odness so we don't give priority to starting pixels while drawing
+    if (tid % 2) == 1 { thread_pixels = thread_pixels.into_iter().rev().collect(); }
 
+    let mut pixels_done = 0;
+    let thread_pixels_length = thread_pixels.len();
+    
+    while pixels_done != thread_pixels_length{
+        for pos in &thread_pixels{
+            let idx = *pos;
+
+            let curr_samples = unsafe { (*colors_box.samples)[idx] };
+            if curr_samples == samples_per_pixel { continue; }
+
+            let line = (idx as u64) / image_width;
+            let col  = (idx as u64) - image_width*line;
+            let j_f = line as f64;
             let i_f = col as f64;
-            let mut pixel_color = Color::ZERO;
-            for _s in 0..samples_per_pixel{
-                let u = (i_f+f64::rand())/(image_width_f-1.);
-                let v = (j_f+f64::rand())/(image_height_f-1.);
-                let ray = camera.get_ray(u,1.0-v);
-                pixel_color += ray_color(&ray,&world,max_depth,tmin,tmax);
-            }
-            unsafe { (*(colors_box.colors))[pos] = normalize_color(pixel_color,samples_per_pixel); }
 
-            pixels.fetch_add(1,Ordering::Relaxed);//Inform pixel is done to Log Thread
+            let u = (i_f+f64::rand())/(image_width_f-1.);
+            let v = (j_f+f64::rand())/(image_height_f-1.);
+            let ray = camera.get_ray(u,1.0-v);
+            let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
+
+            let curr_color = unsafe { (*colors_box.colors)[idx] };
+            let next_samples = curr_samples + 1;
+            let next_color = curr_color+pixel_color;
+
+            unsafe { (*(colors_box.colors))[idx]  = next_color; }
+            unsafe { (*(colors_box.samples))[idx] = next_samples; }
+
+            //Inform sample is done to Log Thread
+            samples_atom.fetch_add(1,Ordering::Relaxed);
+            pixels_done += (next_samples == samples_per_pixel) as usize;
         }
     }
 }
@@ -155,7 +180,6 @@ fn main() {
     let image_height_f: f64 = image_width_f/ aspect_ratio;
     let image_height:   u64 = image_height_f as u64;
     let image_size:     u64 = image_width*image_height;
-    let image_size_f:   f64 = image_width_f*image_height_f;
 
     let camera: Camera;
     {
@@ -171,16 +195,18 @@ fn main() {
     let max_depth = 20;
     let world = random_scene();
 
-    let pixels_atomic = AtomicU64::new(0);
-    let arc_pixels_atomic = Arc::new(pixels_atomic);
+    let samples_atomic = AtomicU64::new(0);
+    let arc_samples_atomic = Arc::new(samples_atomic);
     
     {//Log thread
-        let pxls_atom = arc_pixels_atomic.clone();
+        let smpls_atom = arc_samples_atomic.clone();
         thread::spawn(move || {
+            let total_samples = image_size*samples_per_pixel;
+            let total_samples_f = total_samples as f64;
             loop {
-                let progress = pxls_atom.load(Ordering::Relaxed);
-                print_progress((progress as f64)/image_size_f);
-                if image_size == progress{ 
+                let progress = smpls_atom.load(Ordering::Relaxed);
+                print_progress((progress as f64)/total_samples_f);
+                if total_samples == progress{ 
                     print_progress(1.0);
                     return;
                 }
@@ -199,7 +225,7 @@ fn main() {
     assigned_thread.shrink_to_fit();
     let arc_assigned_thread = Arc::new(assigned_thread);
 
-    let colors_box = ColorsBox{colors: &mut vec!(-Color::ZERO;image_size as usize)};
+    let colors_box = ColorsBox{colors: &mut vec!(Color::ZERO;image_size as usize),samples: &mut vec!(0;image_size as usize)};
 
     let mut handlers: Vec<thread::JoinHandle<()>> = Vec::with_capacity(num_threads as usize);
     let arc_camera = Arc::new(camera);
@@ -209,7 +235,7 @@ fn main() {
     for i in 0..num_threads {
         let cam = arc_camera.clone();
         let wrld = arc_world.clone();
-        let pxls_atom = arc_pixels_atomic.clone();
+        let smpls_atom = arc_samples_atomic.clone();
         let assgn_th = arc_assigned_thread.clone();
         let tmin = 0.001;
         let tmax = 100.0;//@TODO: You could find these from bounding boxes from the scene
@@ -217,24 +243,25 @@ fn main() {
             return draw(&cam,&wrld,max_depth,tmin,tmax,
                 samples_per_pixel,image_width,image_height,
                 colors_box,
-                i,&assgn_th,&pxls_atom);
+                i,&assgn_th,&smpls_atom);
         };
         handlers.push(thread::spawn(draw_thread));
     }
 
     let colors: &mut Vec<Color> = unsafe {&mut (*colors_box.colors) };
-    draw_to_sdl(&colors,image_width,image_height);
+    let samples: &mut Vec<u64> = unsafe {&mut (*colors_box.samples) };
+    draw_to_sdl(&colors,&samples,samples_per_pixel,image_width,image_height);
     /*
     {
         for h in handlers{
             h.join().unwrap();
         }
         arc_pixels_atomic.clone().store(image_size,Ordering::Relaxed);
-        write_ppm(&colors,image_width,image_height);
+        write_ppm(&colors,samples_per_pixel,image_width,image_height);
     }*/
 }
 
-fn draw_to_sdl(colors: &Vec<Color>,image_width: u64,image_height: u64){
+fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,image_width: u64,image_height: u64){
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -257,11 +284,9 @@ fn draw_to_sdl(colors: &Vec<Color>,image_width: u64,image_height: u64){
         canvas.with_texture_canvas(&mut texture, |texture_canvas| {
             let mut run = true;
             for pos in pixels_run..(image_width*image_height){
-                let c = colors[pos as usize];
-
-                let is_zero = c.x() == 0.;//@HACK: Expects intialization to -0.0, so we know if it actually was rendered or is just 0.
-                let is_neg = (1. as f64).copysign(c.x()) == -1.;
-                run = run && !(is_zero && is_neg);
+                let smpls = samples[pos as usize];
+                let c = normalize_color(colors[pos as usize],smpls);
+                run = run && (smpls == samples_per_pixel);
                 pixels_run += run as u64;
 
                 texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
@@ -269,6 +294,7 @@ fn draw_to_sdl(colors: &Vec<Color>,image_width: u64,image_height: u64){
                 let x = pos - y*image_width;
                 texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
             }
+            //Maybe do a Gauss/Some sort of filter to smooth out early frames? Compress sensing? :o
         }).unwrap();
 
         canvas.clear();
