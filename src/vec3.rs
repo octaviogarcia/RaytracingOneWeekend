@@ -2,6 +2,13 @@
 pub struct Vec3 {
     pub e: [f64;3]
 }
+
+impl std::fmt::Display for Vec3 {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Vec3{{x: {}, y: {}, z: {}}}", self.x(), self.y(), self.z())
+    }
+}
+
 // Type aliases for vec3
 pub type Point3 = Vec3;   // 3D point
 pub type Color  = Vec3;   // RGB color

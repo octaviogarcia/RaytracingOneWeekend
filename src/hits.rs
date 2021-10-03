@@ -10,22 +10,9 @@ use crate::materials::Material;
 
 pub struct HitRecord {
     pub point: Point3,
-    pub normal: Vec3,
+    pub normal: Vec3,//Always outward from the surface
     pub material: Material,
     pub t: f64,
-    pub front_face: bool,
-}
-
-impl HitRecord{
-    pub fn set_face_normal(self: &mut Self,r: &Ray,outward_normal: &Vec3) -> () {
-        self.front_face = r.dir.dot(*outward_normal) < 0.;
-        if self.front_face {
-            self.normal = *outward_normal;
-        }
-        else{
-            self.normal = -*outward_normal;
-        }
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -60,9 +47,7 @@ impl Hittable for Sphere {
         let point = r.at(root);
         let outward_normal = (point - self.center)/self.radius;
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
-        let mut rec = HitRecord{t: root,point: point,normal: Vec3::ZERO, front_face: false,material: self.material};
-        rec.set_face_normal(r,&outward_normal);
-        return Some(rec);
+        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
     }
 }
 
@@ -191,16 +176,14 @@ impl HittableList{
         'raymarch: while t < t_max && t < closest_so_far && iter < MAX_ITERS{
             iter+=1;
             let p = r.at(t);
-            let (d,normal,material) = self.get_closest_distance_normal_material(&p);
+            let (d,outward_normal,material) = self.get_closest_distance_normal_material(&p);
             match material {
                 None => {//No Marched objects in our scene
                     break 'raymarch;
                 }
                 Some(m) => {
                     if d < HIT_SIZE {//We hit something
-                        let mut hr = HitRecord{t: t,point: p,normal: Vec3::ZERO, front_face: false,material: m};
-                        hr.set_face_normal(r,&normal);
-                        rec = Some(hr);
+                        rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: m});
                     }
                     //Move forward
                     else { t += d; }//This only works if our direction in our Ray is unit length!!!

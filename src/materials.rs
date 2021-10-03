@@ -65,29 +65,34 @@ impl Material{
         let new_ray = Ray::new(hr.point, reflected + self.fuzz*Vec3::rand_in_unit_sphere());
         return MaterialScatterResult{attenuation: self.albedo,ray: new_ray};
     }
+
     pub fn scatter_dielectric(&self,r_in: &Ray,hr: &HitRecord) -> MaterialScatterResult {
+        let dir_unit = r_in.dir.unit();
+        let front_face = dir_unit.dot(hr.normal) < 0.;
         let refraction_ratio: f64;
-        if hr.front_face {
-            refraction_ratio = 1.0 / self.ior;
+        let normal: Vec3;
+        if front_face {
+            refraction_ratio = 1.0/self.ior;
+            normal = hr.normal;
         }
         else{
             refraction_ratio = self.ior;
+            normal = -hr.normal;
         }
 
-        let cos_theta = min((-r_in.dir.unit()).dot(hr.normal),1.0);
+        let cos_theta = min((-dir_unit).dot(normal),1.0);
         let sin_theta = (1.0 - cos_theta*cos_theta).sqrt();
         let cannot_refract = (refraction_ratio * sin_theta) > 1.0;
         let reflect_by_reflectante = reflectance(cos_theta, refraction_ratio) > f64::rand();
         let new_dir: Vec3;
         if cannot_refract || reflect_by_reflectante {//Reflect
-            new_dir = reflect(&r_in.dir.unit(), &hr.normal);
+            new_dir = reflect(&dir_unit, &normal);
         }
         else {
-            new_dir = refract(&r_in.dir.unit(),&hr.normal,refraction_ratio);
+            new_dir = refract(&dir_unit,&normal,refraction_ratio);
         }
-        let new_ray   = Ray::new(hr.point,new_dir);
-        let attenuation = Color::new(1.0,1.0,1.0);
-        return MaterialScatterResult{attenuation: attenuation,ray: new_ray};
+
+        return MaterialScatterResult{attenuation:  Color::new(1.0,1.0,1.0),ray: Ray::new(hr.point,new_dir.unit())};
     }
 }
 
