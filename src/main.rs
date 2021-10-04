@@ -32,20 +32,24 @@ struct ColorsBox {
 unsafe impl Send for ColorsBox{}
 
 fn ray_color(r: &Ray,world: &HittableList, depth: u64,tmin: f64,tmax: f64) -> Color{
-    if depth == 0 {
-        return Color::ZERO;
+    let mut curr_color = Color::new(1.,1.,1.);
+    let mut curr_ray: Ray = *r;
+    for _i in 0..depth{
+        match world.hit(&curr_ray,tmin,tmax) {
+            Some(hr) => {
+                let rslt = hr.material.scatter(r,&hr);
+                curr_color *= rslt.attenuation;
+                curr_ray = rslt.ray;
+            },
+            None => {
+                let unit_dir: Vec3 = r.dir.unit();
+                let t: f64 = 0.5*(unit_dir.y() + 1.0);
+                let lerped_sky_color = lerp(t,Color::new(1.0,1.0,1.0),Color::new(0.5,0.7,1.0));
+                return curr_color*lerped_sky_color;
+            }
+        }
     }
-    match world.hit(r,tmin,tmax) {
-        Some(hr) => {
-            let rslt = hr.material.scatter(r,&hr);
-            return rslt.attenuation*ray_color(&rslt.ray, world,depth-1,tmin,tmax);
-        },
-        None => {
-            let unit_dir: Vec3 = r.dir.unit();
-            let t: f64 = 0.5*(unit_dir.y() + 1.0);
-            return lerp(t,Color::new(1.0,1.0,1.0),Color::new(0.5,0.7,1.0));
-        },
-    }
+    return Color::ZERO;//If we run out of depth return black
 }
 
 

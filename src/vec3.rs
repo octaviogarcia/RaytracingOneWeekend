@@ -123,6 +123,15 @@ impl SubAssign<Vec3> for Vec3{
         *self += -other;
     }
 }
+impl MulAssign<Vec3> for Vec3{
+    fn mul_assign(&mut self, other: Vec3){
+        *self = Vec3 { e: [
+            self.e[0]*other.e[0],
+            self.e[1]*other.e[1],
+            self.e[2]*other.e[2],
+        ]}
+    }
+}
 impl MulAssign<f64> for Vec3{
     fn mul_assign(&mut self, scalar: f64){
         *self = Vec3 { e: [
