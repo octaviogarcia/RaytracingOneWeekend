@@ -138,9 +138,7 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
     //Flip it by thread odness so we don't give priority to starting pixels while drawing
     if (tid % 2) == 1 { thread_pixels = thread_pixels.into_iter().rev().collect(); }
 
-    let mut pixels_missing = thread_pixels.len();
-
-    while pixels_missing > 0{
+    for _sample in 0..samples_per_pixel{
         for pos in &thread_pixels{
             let idx = *pos;
 
@@ -161,16 +159,11 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
             let ray = camera.get_ray(u,1.0-v);
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
 
-            let curr_color = unsafe { (*colors_box.colors)[idx] };
-            let next_samples = curr_samples + 1;
-            let next_color = curr_color+pixel_color;
-
-            unsafe { (*(colors_box.colors))[idx]  = next_color; }
-            unsafe { (*(colors_box.samples))[idx] = next_samples; }
+            unsafe { (*(colors_box.colors))[idx]  += pixel_color; }
+            unsafe { (*(colors_box.samples))[idx] += 1; }
 
             //Inform sample is done to Log Thread
             samples_atom.fetch_add(1,Ordering::Relaxed);
-            pixels_missing -= (next_samples == samples_per_pixel) as usize;
         }
     }
 }
