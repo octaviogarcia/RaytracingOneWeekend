@@ -146,6 +146,7 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
             let idx = *pos;
 
             let curr_samples = unsafe { (*colors_box.samples)[idx] };
+            //@TODO: THIS!
             //Avoidable branch if we swap to end and decreasea count variable
             if curr_samples == samples_per_pixel { continue; }
 

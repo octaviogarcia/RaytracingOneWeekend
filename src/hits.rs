@@ -191,32 +191,29 @@ impl HittableList{
         {//If we started stuck in a wall... unstuck ourselves
             const MIN_STEP_SIZE: f64 = HIT_SIZE/2.;
             let (d,_,_,obj) = self.get_closest_distance_normal_material(&r.at(t));
-            if let Some(o) = obj{
-                let mut aux = d;
-                while aux < HIT_SIZE {
-                    t += MIN_STEP_SIZE;
-                    aux = o.sdf(&r.at(t));
-                }
+            let mut aux = d;
+            if obj.is_none() { return rec; }
+            let o = obj.unwrap();//Maybe its faster to match the Option than unwrap()... I'm not sure
+            while aux < HIT_SIZE {
+                t += MIN_STEP_SIZE;
+                aux = o.sdf(&r.at(t));
             }
         }
 
         let mut max_march_iter = 1024;
-        'raymarch: while t < t_max && t < closest_so_far && max_march_iter > 0{
+        while t < t_max && t < closest_so_far && max_march_iter > 0 {
             max_march_iter-=1;
             let p = r.at(t);
             let (d,outward_normal,material,_) = self.get_closest_distance_normal_material(&p);
-            match material {
-                None => {//No Marched objects in our scene
-                    break 'raymarch;
-                }
-                Some(m) => {
-                    if  d < HIT_SIZE {//We hit something
-                        rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: m});
-                    }
-                    else { //Move forward
-                        t += d;//This only works if our direction in our Ray is unit length!!!
-                    }
-                }
+
+            //Should never happen unless an object gets deleted mid transition between unstucking and raymarching
+            if material.is_none() { return rec; }
+
+            if  d < HIT_SIZE {//We hit something
+                rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: material.unwrap()});
+            }
+            else { //Move forward
+                t += d;//This only works if our direction in our Ray is unit length!!!
             }
         }
         return rec; 
