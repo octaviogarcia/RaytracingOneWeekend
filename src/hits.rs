@@ -206,7 +206,7 @@ impl HittableList{
             let p = r.at(t);
             let (d,outward_normal,material,_) = self.get_closest_distance_normal_material(&p);
 
-            //Should never happen unless an object gets deleted mid transition between unstucking and raymarching
+            //Should never happen the only raymarched object gets deleted mid transition between unstucking and raymarching
             if material.is_none() { return rec; }
 
             if  d < HIT_SIZE {//We hit something
@@ -258,18 +258,18 @@ impl HittableList{
 }
 
 //Only tested with abs(obj.sdf(r.at(t))) < HIT_SIZE
-fn root_find(obj: Option<Box<(dyn Marched + Send + Sync)>>,t: f64,r: &Ray,HIT_SIZE: f64) -> f64 {
+fn root_find(obj: Option<Box<(dyn Marched + Send + Sync)>>,t: f64,r: &Ray,hit_size: f64) -> f64 {
     let o = obj.unwrap();
 
     let mut first_side_t   = t;
     let mut first_side_val = o.sdf(&r.at(t));
     //If positive ADD to the ray, (we are going inside the surface). Else, SUBSTRACT, we are going outside.
     let sign = [-1.,1.][(first_side_val > 0.) as usize];
-    let mut other_side_t   = first_side_t + (sign)*HIT_SIZE;
+    let mut other_side_t   = first_side_t + (sign)*hit_size;
     let mut other_side_val = o.sdf(&r.at(other_side_t));
     let mut max_iters = 10;
     while (first_side_val > 0.) == (other_side_val > 0.)  && max_iters > 0{//Find a point on the other side
-        other_side_t += (sign)*HIT_SIZE;
+        other_side_t += (sign)*hit_size;
         other_side_val = o.sdf(&r.at(other_side_t));
         max_iters-=1;
     }
@@ -293,7 +293,7 @@ fn root_find(obj: Option<Box<(dyn Marched + Send + Sync)>>,t: f64,r: &Ray,HIT_SI
     let mut ti = middle_t;
     let mut fi = middle_val;
     for _i in 0..20 {
-        let eps = HIT_SIZE/10.;
+        let eps = hit_size/10.;
         let feps = o.sdf(&r.at(ti+eps));
         let dfi = (feps - fi)/eps;
         ti = ti - fi/dfi;

@@ -138,17 +138,18 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
     //Flip it by thread odness so we don't give priority to starting pixels while drawing
     if (tid % 2) == 1 { thread_pixels = thread_pixels.into_iter().rev().collect(); }
 
-    let mut pixels_done = 0;
-    let thread_pixels_length = thread_pixels.len();
-     
-    while pixels_done != thread_pixels_length{
+    let mut pixels_missing = thread_pixels.len();
+
+    while pixels_missing > 0{
         for pos in &thread_pixels{
             let idx = *pos;
 
             let curr_samples = unsafe { (*colors_box.samples)[idx] };
-            //@TODO: THIS!
-            //Avoidable branch if we swap to end and decreasea count variable
-            if curr_samples == samples_per_pixel { continue; }
+
+            //We don't need to check this because the pixels are done sequentially by this single thread
+            //So in the last iteration, thread_pixels.len() are complete in order presented, quitting the outside loop
+            //if curr_samples == samples_per_pixel { continue; }
+            debug_assert!(curr_samples < samples_per_pixel);
 
             let line = (idx as u64) / image_width;
             let col  = (idx as u64) - image_width*line;
@@ -169,7 +170,7 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
 
             //Inform sample is done to Log Thread
             samples_atom.fetch_add(1,Ordering::Relaxed);
-            pixels_done += (next_samples == samples_per_pixel) as usize;
+            pixels_missing -= (next_samples == samples_per_pixel) as usize;
         }
     }
 }
