@@ -187,10 +187,9 @@ impl HittableList{
 
         //Ray marching section
         const HIT_SIZE: f64 = 0.001;
-        const MIN_STEP_SIZE: f64 = HIT_SIZE/2.;//@TODO: Find something that won't mess up DIELECTRICS
-
         let mut t = t_min;
         {//If we started stuck in a wall... unstuck ourselves
+            const MIN_STEP_SIZE: f64 = HIT_SIZE/2.;
             let (d,_,_,obj) = self.get_closest_distance_normal_material(&r.at(t));
             if let Some(o) = obj{
                 let mut aux = d;
@@ -205,66 +204,17 @@ impl HittableList{
         'raymarch: while t < t_max && t < closest_so_far && max_march_iter > 0{
             max_march_iter-=1;
             let p = r.at(t);
-            let (d,outward_normal,material,obj) = self.get_closest_distance_normal_material(&p);
+            let (d,outward_normal,material,_) = self.get_closest_distance_normal_material(&p);
             match material {
                 None => {//No Marched objects in our scene
                     break 'raymarch;
                 }
                 Some(m) => {
                     if  d < HIT_SIZE {//We hit something
-                        if m.mat_type == crate::materials::MaterialType::DIELECTRIC {
-                                //If its DIELECTRIC root find to ridiculous precision so it renders properly
-                                let o = obj.unwrap();
-                                
-                                let mut first_side_t   = t;
-                                let mut first_side_val = o.sdf(&p);
-                                //If positive ADD to the ray, (we are going inside the surface). Else, SUBSTRACT, we are going outside.
-                                let sign = [-1.,1.][(first_side_val > 0.) as usize];
-                                let mut other_side_t   = first_side_t + (sign)*HIT_SIZE;
-                                let mut other_side_val = o.sdf(&r.at(other_side_t));
-                                let mut max_iters = 10;
-                                while (first_side_val > 0.) == (other_side_val > 0.)  && max_iters > 0{//Find a point on the other side
-                                    other_side_t += (sign)*HIT_SIZE;
-                                    other_side_val = o.sdf(&r.at(other_side_t));
-                                    max_iters-=1;
-                                }
-                                if max_iters == 0 {break 'raymarch;}
-
-                                //Now bisect
-                                let mut middle_t   = (first_side_t + other_side_t)/2.;
-                                let mut middle_val = o.sdf(&r.at(middle_t));
-                                for _i in 0..5 {
-                                    if (middle_val > 0.) == (first_side_val > 0.){
-                                        first_side_t   = middle_t;
-                                        first_side_val = middle_val;
-                                    }
-                                    else if (middle_val > 0.) == (other_side_val > 0.){
-                                        other_side_t   = middle_t;
-                                        other_side_val = middle_val;
-                                    }
-                                    middle_t   = (first_side_t + other_side_t)/2.;
-                                    middle_val = o.sdf(&r.at(middle_t));
-                                }
-                                //Asume its good enough to do Newtons
-                                let mut ti = middle_t;
-                                let mut fi = middle_val;
-                                for _i in 0..20 {
-                                    let eps = HIT_SIZE/10.;
-                                    let feps = o.sdf(&r.at(ti+eps));
-                                    let dfi = (feps - fi)/eps;
-                                    ti = ti - fi/dfi;
-                                    fi = o.sdf(&r.at(ti)); 
-                                }
-                                let point  = r.at(ti);
-                                let normal = o.get_outward_normal(&point);
-                                rec = Some(HitRecord{t: ti,point: point,normal: normal, material: m});
-                            }
-                            else{
-                                rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: m});
-                            }
-                        }
-                        //Move forward
-                        else { t += max(d,0.);//,MIN_STEP_SIZE); }//This only works if our direction in our Ray is unit length!!!
+                        rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: m});
+                    }
+                    else { //Move forward
+                        t += d;//This only works if our direction in our Ray is unit length!!!
                     }
                 }
             }
@@ -278,20 +228,18 @@ impl HittableList{
         let mut material = None;
         let mut found_obj: Option<Box<(dyn Marched + Send + Sync)>> = None;
         for obj in &self.marched_spheres {
-            let d = obj.sdf(p);//Not an actual vtable call, just a normal fast function call
-            let absd = abs(d);
-            if absd < max_dis {
-                max_dis = absd;
+            let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
+            if d < max_dis {
+                max_dis = d;
                 normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
                 material = Some(obj.material);
                 found_obj = Some(Box::new(*obj));
             }
         }
         for obj in &self.marched_boxes {
-            let d = obj.sdf(p);//Not an actual vtable call, just a normal fast function call
-            let absd = abs(d);
-            if absd < max_dis {
-                max_dis = absd;
+            let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
+            if d < max_dis {
+                max_dis = d;
                 normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
                 material = Some(obj.material);
                 found_obj = Some(Box::new(*obj));
@@ -299,10 +247,9 @@ impl HittableList{
         }
         //@TODO: See how I can return dynamic Marched objects
         /*for obj in &self.marched_objects {
-            let d = obj.sdf(p);//Not an actual vtable call, just a normal fast function call
-            let absd = abs(d);
-            if absd < max_dis {
-                max_dis = absd;
+            let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
+            if d < max_dis {
+                max_dis = d;
                 let o = obj.clone();
                 normal = o.get_outward_normal(p);//Slow vtable call
                 material = Some(*o.material());//Slow vtable call
@@ -311,4 +258,49 @@ impl HittableList{
         }*/
         return (max_dis,normal,material,found_obj);
     }
+}
+
+//Only tested with abs(obj.sdf(r.at(t))) < HIT_SIZE
+fn root_find(obj: Option<Box<(dyn Marched + Send + Sync)>>,t: f64,r: &Ray,HIT_SIZE: f64) -> f64 {
+    let o = obj.unwrap();
+
+    let mut first_side_t   = t;
+    let mut first_side_val = o.sdf(&r.at(t));
+    //If positive ADD to the ray, (we are going inside the surface). Else, SUBSTRACT, we are going outside.
+    let sign = [-1.,1.][(first_side_val > 0.) as usize];
+    let mut other_side_t   = first_side_t + (sign)*HIT_SIZE;
+    let mut other_side_val = o.sdf(&r.at(other_side_t));
+    let mut max_iters = 10;
+    while (first_side_val > 0.) == (other_side_val > 0.)  && max_iters > 0{//Find a point on the other side
+        other_side_t += (sign)*HIT_SIZE;
+        other_side_val = o.sdf(&r.at(other_side_t));
+        max_iters-=1;
+    }
+    if max_iters == 0 {return INF;}
+    //Now bisect
+    let mut middle_t   = (first_side_t + other_side_t)/2.;
+    let mut middle_val = o.sdf(&r.at(middle_t));
+    for _i in 0..5 {
+        if (middle_val > 0.) == (first_side_val > 0.){
+            first_side_t   = middle_t;
+            first_side_val = middle_val;
+        }
+        else if (middle_val > 0.) == (other_side_val > 0.){
+            other_side_t   = middle_t;
+            other_side_val = middle_val;
+        }
+        middle_t   = (first_side_t + other_side_t)/2.;
+        middle_val = o.sdf(&r.at(middle_t));
+    }
+    //Asume its good enough to do Newtons
+    let mut ti = middle_t;
+    let mut fi = middle_val;
+    for _i in 0..20 {
+        let eps = HIT_SIZE/10.;
+        let feps = o.sdf(&r.at(ti+eps));
+        let dfi = (feps - fi)/eps;
+        ti = ti - fi/dfi;
+        fi = o.sdf(&r.at(ti)); 
+    }
+    return ti;
 }

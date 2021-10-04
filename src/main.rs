@@ -82,8 +82,8 @@ fn random_scene() -> HittableList{
     {
         let mat = Material::new_dielectric(1.5);
         //world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
-        //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
-        world.add_marched_box(&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
+        world.add_marched_sphere(&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
+        //world.add_marched_box(&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
     }
     {
         let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));
@@ -140,12 +140,13 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
 
     let mut pixels_done = 0;
     let thread_pixels_length = thread_pixels.len();
-    
+     
     while pixels_done != thread_pixels_length{
         for pos in &thread_pixels{
             let idx = *pos;
 
             let curr_samples = unsafe { (*colors_box.samples)[idx] };
+            //Avoidable branch if we swap to end and decreasea count variable
             if curr_samples == samples_per_pixel { continue; }
 
             let line = (idx as u64) / image_width;
