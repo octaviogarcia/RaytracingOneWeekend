@@ -86,8 +86,9 @@ fn random_scene() -> HittableList{
     {
         let mat = Material::new_dielectric(1.5);
         //world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
-        world.add_marched_sphere(&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
+        //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
         //world.add_marched_box(&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
+        world.add_marched_torus(&MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat});
     }
     {
         let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));

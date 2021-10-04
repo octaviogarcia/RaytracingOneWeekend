@@ -59,7 +59,7 @@ pub trait Marched {
     fn center(&self) -> &Point3;
 }
 
-pub fn get_outward_numeric_normal(marched: &dyn Marched,p: &Point3) -> Vec3{
+pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> Vec3{
     let eps = 0.0000001;
     let ex = Point3::new(eps, 0., 0.);
     let ey = Point3::new( 0.,eps, 0.);
@@ -124,11 +124,37 @@ impl Marched for MarchedBox {
         return &self.center;
     }
 }
+
+#[derive(Copy, Clone)]
+pub struct MarchedTorus {
+    pub center: Point3,
+    pub sizes: Vec3,//Vec2... actualy
+    pub material: Material
+}
+
+impl Marched for MarchedTorus {
+    fn sdf(&self,p: &Point3) -> f64 {
+        let p2 = *p - self.center;
+        let q = Vec3::new(Vec3::new(p2.x(),p2.z(),0.).length()-self.sizes.x(),p2.y(),0.);
+        return q.length() - self.sizes.y();
+    }
+    fn get_outward_normal(&self,p: &Point3) -> Vec3 {
+        return get_outward_numeric_normal(self,p);
+    }
+    fn material(&self) -> &Material{
+        return &self.material;
+    }
+    fn center(&self) -> &Point3{
+        return &self.center;
+    }
+}
+
 pub struct HittableList{
     pub spheres: Vec<Sphere>,
     pub objects: Vec<Box<dyn Hittable + Send + Sync>>,
     pub marched_spheres: Vec<MarchedSphere>,
     pub marched_boxes: Vec<MarchedBox>,
+    pub marched_torus: Vec<MarchedTorus>,
     pub marched_objects: Vec<Box<dyn Marched + Send + Sync>>,
 }
 
@@ -139,6 +165,7 @@ impl HittableList{
             objects: Vec::new(),
             marched_spheres: Vec::new(),
             marched_boxes: Vec::new(),
+            marched_torus: Vec::new(),
             marched_objects: Vec::new()};
     }
     pub fn add_sphere(&mut self,obj: &Sphere) -> () {
@@ -153,6 +180,9 @@ impl HittableList{
     pub fn add_marched_box(&mut self,obj: &MarchedBox) -> () {
         self.marched_boxes.push(*obj);
     }
+    pub fn add_marched_torus(&mut self,obj: &MarchedTorus) -> () {
+        self.marched_torus.push(*obj);
+    }
     pub fn add_marched(&mut self,obj: Box<dyn Marched + Send + Sync>) -> () {
         self.marched_objects.push(obj);
     }
@@ -161,6 +191,7 @@ impl HittableList{
         self.objects.clear();
         self.marched_spheres.clear();
         self.marched_boxes.clear();
+        self.marched_torus.clear();
         self.marched_objects.clear();
     }
 
@@ -196,7 +227,7 @@ impl HittableList{
             let o = obj.unwrap();//Maybe its faster to match the Option than unwrap()... I'm not sure
             while aux < HIT_SIZE {
                 t += MIN_STEP_SIZE;
-                aux = o.sdf(&r.at(t));
+                aux = o.sdf(&r.at(t)).abs();
             }
         }
 
@@ -234,6 +265,15 @@ impl HittableList{
             }
         }
         for obj in &self.marched_boxes {
+            let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
+            if d < max_dis {
+                max_dis = d;
+                normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
+                material = Some(obj.material);
+                found_obj = Some(Box::new(*obj));
+            }
+        }
+        for obj in &self.marched_torus {
             let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
             if d < max_dis {
                 max_dis = d;
