@@ -1,11 +1,7 @@
 use crate::vec3;
 use vec3::Vec3;
 use vec3::Point3;
-use crate::utils::INF;
-use crate::utils::max;
-use crate::utils::min;
-use crate::utils::abs;
-
+use crate::utils::{INF,max,min};
 use crate::ray::Ray;
 use crate::materials::Material;
 

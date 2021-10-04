@@ -49,7 +49,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64,tmin: f64,tmax: f64) -> Co
             }
         }
     }
-    return Color::ZERO;//If we run out of depth return black
+    return -Color::ZERO;//If we run out of depth return -black
 }
 
 
@@ -192,8 +192,8 @@ fn main() {
         camera = Camera::new(lookfrom,lookat,vup,20.,aspect_ratio,aperture,dist_to_focus);
     }
 
-    let samples_per_pixel = 20;
-    let max_depth = 20;
+    let samples_per_pixel = 200;
+    let max_depth = 50;
     let world = random_scene();
 
     let samples_atomic = AtomicU64::new(0);
@@ -216,7 +216,7 @@ fn main() {
         });
     }
 
-    let num_threads = (num_cpus::get()-1) as u64;//Leave 1 thread for logging and drawing
+    let num_threads = num_cpus::get() as u64;
 
     let mut assigned_thread: Vec<u64> = Vec::with_capacity(image_size as usize);
     for cidx in 0..image_size{
@@ -266,7 +266,7 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,ima
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
-    let window = video_subsystem.window("raytracer", image_width as u32, image_height as u32)
+    let window = video_subsystem.window("ottomarcher", image_width as u32, image_height as u32)
     .position_centered().build().unwrap();
 
     let mut canvas = window.into_canvas().build().unwrap();
@@ -275,7 +275,6 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,ima
     canvas.present();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
-    let mut pixels_run = 0;//Cache the longest pixel run... to avoid retexturing too much. Requires initialization to -0.0
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator
     .create_texture_target(texture_creator.default_pixel_format(), image_width as u32, image_height as u32)
@@ -283,19 +282,43 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,ima
 
     'running: loop {
         canvas.with_texture_canvas(&mut texture, |texture_canvas| {
-            let mut run = true;
-            for pos in pixels_run..(image_width*image_height){
+            for pos in 0..(image_width*image_height){
                 let smpls = samples[pos as usize];
                 let c = normalize_color(colors[pos as usize],smpls);
-                run = run && (smpls == samples_per_pixel);
-                pixels_run += run as u64;
-
                 texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
                 let y = pos / image_width;
                 let x = pos - y*image_width;
                 texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
             }
-            //Maybe do a Gauss/Some sort of filter to smooth out early frames? Compress sensing? :o
+            //Some shitty filter to denoise early frames. Maybe try doing Compress sensing or something like that
+            //When samples are low, it averages on neighbours. When samples are high, it priorizes takes the "true" pixel value
+            for line in 1..(image_height-1) {
+                for col in 1..(image_width-1) {
+                    let smpls = samples[(line*image_width+col) as usize] as f64;
+                    let samples_ratio = samples[(line*image_width+col) as usize] as f64/samples_per_pixel as f64;
+                    let outside = (1.0-samples_ratio)*smpls;//from smpls to 0.
+                    let filter: [[f64; 3]; 3] = [
+                        [outside,outside,outside],
+                        [outside,  smpls,outside],
+                        [outside,outside,outside]];
+                    let mut c = Color::new(0.,0.,0.);
+                    let mut total_w = 0.;
+                    for fline in 0..3{
+                        for fcol in 0..3{
+                            let aux_line = line+(fline-1);
+                            let aux_col  = col+(fcol-1);
+                            let pos = (aux_line*image_width+aux_col) as usize;
+                            let aux = normalize_color(colors[pos],samples[pos]);
+                            let w = filter[fline as usize][fcol as usize];
+                            c += w*aux;
+                            total_w += w;
+                        }
+                    }
+                    c /= total_w;
+                    texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
+                    texture_canvas.draw_point(sdl2::rect::Point::new(col as i32, line as i32)).unwrap();
+                }
+            }
         }).unwrap();
 
         canvas.clear();
@@ -310,6 +333,6 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,ima
         }
         canvas.copy(&texture,None,None).unwrap();
         canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 15));
+        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 2));
     }
 }
