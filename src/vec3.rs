@@ -171,7 +171,16 @@ impl Mul<Vec3> for Vec3{
             self.e[2]*other.e[2],
         ]}
     }
-
+}
+impl Div<Vec3> for Vec3{
+    type Output = Self;
+    fn div(self, other: Vec3) -> Vec3{
+        Vec3 { e : [
+            self.e[0]/other.e[0],
+            self.e[1]/other.e[1],
+            self.e[2]/other.e[2],
+        ]}
+    }
 }
 impl Mul<f64> for Vec3{
     type Output = Self;

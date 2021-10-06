@@ -28,6 +28,7 @@ use rand::prelude::*;
 struct ColorsBox {
     pub colors: *mut Vec<Color>,
     pub samples: *mut Vec<u64>,
+    pub true_samples: *mut Vec<u32>,
 }
 unsafe impl Send for ColorsBox{}
 
@@ -134,25 +135,31 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
     let image_size = (image_width*image_height) as usize;
 
     let mut thread_pixels: Vec<usize> = Vec::with_capacity(image_size);
+    let mut thread_pixels_stats: Vec<u32> = Vec::with_capacity(image_size);
     for pos in 0..image_size {
         if assigned_thread[pos] == tid {
             thread_pixels.push(pos);
+            thread_pixels_stats.push(0);
         }
     }
     thread_pixels.shrink_to_fit();
     //Flip it by thread odness so we don't give priority to starting pixels while drawing
     if (tid % 2) == 1 { thread_pixels = thread_pixels.into_iter().rev().collect(); }
 
+    const EPS: f64 = 0.01; 
+    const MAX_USELESS_RUNS: u32 = 5;
+
     for _sample in 0..samples_per_pixel{
-        for pos in &thread_pixels{
+        for (pos_idx,pos) in thread_pixels.iter().enumerate(){
             let idx = *pos;
 
             let curr_samples = unsafe { (*colors_box.samples)[idx] };
 
-            //We don't need to check this because the pixels are done sequentially by this single thread
-            //So in the last iteration, thread_pixels.len() are complete in order presented, quitting the outside loop
-            //if curr_samples == samples_per_pixel { continue; }
-            debug_assert!(curr_samples < samples_per_pixel);
+            //@TODO: Swap to the end to avoid branching
+            if curr_samples == samples_per_pixel { 
+                continue;
+            }
+            //debug_assert!(curr_samples < samples_per_pixel);
 
             let line = (idx as u64) / image_width;
             let col  = (idx as u64) - image_width*line;
@@ -164,8 +171,27 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
             let ray = camera.get_ray(u,1.0-v);
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
 
-            unsafe { (*(colors_box.colors))[idx]  += pixel_color; }
-            unsafe { (*(colors_box.samples))[idx] += 1; }
+            unsafe {
+                let old_color = (*(colors_box.colors))[idx]/(curr_samples as f64);
+
+                (*(colors_box.colors))[idx]  += pixel_color; 
+                (*(colors_box.samples))[idx] += 1;
+                (*(colors_box.true_samples))[idx] += 1;
+
+                let curr_color = (*(colors_box.colors))[idx]/(curr_samples as f64 + 1.);
+                let var = (curr_color/old_color) - Color::new(1.,1.,1.);
+                let stats = max(max(var.x(),var.y()),var.z());
+                thread_pixels_stats[pos_idx] += (stats < EPS) as u32;
+                thread_pixels_stats[pos_idx] *= (stats < EPS) as u32;
+
+                if thread_pixels_stats[pos_idx] == MAX_USELESS_RUNS {
+                    (*(colors_box.colors))[idx]  = curr_color*(samples_per_pixel as f64);
+                    (*(colors_box.samples))[idx] = samples_per_pixel;
+                    for _s in 0..(samples_per_pixel - curr_samples - 1){
+                        samples_atom.fetch_add(1,Ordering::Relaxed);
+                    }
+                }
+            }
 
             //Inform sample is done to Log Thread
             samples_atom.fetch_add(1,Ordering::Relaxed);
@@ -226,7 +252,9 @@ fn main() {
     assigned_thread.shrink_to_fit();
     let arc_assigned_thread = Arc::new(assigned_thread);
 
-    let colors_box = ColorsBox{colors: &mut vec!(Color::ZERO;image_size as usize),samples: &mut vec!(0;image_size as usize)};
+    let colors_box = ColorsBox{colors: &mut vec!(Color::ZERO;image_size as usize),
+                               samples: &mut vec!(0;image_size as usize),
+                               true_samples: &mut vec!(0;image_size as usize)};
 
     let mut handlers: Vec<thread::JoinHandle<()>> = Vec::with_capacity(num_threads as usize);
     let arc_camera = Arc::new(camera);
@@ -251,7 +279,8 @@ fn main() {
 
     let colors: &mut Vec<Color> = unsafe {&mut (*colors_box.colors) };
     let samples: &mut Vec<u64> = unsafe {&mut (*colors_box.samples) };
-    draw_to_sdl(&colors,&samples,samples_per_pixel,image_width,image_height);
+    let true_samples: &mut Vec<u32> = unsafe {&mut (*colors_box.true_samples) };
+    draw_to_sdl(&colors,&samples,&true_samples,samples_per_pixel,image_width,image_height);
     /*
     {
         for h in handlers{
@@ -262,7 +291,7 @@ fn main() {
     }*/
 }
 
-fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,image_width: u64,image_height: u64){
+fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,true_samples: &Vec<u32>,samples_per_pixel: u64,image_width: u64,image_height: u64){
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -280,8 +309,28 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,ima
     .create_texture_target(texture_creator.default_pixel_format(), image_width as u32, image_height as u32)
     .unwrap();
 
+    let mut show_samples = false;
+
     'running: loop {
         canvas.with_texture_canvas(&mut texture, |texture_canvas| {
+            if show_samples {
+                let mut max_samples = 1.0;
+                for pos in 0..(image_width*image_height){
+                    if (true_samples[pos as usize] as f64) > max_samples {
+                        max_samples = true_samples[pos as usize] as f64;
+                    }
+                }
+                for pos in 0..(image_width*image_height){
+                    let smpls = (true_samples[pos as usize] as f64)/max_samples;
+                    let c = Color::new(smpls,smpls,smpls);
+                    texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
+                    let y = pos / image_width;
+                    let x = pos - y*image_width;
+                    texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
+                }
+                return;
+            }
+
             for pos in 0..(image_width*image_height){
                 let smpls = samples[pos as usize];
                 let c = normalize_color(colors[pos as usize],smpls);
@@ -295,14 +344,14 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,ima
             for line in 1..(image_height-1) {
                 for col in 1..(image_width-1) {
                     let smpls = samples[(line*image_width+col) as usize] as f64;
-                    let samples_ratio = samples[(line*image_width+col) as usize] as f64/samples_per_pixel as f64;
-                    let outside = (1.0-samples_ratio)*smpls;//from smpls to 0.
+                    let inside = samples_per_pixel as f64 + smpls;//Starts at spp, goes to 2*spp
+                    let outside = samples_per_pixel as f64 - smpls;//Starts at spp, goes to 0
+                    let total_w = outside*8. + inside;
                     let filter: [[f64; 3]; 3] = [
                         [outside,outside,outside],
-                        [outside,  smpls,outside],
+                        [outside, inside,outside],
                         [outside,outside,outside]];
                     let mut c = Color::new(0.,0.,0.);
-                    let mut total_w = 0.;
                     for fline in 0..3{
                         for fcol in 0..3{
                             let aux_line = line+(fline-1);
@@ -311,7 +360,6 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,ima
                             let aux = normalize_color(colors[pos],samples[pos]);
                             let w = filter[fline as usize][fcol as usize];
                             c += w*aux;
-                            total_w += w;
                         }
                     }
                     c /= total_w;
@@ -327,6 +375,9 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,samples_per_pixel: u64,ima
                 Event::Quit {..} |
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
                     break 'running
+                },
+                Event::KeyDown { keycode: Some(Keycode::Space), .. } => {
+                    show_samples = show_samples ^ true;
                 },
                 _ => {}
             }
