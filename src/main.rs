@@ -134,15 +134,24 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
     let image_height_f = image_height as f64;
     let image_size = (image_width*image_height) as usize;
 
-    let mut thread_pixels: Vec<usize> = Vec::with_capacity(image_size);
-    let mut thread_pixels_stats: Vec<u32> = Vec::with_capacity(image_size);
+    let mut thread_pixels:       Vec<usize> = Vec::with_capacity(image_size);
+    let mut thread_pixels_len:  usize;
+    let mut thread_pixels_back:  Vec<usize> = Vec::with_capacity(image_size);
+    let mut thread_pixels_back_len:  usize = 0;
+    let mut thread_pixels_useless_runs: Vec<u32>   = Vec::with_capacity(image_size);
     for pos in 0..image_size {
         if assigned_thread[pos] == tid {
             thread_pixels.push(pos);
-            thread_pixels_stats.push(0);
+            thread_pixels_back.push(9999999);
+            thread_pixels_useless_runs.push(0);
         }
     }
+
     thread_pixels.shrink_to_fit();
+    thread_pixels_len = thread_pixels.len();
+    thread_pixels_back.shrink_to_fit();
+    thread_pixels_useless_runs.shrink_to_fit();
+
     //Flip it by thread odness so we don't give priority to starting pixels while drawing
     if (tid % 2) == 1 { thread_pixels = thread_pixels.into_iter().rev().collect(); }
 
@@ -150,16 +159,11 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
     const MAX_USELESS_RUNS: u32 = 5;
 
     for _sample in 0..samples_per_pixel{
-        for (pos_idx,pos) in thread_pixels.iter().enumerate(){
-            let idx = *pos;
-
+        for pos_idx in 0..thread_pixels_len{
+            let idx = thread_pixels[pos_idx];
             let curr_samples = unsafe { (*colors_box.samples)[idx] };
-
-            //@TODO: Swap to the end to avoid branching
-            if curr_samples == samples_per_pixel { 
-                continue;
-            }
-            //debug_assert!(curr_samples < samples_per_pixel);
+            //Should never happen since we upkeep undone pixels with a backbuffer
+            //assert!(curr_samples < samples_per_pixel);
 
             let line = (idx as u64) / image_width;
             let col  = (idx as u64) - image_width*line;
@@ -174,28 +178,35 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
             unsafe {
                 let old_color = (*(colors_box.colors))[idx]/(curr_samples as f64);
 
-                (*(colors_box.colors))[idx]  += pixel_color; 
-                (*(colors_box.samples))[idx] += 1;
+                (*(colors_box.colors))[idx]       += pixel_color; 
+                (*(colors_box.samples))[idx]      += 1;
                 (*(colors_box.true_samples))[idx] += 1;
 
                 let curr_color = (*(colors_box.colors))[idx]/(curr_samples as f64 + 1.);
-                let var = (curr_color/old_color) - Color::new(1.,1.,1.);
+                let var = ((curr_color/old_color) - Color::new(1.,1.,1.)).abs();
                 let stats = max(max(var.x(),var.y()),var.z());
-                thread_pixels_stats[pos_idx] += (stats < EPS) as u32;
-                thread_pixels_stats[pos_idx] *= (stats < EPS) as u32;
+                
+                thread_pixels_useless_runs[pos_idx] += (stats < EPS) as u32;
+                thread_pixels_useless_runs[pos_idx] *= (stats < EPS) as u32;
 
-                if thread_pixels_stats[pos_idx] == MAX_USELESS_RUNS {
-                    (*(colors_box.colors))[idx]  = curr_color*(samples_per_pixel as f64);
-                    (*(colors_box.samples))[idx] = samples_per_pixel;
-                    for _s in 0..(samples_per_pixel - curr_samples - 1){
-                        samples_atom.fetch_add(1,Ordering::Relaxed);
-                    }
-                }
+                let mur     =  (thread_pixels_useless_runs[pos_idx] == MAX_USELESS_RUNS) as u64;
+                let mur_neg = (!(thread_pixels_useless_runs[pos_idx] == MAX_USELESS_RUNS)) as u64;
+                let aux_samples = mur*samples_per_pixel+mur_neg*(curr_samples+1);
+                (*(colors_box.samples))[idx] = aux_samples;
+                (*(colors_box.colors))[idx]  = (aux_samples as f64)*curr_color;
+                samples_atom.fetch_add(aux_samples-curr_samples-1,Ordering::Relaxed);//-1 cause we fetch_add downthere
+
+                //If the pixel render is "not useless", keep adding to the back buffer to draw in the next iteration
+                thread_pixels_back[thread_pixels_back_len] = idx;
+                thread_pixels_back_len+=mur_neg as usize;
             }
 
             //Inform sample is done to Log Thread
             samples_atom.fetch_add(1,Ordering::Relaxed);
         }
+        ::std::mem::swap(&mut thread_pixels,&mut thread_pixels_back);
+        thread_pixels_len = thread_pixels_back_len;
+        thread_pixels_back_len = 0;
     }
 }
 
@@ -242,7 +253,7 @@ fn main() {
         });
     }
 
-    let num_threads = num_cpus::get() as u64;
+    let num_threads = num_cpus::get() as u64 - 1;
 
     let mut assigned_thread: Vec<u64> = Vec::with_capacity(image_size as usize);
     for cidx in 0..image_size{
@@ -322,7 +333,7 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,true_samples: &Vec<u32>,sa
                 }
                 for pos in 0..(image_width*image_height){
                     let smpls = (true_samples[pos as usize] as f64)/max_samples;
-                    let c = Color::new(smpls,smpls,smpls);
+                    let c = normalize_color(Color::new(smpls,smpls,smpls),1);
                     texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
                     let y = pos / image_width;
                     let x = pos - y*image_width;
@@ -341,7 +352,7 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,true_samples: &Vec<u32>,sa
             }
             //Some shitty filter to denoise early frames. Maybe try doing Compress sensing or something like that
             //When samples are low, it averages on neighbours. When samples are high, it priorizes takes the "true" pixel value
-            for line in 1..(image_height-1) {
+            /*for line in 1..(image_height-1) {
                 for col in 1..(image_width-1) {
                     let smpls = samples[(line*image_width+col) as usize] as f64;
                     let inside = samples_per_pixel as f64 + smpls;//Starts at spp, goes to 2*spp
@@ -366,7 +377,7 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,true_samples: &Vec<u32>,sa
                     texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
                     texture_canvas.draw_point(sdl2::rect::Point::new(col as i32, line as i32)).unwrap();
                 }
-            }
+            }*/
         }).unwrap();
 
         canvas.clear();
