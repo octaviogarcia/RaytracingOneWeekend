@@ -86,22 +86,25 @@ fn random_scene() -> HittableList{
     }
     {
         let mat = Material::new_dielectric(1.5);
-        //world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
+        world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
         //world.add_marched_box(&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
-        world.add_marched_torus(&MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat});
+        //world.add_marched_torus(&MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat});
+        //world.add_infinite_plane(&InfinitePlane{center: Point3::new(0.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat});
     }
     {
         let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));
-        //world.add_sphere(&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
+        world.add_sphere(&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
-        world.add_marched_box(&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat});
+        //world.add_marched_box(&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat});
+        //world.add_infinite_plane(&InfinitePlane{center: Point3::new(-4.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat});
     }
     {
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));
         //world.add_sphere(&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
         world.add_marched_box(&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
+        //world.add_infinite_plane(&InfinitePlane{center: Point3::new(4.,1.,0.),normal: Vec3::new(0.,0.,1.), material:  Material::new_metal(Color::new(1.,1.,1.))});
     }
     return world;
 }
@@ -384,7 +387,7 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,true_samples: &Vec<u32>,sa
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} |
-                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {//@TODO: Clean up of threads
                     break 'running
                 },
                 Event::KeyDown { keycode: Some(Keycode::Space), .. } => {

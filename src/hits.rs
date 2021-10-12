@@ -48,6 +48,56 @@ impl Hittable for Sphere {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct InfinitePlane {
+    pub center: Point3,
+    pub normal: Vec3,
+    pub material: Material,
+}
+/*
+//Bunch of ifs to get expected values for the axis directions... probably a more consistent way...
+if      normal.y() == 0. && normal.z() == 0.{//(nx 0 0) generates (0 nx 0),(0 0 nx)
+    u = Vec3::new(0.,normal.x(),0.).unit();
+    v = Vec3::new(0.,       0.,normal.x()).unit();
+}
+else if normal.x() == 0. && normal.z() == 0. {//(0 ny 0) generates (ny 0 0),(0 0 ny)
+    u = Vec3::new(normal.y(),0.,0.).unit();
+    v = Vec3::new(       0., 0.,normal.y()).unit();
+}
+else if normal.x() == 0. && normal.y() == 0. {//(0 0 nz) generates (nz 0 0),(0 nz 0)
+    u = Vec3::new(normal.z(),       0.,0.).unit();
+    v = Vec3::new(       0.,normal.z(),0.).unit();
+}
+else{
+    u = Vec3::new(-normal.y(),normal.x(),0.).unit();
+    v = normal.cross(u).unit();
+}*/
+
+impl Hittable for InfinitePlane {
+    fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
+        let div = self.normal.dot(r.dir.unit());
+        if div.abs() < 0.000001{//Plane is paralel to the ray
+            return None;
+        }
+        let num = -self.normal.dot(r.orig - self.center);
+        let root = num / div;
+        if root < t_min || root > t_max {//Out of range
+            return None;
+        }
+        let point = r.at(root);
+        let outward_normal: Vec3;
+        let front_face = div < 0.;
+        if front_face {
+            outward_normal = self.normal;
+        }
+        else {
+            outward_normal = -self.normal;
+        }
+        //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
+        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
+    }
+}
+
 pub trait Marched {
     fn sdf(&self,p: &Point3) -> f64;
     fn get_outward_normal(&self,p: &Point3) -> Vec3;
@@ -147,6 +197,7 @@ impl Marched for MarchedTorus {
 
 pub struct HittableList{
     pub spheres: Vec<Sphere>,
+    pub infinite_planes: Vec<InfinitePlane>,
     pub objects: Vec<Box<dyn Hittable + Send + Sync>>,
     pub marched_spheres: Vec<MarchedSphere>,
     pub marched_boxes: Vec<MarchedBox>,
@@ -158,6 +209,7 @@ impl HittableList{
     pub fn new() -> Self {
         return HittableList{
             spheres: Vec::new(),
+            infinite_planes: Vec::new(),
             objects: Vec::new(),
             marched_spheres: Vec::new(),
             marched_boxes: Vec::new(),
@@ -166,6 +218,9 @@ impl HittableList{
     }
     pub fn add_sphere(&mut self,obj: &Sphere) -> () {
         self.spheres.push(*obj);
+    }
+    pub fn add_infinite_plane(&mut self,obj: &InfinitePlane) -> () {
+        self.infinite_planes.push(*obj);
     }
     pub fn add(&mut self,obj: Box<dyn Hittable + Send + Sync>) -> () {
         self.objects.push(obj);
@@ -196,6 +251,14 @@ impl HittableList{
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         for obj in &self.spheres{
+            if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
+                if hr.t < closest_so_far {
+                    closest_so_far = hr.t;
+                    rec = Some(hr);
+                }
+            }
+        }
+        for obj in &self.infinite_planes{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 if hr.t < closest_so_far {
                     closest_so_far = hr.t;
