@@ -73,28 +73,72 @@ else{
     v = normal.cross(u).unit();
 }*/
 
+fn ray_plane_intersect(r: &Ray,plane_normal: &Vec3,plane_center: &Point3) -> (f64,f64){
+    let n = plane_normal.unit();
+    let d = r.dir.unit();
+    let div = n.dot(d);
+    if div.abs() < 0.000001{//Plane is paralel to the ray
+        return (INF,0.);
+    }
+    let num = -n.dot(r.orig - *plane_center);
+    return (num/div,div);
+}
+
 impl Hittable for InfinitePlane {
     fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
-        let div = self.normal.dot(r.dir.unit());
-        if div.abs() < 0.000001{//Plane is paralel to the ray
+        let (root,normal_dot_dir) = ray_plane_intersect(r,&self.normal,&self.center);
+        if root == INF || root < t_min || root > t_max {
             return None;
         }
-        let num = -self.normal.dot(r.orig - self.center);
-        let root = num / div;
-        if root < t_min || root > t_max {//Out of range
-            return None;
-        }
-        let point = r.at(root);
         let outward_normal: Vec3;
-        let front_face = div < 0.;
-        if front_face {
+        let front_face = normal_dot_dir < 0.;
+        if front_face {//do it faster (?) with copysign
             outward_normal = self.normal;
         }
         else {
             outward_normal = -self.normal;
         }
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
-        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
+        return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material});
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct Parallelogram {//Easier in parametric [f(t,s) = u*t+v*s+origin] form
+    pub origin: Point3,
+    pub u: Vec3,//unit
+    pub v: Vec3,//unit
+    pub u_length: f64,
+    pub v_length: f64,
+    pub material: Material,
+}
+
+impl Hittable for Parallelogram {
+    fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
+        let n = self.u.cross(self.v);
+        let (root,normal_dot_dir) = ray_plane_intersect(r,&n,&self.origin);
+        if root == INF || root < t_min || root > t_max {
+            return None;
+        }
+        let point = r.at(root);
+        let aux = point - self.origin;
+        let u_length = self.u.dot(aux);//Project onto u
+        if u_length < 0. || u_length > self.u_length{
+            return None;
+        }
+        let v_length = self.v.dot(aux);//Project onto v
+        if v_length < 0. || v_length > self.v_length{
+            return None;
+        }
+        let outward_normal: Vec3;
+        let front_face = normal_dot_dir < 0.;
+        if front_face {//do it faster (?) with copysign
+            outward_normal = n;
+        }
+        else {
+            outward_normal = -n;
+        }
+        return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material});
     }
 }
 
@@ -198,6 +242,7 @@ impl Marched for MarchedTorus {
 pub struct HittableList{
     pub spheres: Vec<Sphere>,
     pub infinite_planes: Vec<InfinitePlane>,
+    pub parallelograms: Vec<Parallelogram>,
     pub objects: Vec<Box<dyn Hittable + Send + Sync>>,
     pub marched_spheres: Vec<MarchedSphere>,
     pub marched_boxes: Vec<MarchedBox>,
@@ -210,6 +255,7 @@ impl HittableList{
         return HittableList{
             spheres: Vec::new(),
             infinite_planes: Vec::new(),
+            parallelograms: Vec::new(),
             objects: Vec::new(),
             marched_spheres: Vec::new(),
             marched_boxes: Vec::new(),
@@ -221,6 +267,9 @@ impl HittableList{
     }
     pub fn add_infinite_plane(&mut self,obj: &InfinitePlane) -> () {
         self.infinite_planes.push(*obj);
+    }
+    pub fn add_parallelogram(&mut self,obj: &Parallelogram) -> () {
+        self.parallelograms.push(*obj);
     }
     pub fn add(&mut self,obj: Box<dyn Hittable + Send + Sync>) -> () {
         self.objects.push(obj);
@@ -259,6 +308,14 @@ impl HittableList{
             }
         }
         for obj in &self.infinite_planes{
+            if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
+                if hr.t < closest_so_far {
+                    closest_so_far = hr.t;
+                    rec = Some(hr);
+                }
+            }
+        }
+        for obj in &self.parallelograms{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 if hr.t < closest_so_far {
                     closest_so_far = hr.t;

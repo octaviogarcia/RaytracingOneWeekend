@@ -69,3 +69,11 @@ pub const INF: f64 = f64::INFINITY;
 pub fn degrees_to_radians(degrees: f64) -> f64{
     return degrees * PI / 180.0;
 }
+
+pub fn round_n(f: f64,n: u64) -> f64 {
+    let mut mul = 1.0;
+    for _n in 0..n{
+        mul *= 10.0;
+    }
+    return (f*mul).round()/mul;
+}

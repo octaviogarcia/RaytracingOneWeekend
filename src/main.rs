@@ -93,11 +93,43 @@ fn random_scene() -> HittableList{
         //world.add_infinite_plane(&InfinitePlane{center: Point3::new(0.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat});
     }
     {
-        let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));
-        world.add_sphere(&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
+        //let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));
+        //world.add_sphere(&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_box(&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat});
         //world.add_infinite_plane(&InfinitePlane{center: Point3::new(-4.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat});
+        world.add_parallelogram(&Parallelogram{//xy
+            origin: Point3::new(0.,0.,0.),
+            u: Vec3::new(1.,0.,0.),
+            v: Vec3::new(0.,1.,0.),
+            u_length: 4.,
+            v_length: 1.,
+            material: Material::new_lambertian(Color::new(1.,0.,0.))}
+        );
+        world.add_parallelogram(&Parallelogram{//zy
+            origin: Point3::new(0.,0.,0.),
+            u: Vec3::new(0.,0.,1.),
+            v: Vec3::new(0.,1.,0.),
+            u_length: 1.,
+            v_length: 4.,
+            material: Material::new_lambertian(Color::new(0.,1.,0.))}
+        );
+        world.add_parallelogram(&Parallelogram{//xz
+            origin: Point3::new(0.,0.,0.),
+            u: Vec3::new(1.,0.,0.),
+            v: Vec3::new(0.,0.,1.),
+            u_length: 1.,
+            v_length: 4.,
+            material: Material::new_lambertian(Color::new(0.,0.,1.))}
+        );
+        world.add_parallelogram(&Parallelogram{
+            origin: Point3::new(6.,1.,0.),
+            u: Vec3::new(0.,1.,2.).unit(),
+            v: Vec3::new(0.,1.,-1.).unit(),
+            u_length: 0.5,
+            v_length: 0.5,
+            material: Material::new_lambertian(Color::new(1.,0.,1.))}
+        );
     }
     {
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));
@@ -107,14 +139,6 @@ fn random_scene() -> HittableList{
         //world.add_infinite_plane(&InfinitePlane{center: Point3::new(4.,1.,0.),normal: Vec3::new(0.,0.,1.), material:  Material::new_metal(Color::new(1.,1.,1.))});
     }
     return world;
-}
-
-fn round_n(f: f64,n: u64) -> f64 {
-    let mut mul = 1.0;
-    for _n in 0..n{
-        mul *= 10.0;
-    }
-    return (f*mul).round()/mul;
 }
 
 fn print_progress(progress: f64) -> (){
