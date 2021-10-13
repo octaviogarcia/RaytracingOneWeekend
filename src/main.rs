@@ -98,38 +98,27 @@ fn random_scene() -> HittableList{
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_box(&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat});
         //world.add_infinite_plane(&InfinitePlane{center: Point3::new(-4.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat});
-        world.add_parallelogram(&Parallelogram{//xy
-            origin: Point3::new(0.,0.,0.),
-            u: Vec3::new(1.,0.,0.),
-            v: Vec3::new(0.,1.,0.),
-            u_length: 4.,
-            v_length: 1.,
-            material: Material::new_lambertian(Color::new(1.,0.,0.))}
-        );
-        world.add_parallelogram(&Parallelogram{//zy
-            origin: Point3::new(0.,0.,0.),
-            u: Vec3::new(0.,0.,1.),
-            v: Vec3::new(0.,1.,0.),
-            u_length: 1.,
-            v_length: 4.,
-            material: Material::new_lambertian(Color::new(0.,1.,0.))}
-        );
-        world.add_parallelogram(&Parallelogram{//xz
-            origin: Point3::new(0.,0.,0.),
-            u: Vec3::new(1.,0.,0.),
-            v: Vec3::new(0.,0.,1.),
-            u_length: 1.,
-            v_length: 4.,
-            material: Material::new_lambertian(Color::new(0.,0.,1.))}
-        );
-        world.add_parallelogram(&Parallelogram{
-            origin: Point3::new(6.,1.,0.),
-            u: Vec3::new(0.,1.,2.).unit(),
-            v: Vec3::new(0.,1.,-1.).unit(),
-            u_length: 0.5,
-            v_length: 0.5,
-            material: Material::new_lambertian(Color::new(1.,0.,1.))}
-        );
+        world.add_parallelogram(&Parallelogram::new(//xy
+            &Point3::new(0.,0.,0.),
+            &Vec3::new_unit(1.,0.,0.),&Vec3::new_unit(0.,1.,0.),
+                                   4.,                       1.,
+            &Material::new_lambertian(Color::new(1.,0.,0.))
+        ));
+        world.add_parallelogram(&Parallelogram::new(//zy
+            &Point3::new(0.,0.,0.),
+            &Vec3::new_unit(0.,0.,1.),&Vec3::new_unit(0.,1.,0.),
+                                   1.,                       4.,
+            &Material::new_lambertian(Color::new(0.,1.,0.))
+        ));
+        world.add_parallelogram(&Parallelogram::new(//xz
+            &Point3::new(0.,0.,0.),
+            &Vec3::new_unit(1.,0.,0.), &Vec3::new_unit(0.,0.,1.),
+                                  1.,                         4.,
+            &Material::new_lambertian(Color::new(0.,0.,1.))
+        ));
+        world.add_parallelogram(&Parallelogram::new3points(
+            &Point3::new(6.,1.,0.),&Point3::new(6.,1.1,0.5),&Point3::new(6.,1.5,0.),&Material::new_lambertian(Color::new(1.,0.,1.))
+        ));
     }
     {
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));
@@ -248,8 +237,10 @@ fn main() {
 
     let camera: Camera;
     {
-        let lookfrom = Point3::new(13.,2.,3.);
-        let lookat   = Point3::new(0.,0.,0.);
+        //let lookfrom = Point3::new(13.,2.,3.);
+        let lookfrom = Point3::new(13.,1.,0.);
+        //let lookat   = Point3::new(0.,0.,0.);
+        let lookat   = Point3::new(0.,1.,0.);
         let vup      =   Vec3::new(0.,1.,0.);
         let aperture = 0.1;
         let dist_to_focus = 10.;

@@ -12,6 +12,7 @@ impl std::fmt::Display for Vec3 {
 // Type aliases for vec3
 pub type Point3 = Vec3;   // 3D point
 pub type Color  = Vec3;   // RGB color
+pub type UnitVec3 = Vec3; //Type alias just to document unit vectors
 
 use crate::utils;
 use utils::MyRandom;
@@ -20,6 +21,7 @@ use utils::{max,min,abs};
 impl Vec3{
     pub const ZERO : Self = Self{ e: [0.,0.,0.]};
     pub fn new(x: f64,y: f64,z: f64) -> Self { Self{e: [x,y,z]} }
+    pub fn new_unit(x: f64,y: f64,z: f64) -> Self { Self{e: [x,y,z]}.unit() }
 
     pub fn x(&self) -> f64{ self.e[0] }
     pub fn y(&self) -> f64{ self.e[1] }

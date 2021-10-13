@@ -1,6 +1,5 @@
 use crate::vec3;
-use vec3::Vec3;
-use vec3::Point3;
+use vec3::{Vec3,UnitVec3,Point3};
 use crate::utils::{INF,max,min};
 use crate::ray::Ray;
 use crate::materials::Material;
@@ -106,11 +105,25 @@ impl Hittable for InfinitePlane {
 #[derive(Copy, Clone)]
 pub struct Parallelogram {//Easier in parametric [f(t,s) = u*t+v*s+origin] form
     pub origin: Point3,
-    pub u: Vec3,//unit
-    pub v: Vec3,//unit
+    pub u: UnitVec3,
+    pub v: UnitVec3,
     pub u_length: f64,
     pub v_length: f64,
     pub material: Material,
+}
+
+impl Parallelogram {
+    pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f64,v_length: f64,material: &Material) -> Self{
+        //Rust doesn't have strict useful type aliases... so we re-unit u and v
+        return Self{origin: *origin,u: u.unit(),v: v.unit(),u_length: u_length,v_length: v_length,material: *material};
+    }
+    pub fn new3points(origin: &Point3,upoint: &Point3,vpoint: &Point3,material: &Material) -> Self{
+        let u = *upoint-*origin;
+        let u_length = u.length();
+        let v = *vpoint-*origin;
+        let v_length = v.length();
+        return Self{origin: *origin,u: u/u_length,v: v/v_length,u_length: u_length,v_length: v_length,material: *material};
+    }
 }
 
 impl Hittable for Parallelogram {
@@ -121,13 +134,26 @@ impl Hittable for Parallelogram {
             return None;
         }
         let point = r.at(root);
-        let aux = point - self.origin;
-        let u_length = self.u.dot(aux);//Project onto u
-        if u_length < 0. || u_length > self.u_length{
+        let point_from_origin = point - self.origin;
+
+        /*   . self.v
+            # -uvector-> *
+           /             ^
+          /             / 
+         /           vvector
+        /             / 
+        -----------#... self.u 
+        */
+        let uvector = point_from_origin - point_from_origin.dot(self.v)*self.v;
+        //u is unit length, and they are codirectional so it gets the length with sign
+        //|uvector||u|cos t = |uvector|cos t
+        let ucoord = uvector.dot(self.u);
+        if ucoord < 0. || ucoord > self.u_length{
             return None;
         }
-        let v_length = self.v.dot(aux);//Project onto v
-        if v_length < 0. || v_length > self.v_length{
+        let vvector = point_from_origin - point_from_origin.dot(self.u)*self.u;
+        let vcoord = vvector.dot(self.v);
+        if vcoord < 0. || vcoord > self.v_length{
             return None;
         }
         let outward_normal: Vec3;
