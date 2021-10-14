@@ -13,16 +13,16 @@ pub struct Camera{
     u_of_plane: Vec3,//"Up" unit plane vector
     v_of_plane: Vec3,//"Right" unit plane vector
     w_of_plane: Vec3,//Normal unit plane vector
-    lens_radius: f64,//How far is the focal point from the plane
+    lens_radius: f32,//How far is the focal point from the plane
 }
 
 impl Camera{
-    pub fn world_camera(vfov_in_degrees:f64,aspect_ratio: f64) -> Self{
+    pub fn world_camera(vfov_in_degrees:f32,aspect_ratio: f32) -> Self{
         return Self::new(Point3::ZERO,Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),vfov_in_degrees,aspect_ratio,0.,1.);
     }
     //vup defines the rotation of the camera, so where your hair is (or baldspot)
     //aperture = 0 focus_dist = 1 for "Normal camera"
-    pub fn new(lookfrom: Point3,lookat: Point3,vup: Vec3,vfov_in_degrees: f64,aspect_ratio: f64,aperture: f64,focus_dist: f64) -> Self{
+    pub fn new(lookfrom: Point3,lookat: Point3,vup: Vec3,vfov_in_degrees: f32,aspect_ratio: f32,aperture: f32,focus_dist: f32) -> Self{
         let vfov = degrees_to_radians(vfov_in_degrees);
         //if vfov is the angle between the bottom of the cone to the top of the cone, vfov/2 is angle the right triangle
         //if we set our plane at z=-1 then tan(vfov/2) = opposite/adjacent = opposite/1
@@ -44,7 +44,7 @@ impl Camera{
         return Camera{ origin: o, horizontal: h, vertical: v, lower_left_corner: llc,
             u_of_plane: u_of_plane,v_of_plane: v_of_plane,w_of_plane: w_of_plane, lens_radius: aperture / 2.0};
     }
-    pub fn get_ray(&self,u: f64,v: f64) -> Ray{
+    pub fn get_ray(&self,u: f32,v: f32) -> Ray{
         let rand_in_lens = self.lens_radius * Vec3::rand_in_unit_disc();
         let offset = self.u_of_plane*rand_in_lens.x() + self.v_of_plane*rand_in_lens.y();
         let direction = self.lower_left_corner + u*self.horizontal + v*self.vertical - self.origin;

@@ -8,22 +8,22 @@ pub struct HitRecord {
     pub point: Point3,
     pub normal: Vec3,//Always outward from the surface
     pub material: Material,
-    pub t: f64,
+    pub t: f32,
 }
 
 #[derive(Copy, Clone)]
 pub struct Sphere {
     pub center: Point3,
-    pub radius: f64,
+    pub radius: f32,
     pub material: Material
 }
 
 pub trait Hittable {
-    fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord>;
+    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
 }
 
 impl Hittable for Sphere {
-    fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
+    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         let oc = r.orig - self.center;
         let a = r.dir.length_squared();
         let half_b = oc.dot(r.dir);
@@ -72,7 +72,7 @@ else{
     v = normal.cross(u).unit();
 }*/
 
-fn ray_plane_intersect(r: &Ray,plane_normal: &Vec3,plane_center: &Point3) -> (f64,f64){
+fn ray_plane_intersect(r: &Ray,plane_normal: &Vec3,plane_center: &Point3) -> (f32,f32){
     let n = plane_normal.unit();
     let d = r.dir.unit();
     let div = n.dot(d);
@@ -84,7 +84,7 @@ fn ray_plane_intersect(r: &Ray,plane_normal: &Vec3,plane_center: &Point3) -> (f6
 }
 
 impl Hittable for InfinitePlane {
-    fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
+    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         let (root,normal_dot_dir) = ray_plane_intersect(r,&self.normal,&self.center);
         if root == INF || root < t_min || root > t_max {
             return None;
@@ -107,13 +107,13 @@ pub struct Parallelogram {//Easier in parametric [f(t,s) = u*t+v*s+origin] form
     pub origin: Point3,
     pub u: UnitVec3,
     pub v: UnitVec3,
-    pub u_length: f64,
-    pub v_length: f64,
+    pub u_length: f32,
+    pub v_length: f32,
     pub material: Material,
 }
 
 impl Parallelogram {
-    pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f64,v_length: f64,material: &Material) -> Self{
+    pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f32,v_length: f32,material: &Material) -> Self{
         //Rust doesn't have strict useful type aliases... so we re-unit u and v
         return Self{origin: *origin,u: u.unit(),v: v.unit(),u_length: u_length,v_length: v_length,material: *material};
     }
@@ -127,7 +127,7 @@ impl Parallelogram {
 }
 
 impl Hittable for Parallelogram {
-    fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
+    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         let n = self.u.cross(self.v);
         let (root,normal_dot_dir) = ray_plane_intersect(r,&n,&self.origin);
         if root == INF || root < t_min || root > t_max {
@@ -169,7 +169,7 @@ impl Hittable for Parallelogram {
 }
 
 pub trait Marched {
-    fn sdf(&self,p: &Point3) -> f64;
+    fn sdf(&self,p: &Point3) -> f32;
     fn get_outward_normal(&self,p: &Point3) -> Vec3;
     fn material(&self) -> &Material;
     fn center(&self) -> &Point3;
@@ -198,12 +198,12 @@ pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> Vec3{
 #[derive(Copy, Clone)]
 pub struct MarchedSphere {
     pub center: Point3,
-    pub radius: f64,
+    pub radius: f32,
     pub material: Material
 }
 
 impl Marched for MarchedSphere {
-    fn sdf(&self,p: &Point3) -> f64 {
+    fn sdf(&self,p: &Point3) -> f32 {
         return (*p - self.center).length() - self.radius;
     }
     fn get_outward_normal(&self,p: &Point3) -> Vec3 {
@@ -226,7 +226,7 @@ pub struct MarchedBox {
 }
 
 impl Marched for MarchedBox {
-    fn sdf(&self,p: &Point3) -> f64 {
+    fn sdf(&self,p: &Point3) -> f32 {
         let q = (&(*p-self.center)).abs() - self.sizes;
         return q.max(&Vec3::ZERO).length() + min(max(q.x(),max(q.y(),q.z())),0.);
     }
@@ -249,7 +249,7 @@ pub struct MarchedTorus {
 }
 
 impl Marched for MarchedTorus {
-    fn sdf(&self,p: &Point3) -> f64 {
+    fn sdf(&self,p: &Point3) -> f32 {
         let p2 = *p - self.center;
         let q = Vec3::new(Vec3::new(p2.x(),p2.z(),0.).length()-self.sizes.x(),p2.y(),0.);
         return q.length() - self.sizes.y();
@@ -321,7 +321,7 @@ impl HittableList{
         self.marched_objects.clear();
     }
 
-    pub fn hit(&self,r: &Ray,t_min: f64,t_max: f64) -> Option<HitRecord> {
+    pub fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
@@ -359,10 +359,10 @@ impl HittableList{
         }
 
         //Ray marching section
-        const HIT_SIZE: f64 = 0.001;
+        const HIT_SIZE: f32 = 0.001;
         let mut t = t_min;
         {//If we started stuck in a wall... unstuck ourselves
-            const MIN_STEP_SIZE: f64 = HIT_SIZE/2.;
+            const MIN_STEP_SIZE: f32 = HIT_SIZE/2.;
             let (d,_,_,obj) = self.get_closest_distance_normal_material(&r.at(t));
             let mut aux = d;
             if obj.is_none() { return rec; }
@@ -392,7 +392,7 @@ impl HittableList{
         return rec; 
     }
 
-    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f64,Vec3,Option<Material>,Option<Box<(dyn Marched + Send + Sync)>>){
+    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f32,Vec3,Option<Material>,Option<Box<(dyn Marched + Send + Sync)>>){
         let mut max_dis    = INF;
         let mut normal = Vec3::ZERO;
         let mut material = None;
@@ -440,7 +440,7 @@ impl HittableList{
 }
 
 //Only tested with abs(obj.sdf(r.at(t))) < HIT_SIZE
-fn root_find(obj: Option<Box<(dyn Marched + Send + Sync)>>,t: f64,r: &Ray,hit_size: f64) -> f64 {
+fn root_find(obj: Option<Box<(dyn Marched + Send + Sync)>>,t: f32,r: &Ray,hit_size: f32) -> f32 {
     let o = obj.unwrap();
 
     let mut first_side_t   = t;

@@ -27,12 +27,12 @@ use rand::prelude::*;
 #[derive(Copy,Clone)]
 struct ColorsBox {
     pub colors: *mut Vec<Color>,
-    pub samples: *mut Vec<u64>,
+    pub samples: *mut Vec<u32>,
     pub true_samples: *mut Vec<u32>,
 }
 unsafe impl Send for ColorsBox{}
 
-fn ray_color(r: &Ray,world: &HittableList, depth: u64,tmin: f64,tmax: f64) -> Color{
+fn ray_color(r: &Ray,world: &HittableList, depth: u32,tmin: f32,tmax: f32) -> Color{
     let mut curr_color = Color::new(1.,1.,1.);
     let mut curr_ray: Ray = *r;
     for _i in 0..depth{
@@ -44,7 +44,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u64,tmin: f64,tmax: f64) -> Co
             },
             None => {
                 let unit_dir: Vec3 = r.dir.unit();
-                let t: f64 = 0.5*(unit_dir.y() + 1.0);
+                let t: f32 = 0.5*(unit_dir.y() + 1.0);
                 let lerped_sky_color = lerp(t,Color::new(1.0,1.0,1.0),Color::new(0.5,0.7,1.0));
                 return curr_color*lerped_sky_color;
             }
@@ -60,21 +60,21 @@ fn random_scene() -> HittableList{
     //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground});
     world.add_sphere(&Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground});
     for a in -11..11{
-        let af = a as f64;
+        let af = a as f32;
         for b in -11..11{
-            let bf = b as f64;
-            let center = Point3::new(af+0.9*f64::rand(),0.2,bf+0.9*f64::rand());
+            let bf = b as f32;
+            let center = Point3::new(af+0.9*f32::rand(),0.2,bf+0.9*f32::rand());
             let add_to_world = (center - Point3::new(4.,0.2,0.)).length() > 0.9;
             if add_to_world{
                 let sphere_mat: Material;
-                let mat_prob = f64::rand();
+                let mat_prob = f32::rand();
                 if mat_prob < 0.8{
                     let albedo = Color::rand() * Color::rand();
                     sphere_mat = Material::new_lambertian(albedo);
                 }
                 else if mat_prob < 0.95{
                     let albedo = Color::rand_range(0.5,1.);
-                    let fuzz   = f64::rand_range(0.,0.5);
+                    let fuzz   = f32::rand_range(0.,0.5);
                     sphere_mat = Material::new_metal_fuzz(albedo,fuzz);
                 }
                 else{
@@ -86,10 +86,10 @@ fn random_scene() -> HittableList{
     }
     {
         let mat = Material::new_dielectric(1.5);
-        world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
+        //world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
         //world.add_marched_box(&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
-        //world.add_marched_torus(&MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat});
+        world.add_marched_torus(&MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat});
         //world.add_infinite_plane(&InfinitePlane{center: Point3::new(0.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat});
     }
     {
@@ -141,13 +141,13 @@ use std::thread;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
-    samples_per_pixel: u64,image_width: u64,image_height: u64,
+fn draw(camera: &Camera,world: &HittableList,max_depth: u32,tmin: f32,tmax: f32,
+    samples_per_pixel: u32,image_width: u32,image_height: u32,
     colors_box: ColorsBox,
-    tid: u64,assigned_thread: &Vec<u64>,samples_atom: &AtomicU64)
+    tid: u32,assigned_thread: &Vec<u32>,samples_atom: &AtomicU64)
 {
-    let image_width_f  = image_width as f64;
-    let image_height_f = image_height as f64;
+    let image_width_f  = image_width as f32;
+    let image_height_f = image_height as f32;
     let image_size = (image_width*image_height) as usize;
 
     let mut thread_pixels:       Vec<usize> = Vec::with_capacity(image_size);
@@ -171,7 +171,7 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
     //Flip it by thread odness so we don't give priority to starting pixels while drawing
     if (tid % 2) == 1 { thread_pixels = thread_pixels.into_iter().rev().collect(); }
 
-    const EPS: f64 = 0.01; 
+    const EPS: f32 = 0.01; 
     const MAX_USELESS_RUNS: u32 = 5;
 
     for _sample in 0..samples_per_pixel{
@@ -181,36 +181,36 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
             //Should never happen since we upkeep undone pixels with a backbuffer
             //assert!(curr_samples < samples_per_pixel);
 
-            let line = (idx as u64) / image_width;
-            let col  = (idx as u64) - image_width*line;
-            let j_f = line as f64;
-            let i_f = col as f64;
+            let line = (idx as u32) / image_width;
+            let col  = (idx as u32) - image_width*line;
+            let j_f = line as f32;
+            let i_f = col as f32;
 
-            let u = (i_f+f64::rand())/(image_width_f-1.);
-            let v = (j_f+f64::rand())/(image_height_f-1.);
+            let u = (i_f+f32::rand())/(image_width_f-1.);
+            let v = (j_f+f32::rand())/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
 
             unsafe {
-                let old_color = (*(colors_box.colors))[idx]/(curr_samples as f64);
+                let old_color = (*(colors_box.colors))[idx]/(curr_samples as f32);
 
                 (*(colors_box.colors))[idx]       += pixel_color; 
                 (*(colors_box.samples))[idx]      += 1;
                 (*(colors_box.true_samples))[idx] += 1;
 
-                let curr_color = (*(colors_box.colors))[idx]/(curr_samples as f64 + 1.);
+                let curr_color = (*(colors_box.colors))[idx]/(curr_samples as f32 + 1.);
                 let var = ((curr_color/old_color) - Color::new(1.,1.,1.)).abs();
                 let stats = max(max(var.x(),var.y()),var.z());
                 
                 thread_pixels_useless_runs[pos_idx] += (stats < EPS) as u32;
                 thread_pixels_useless_runs[pos_idx] *= (stats < EPS) as u32;
 
-                let mur     =  (thread_pixels_useless_runs[pos_idx] == MAX_USELESS_RUNS) as u64;
-                let mur_neg = (!(thread_pixels_useless_runs[pos_idx] == MAX_USELESS_RUNS)) as u64;
+                let mur     =  (thread_pixels_useless_runs[pos_idx] == MAX_USELESS_RUNS) as u32;
+                let mur_neg = (!(thread_pixels_useless_runs[pos_idx] == MAX_USELESS_RUNS)) as u32;
                 let aux_samples = mur*samples_per_pixel+mur_neg*(curr_samples+1);
                 (*(colors_box.samples))[idx] = aux_samples;
-                (*(colors_box.colors))[idx]  = (aux_samples as f64)*curr_color;
-                samples_atom.fetch_add(aux_samples-curr_samples-1,Ordering::Relaxed);//-1 cause we fetch_add downthere
+                (*(colors_box.colors))[idx]  = (aux_samples as f32)*curr_color;
+                samples_atom.fetch_add((aux_samples-curr_samples-1) as u64,Ordering::Relaxed);//-1 cause we fetch_add downthere
 
                 //If the pixel render is "not useless", keep adding to the back buffer to draw in the next iteration
                 thread_pixels_back[thread_pixels_back_len] = idx;
@@ -228,27 +228,27 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u64,tmin: f64,tmax: f64,
 
 fn main() {
     //IMAGE
-    let aspect_ratio: f64 = 3.0 / 2.0;
-    let image_width:    u64 = 1000;
-    let image_width_f:  f64 = image_width as f64;
-    let image_height_f: f64 = image_width_f/ aspect_ratio;
-    let image_height:   u64 = image_height_f as u64;
-    let image_size:     u64 = image_width*image_height;
+    let aspect_ratio: f32 = 3.0 / 2.0;
+    let image_width:    u32 = 1000;
+    let image_width_f:  f32 = image_width as f32;
+    let image_height_f: f32 = image_width_f/ aspect_ratio;
+    let image_height:   u32 = image_height_f as u32;
+    let image_size:     u32 = image_width*image_height;
 
     let camera: Camera;
     {
-        //let lookfrom = Point3::new(13.,2.,3.);
-        let lookfrom = Point3::new(13.,1.,0.);
-        //let lookat   = Point3::new(0.,0.,0.);
-        let lookat   = Point3::new(0.,1.,0.);
+        let lookfrom = Point3::new(13.,2.,3.);
+        //let lookfrom = Point3::new(13.,1.,0.);
+        let lookat   = Point3::new(0.,0.,0.);
+        //let lookat   = Point3::new(0.,1.,0.);
         let vup      =   Vec3::new(0.,1.,0.);
         let aperture = 0.1;
         let dist_to_focus = 10.;
         camera = Camera::new(lookfrom,lookat,vup,20.,aspect_ratio,aperture,dist_to_focus);
     }
 
-    let samples_per_pixel = 200;
-    let max_depth = 50;
+    let samples_per_pixel: u32 = 200;
+    let max_depth: u32 = 50;
     let world = random_scene();
 
     let samples_atomic = AtomicU64::new(0);
@@ -257,7 +257,7 @@ fn main() {
     {//Log thread
         let smpls_atom = arc_samples_atomic.clone();
         thread::spawn(move || {
-            let total_samples = image_size*samples_per_pixel;
+            let total_samples = (image_size as u64)*(samples_per_pixel as u64);
             let total_samples_f = total_samples as f64;
             loop {
                 let progress = smpls_atom.load(Ordering::Relaxed);
@@ -271,9 +271,9 @@ fn main() {
         });
     }
 
-    let num_threads = num_cpus::get() as u64 - 1;
+    let num_threads = num_cpus::get() as u32 - 1;
 
-    let mut assigned_thread: Vec<u64> = Vec::with_capacity(image_size as usize);
+    let mut assigned_thread: Vec<u32> = Vec::with_capacity(image_size as usize);
     for cidx in 0..image_size{
         assigned_thread.push(cidx%num_threads);
     }
@@ -307,7 +307,7 @@ fn main() {
     }
 
     let colors: &mut Vec<Color> = unsafe {&mut (*colors_box.colors) };
-    let samples: &mut Vec<u64> = unsafe {&mut (*colors_box.samples) };
+    let samples: &mut Vec<u32> = unsafe {&mut (*colors_box.samples) };
     let true_samples: &mut Vec<u32> = unsafe {&mut (*colors_box.true_samples) };
     draw_to_sdl(&colors,&samples,&true_samples,samples_per_pixel,image_width,image_height);
     /*
@@ -320,7 +320,7 @@ fn main() {
     }*/
 }
 
-fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,true_samples: &Vec<u32>,samples_per_pixel: u64,image_width: u64,image_height: u64){
+fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u32>,true_samples: &Vec<u32>,samples_per_pixel: u32,image_width: u32,image_height: u32){
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -345,12 +345,12 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,true_samples: &Vec<u32>,sa
             if show_samples {
                 let mut max_samples = 1.0;
                 for pos in 0..(image_width*image_height){
-                    if (true_samples[pos as usize] as f64) > max_samples {
-                        max_samples = true_samples[pos as usize] as f64;
+                    if (true_samples[pos as usize] as f32) > max_samples {
+                        max_samples = true_samples[pos as usize] as f32;
                     }
                 }
                 for pos in 0..(image_width*image_height){
-                    let smpls = (true_samples[pos as usize] as f64)/max_samples;
+                    let smpls = (true_samples[pos as usize] as f32)/max_samples;
                     let c = normalize_color(Color::new(smpls,smpls,smpls),1);
                     texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
                     let y = pos / image_width;
@@ -372,11 +372,11 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u64>,true_samples: &Vec<u32>,sa
             //When samples are low, it averages on neighbours. When samples are high, it priorizes takes the "true" pixel value
             /*for line in 1..(image_height-1) {
                 for col in 1..(image_width-1) {
-                    let smpls = samples[(line*image_width+col) as usize] as f64;
-                    let inside = samples_per_pixel as f64 + smpls;//Starts at spp, goes to 2*spp
-                    let outside = samples_per_pixel as f64 - smpls;//Starts at spp, goes to 0
+                    let smpls = samples[(line*image_width+col) as usize] as f32;
+                    let inside = samples_per_pixel as f32 + smpls;//Starts at spp, goes to 2*spp
+                    let outside = samples_per_pixel as f32 - smpls;//Starts at spp, goes to 0
                     let total_w = outside*8. + inside;
-                    let filter: [[f64; 3]; 3] = [
+                    let filter: [[f32; 3]; 3] = [
                         [outside,outside,outside],
                         [outside, inside,outside],
                         [outside,outside,outside]];
