@@ -10,9 +10,9 @@ pub struct Camera{
     horizontal:        Vec3,
     vertical:          Vec3,
     lower_left_corner: Point3,
-    u_of_plane: Vec3,//"Up" unit plane vector
-    v_of_plane: Vec3,//"Right" unit plane vector
-    w_of_plane: Vec3,//Normal unit plane vector
+    u_of_plane: UnitVec3,//"Up" unit plane vector
+    v_of_plane: UnitVec3,//"Right" unit plane vector
+    w_of_plane: UnitVec3,//Normal unit plane vector
     lens_radius: f32,//How far is the focal point from the plane
 }
 
@@ -33,7 +33,7 @@ impl Camera{
 
         let w_of_plane = (lookfrom - lookat).unit();
         let u_of_plane = vup.cross(w_of_plane).unit();
-        let v_of_plane = w_of_plane.cross(u_of_plane);
+        let v_of_plane = w_of_plane.cross(u_of_plane).unit();
 
         let o   = lookfrom;
         let h   = viewport_width  * u_of_plane;

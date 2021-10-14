@@ -124,6 +124,9 @@ fn random_scene() -> HittableList{
         world.add_parallelogram(&Parallelogram::new3points(
             &Point3::new(6.,1.,0.),&Point3::new(6.,1.1,0.5),&Point3::new(6.,1.5,0.),&Material::new_lambertian(Color::new(1.,0.,1.))
         ));
+        world.add_triangle(&Triangle::new3points(
+            &Point3::new(7.,1.,0.),&Point3::new(7.,1.1,0.5),&Point3::new(7.,1.5,0.),&Material::new_lambertian(Color::new(1.,1.,0.))
+        ));
     }
     {
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));

@@ -17,6 +17,7 @@ pub struct HittableList{
     pub spheres: Vec<Sphere>,
     pub infinite_planes: Vec<InfinitePlane>,
     pub parallelograms: Vec<Parallelogram>,
+    pub triangles: Vec<Triangle>,
     pub objects: Vec<Box<dyn Traced + Send + Sync>>,
     pub marched_spheres: Vec<MarchedSphere>,
     pub marched_boxes: Vec<MarchedBox>,
@@ -30,6 +31,7 @@ impl HittableList{
             spheres: Vec::new(),
             infinite_planes: Vec::new(),
             parallelograms: Vec::new(),
+            triangles: Vec::new(),
             objects: Vec::new(),
             marched_spheres: Vec::new(),
             marched_boxes: Vec::new(),
@@ -44,6 +46,9 @@ impl HittableList{
     }
     pub fn add_parallelogram(&mut self,obj: &Parallelogram) -> () {
         self.parallelograms.push(*obj);
+    }
+    pub fn add_triangle(&mut self,obj: &Triangle) -> () {
+        self.triangles.push(*obj);
     }
     pub fn add(&mut self,obj: Box<dyn Traced + Send + Sync>) -> () {
         self.objects.push(obj);
@@ -62,6 +67,9 @@ impl HittableList{
     }
     pub fn clear(&mut self) -> () {
         self.spheres.clear();
+        self.infinite_planes.clear();
+        self.parallelograms.clear();
+        self.triangles.clear();
         self.objects.clear();
         self.marched_spheres.clear();
         self.marched_boxes.clear();
@@ -90,6 +98,14 @@ impl HittableList{
             }
         }
         for obj in &self.parallelograms{
+            if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
+                if hr.t < closest_so_far {
+                    closest_so_far = hr.t;
+                    rec = Some(hr);
+                }
+            }
+        }
+        for obj in &self.triangles{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 if hr.t < closest_so_far {
                     closest_so_far = hr.t;
