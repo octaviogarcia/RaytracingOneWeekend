@@ -1,275 +1,23 @@
 use crate::vec3;
 use vec3::{Vec3,UnitVec3,Point3};
-use crate::utils::{INF,max,min};
+use crate::utils::INF;
 use crate::ray::Ray;
 use crate::materials::Material;
+use crate::traced::*;
+use crate::marched::*;
 
 pub struct HitRecord {
     pub point: Point3,
-    pub normal: Vec3,//Always outward from the surface
+    pub normal: UnitVec3,//Always outward from the surface
     pub material: Material,
     pub t: f32,
-}
-
-#[derive(Copy, Clone)]
-pub struct Sphere {
-    pub center: Point3,
-    pub radius: f32,
-    pub material: Material
-}
-
-pub trait Hittable {
-    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
-}
-
-impl Hittable for Sphere {
-    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
-        let oc = r.orig - self.center;
-        let a = r.dir.length_squared();
-        let half_b = oc.dot(r.dir);
-        let c = oc.length_squared() - self.radius*self.radius;
-        let discriminant = half_b*half_b - a*c;
-        if discriminant < 0. {
-            return None;
-        }
-        let sqrtd = discriminant.sqrt();
-        let mut root = (-half_b - sqrtd)/a;
-        if root < t_min || root > t_max{
-            root = (-half_b + sqrtd)/a;
-            if root < t_min || root > t_max{
-                return None;
-            }
-        }
-        let point = r.at(root);
-        let outward_normal = (point - self.center)/self.radius;
-        //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
-        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct InfinitePlane {
-    pub center: Point3,
-    pub normal: Vec3,
-    pub material: Material,
-}
-/*
-//Bunch of ifs to get expected values for the axis directions... probably a more consistent way...
-if      normal.y() == 0. && normal.z() == 0.{//(nx 0 0) generates (0 nx 0),(0 0 nx)
-    u = Vec3::new(0.,normal.x(),0.).unit();
-    v = Vec3::new(0.,       0.,normal.x()).unit();
-}
-else if normal.x() == 0. && normal.z() == 0. {//(0 ny 0) generates (ny 0 0),(0 0 ny)
-    u = Vec3::new(normal.y(),0.,0.).unit();
-    v = Vec3::new(       0., 0.,normal.y()).unit();
-}
-else if normal.x() == 0. && normal.y() == 0. {//(0 0 nz) generates (nz 0 0),(0 nz 0)
-    u = Vec3::new(normal.z(),       0.,0.).unit();
-    v = Vec3::new(       0.,normal.z(),0.).unit();
-}
-else{
-    u = Vec3::new(-normal.y(),normal.x(),0.).unit();
-    v = normal.cross(u).unit();
-}*/
-
-fn ray_plane_intersect(r: &Ray,plane_normal: &Vec3,plane_center: &Point3) -> (f32,f32){
-    let n = plane_normal.unit();
-    let d = r.dir.unit();
-    let div = n.dot(d);
-    if div.abs() < 0.000001{//Plane is paralel to the ray
-        return (INF,0.);
-    }
-    let num = -n.dot(r.orig - *plane_center);
-    return (num/div,div);
-}
-
-impl Hittable for InfinitePlane {
-    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
-        let (root,normal_dot_dir) = ray_plane_intersect(r,&self.normal,&self.center);
-        if root == INF || root < t_min || root > t_max {
-            return None;
-        }
-        let outward_normal: Vec3;
-        let front_face = normal_dot_dir < 0.;
-        if front_face {//do it faster (?) with copysign
-            outward_normal = self.normal;
-        }
-        else {
-            outward_normal = -self.normal;
-        }
-        //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
-        return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material});
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct Parallelogram {//Easier in parametric [f(t,s) = u*t+v*s+origin] form
-    pub origin: Point3,
-    pub u: UnitVec3,
-    pub v: UnitVec3,
-    pub u_length: f32,
-    pub v_length: f32,
-    pub material: Material,
-}
-
-impl Parallelogram {
-    pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f32,v_length: f32,material: &Material) -> Self{
-        //Rust doesn't have strict useful type aliases... so we re-unit u and v
-        return Self{origin: *origin,u: u.unit(),v: v.unit(),u_length: u_length,v_length: v_length,material: *material};
-    }
-    pub fn new3points(origin: &Point3,upoint: &Point3,vpoint: &Point3,material: &Material) -> Self{
-        let u = *upoint-*origin;
-        let u_length = u.length();
-        let v = *vpoint-*origin;
-        let v_length = v.length();
-        return Self{origin: *origin,u: u/u_length,v: v/v_length,u_length: u_length,v_length: v_length,material: *material};
-    }
-}
-
-impl Hittable for Parallelogram {
-    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
-        let n = self.u.cross(self.v);
-        let (root,normal_dot_dir) = ray_plane_intersect(r,&n,&self.origin);
-        if root == INF || root < t_min || root > t_max {
-            return None;
-        }
-        let point = r.at(root);
-        let point_from_origin = point - self.origin;
-
-        /*   . self.v
-            # -uvector-> *
-           /             ^
-          /             / 
-         /           vvector
-        /             / 
-        -----------#... self.u 
-        */
-        let uvector = point_from_origin - point_from_origin.dot(self.v)*self.v;
-        //u is unit length, and they are codirectional so it gets the length with sign
-        //|uvector||u|cos t = |uvector|cos t
-        let ucoord = uvector.dot(self.u);
-        if ucoord < 0. || ucoord > self.u_length{
-            return None;
-        }
-        let vvector = point_from_origin - point_from_origin.dot(self.u)*self.u;
-        let vcoord = vvector.dot(self.v);
-        if vcoord < 0. || vcoord > self.v_length{
-            return None;
-        }
-        let outward_normal: Vec3;
-        let front_face = normal_dot_dir < 0.;
-        if front_face {//do it faster (?) with copysign
-            outward_normal = n;
-        }
-        else {
-            outward_normal = -n;
-        }
-        return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material});
-    }
-}
-
-pub trait Marched {
-    fn sdf(&self,p: &Point3) -> f32;
-    fn get_outward_normal(&self,p: &Point3) -> Vec3;
-    fn material(&self) -> &Material;
-    fn center(&self) -> &Point3;
-}
-
-pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> Vec3{
-    let eps = 0.0000001;
-    let ex = Point3::new(eps, 0., 0.);
-    let ey = Point3::new( 0.,eps, 0.);
-    let ez = Point3::new( 0., 0.,eps);
-    let x = marched.sdf(&(*p+ex)) - marched.sdf(&(*p-ex));
-    let y = marched.sdf(&(*p+ey)) - marched.sdf(&(*p-ey));
-    let z = marched.sdf(&(*p+ez)) - marched.sdf(&(*p-ez));
-    let normal = Vec3::new(x,y,z).unit();
-
-    //Flip the sign so always the SDF grows in the direction of the normal
-    let test_ray = Ray::new(*marched.center(),normal);
-    let start     = test_ray.at(0.);
-    let start_val = marched.sdf(&start);
-    let end     = test_ray.at(1.);
-    let end_val = marched.sdf(&end);
-    let sign = [-1.,1.][(end_val > start_val) as usize];//If it grows, keep the sign. Else flip it
-    return normal*sign;
-}
-
-#[derive(Copy, Clone)]
-pub struct MarchedSphere {
-    pub center: Point3,
-    pub radius: f32,
-    pub material: Material
-}
-
-impl Marched for MarchedSphere {
-    fn sdf(&self,p: &Point3) -> f32 {
-        return (*p - self.center).length() - self.radius;
-    }
-    fn get_outward_normal(&self,p: &Point3) -> Vec3 {
-        let normal = (*p - self.center).unit();
-        return normal;
-    }
-    fn material(&self) -> &Material{
-        return &self.material;
-    }
-    fn center(&self) -> &Point3{
-        return &self.center;
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct MarchedBox {
-    pub center: Point3,
-    pub sizes: Vec3,
-    pub material: Material
-}
-
-impl Marched for MarchedBox {
-    fn sdf(&self,p: &Point3) -> f32 {
-        let q = (&(*p-self.center)).abs() - self.sizes;
-        return q.max(&Vec3::ZERO).length() + min(max(q.x(),max(q.y(),q.z())),0.);
-    }
-    fn get_outward_normal(&self,p: &Point3) -> Vec3 {
-        return get_outward_numeric_normal(self,p);
-    }
-    fn material(&self) -> &Material{
-        return &self.material;
-    }
-    fn center(&self) -> &Point3{
-        return &self.center;
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct MarchedTorus {
-    pub center: Point3,
-    pub sizes: Vec3,//Vec2... actualy
-    pub material: Material
-}
-
-impl Marched for MarchedTorus {
-    fn sdf(&self,p: &Point3) -> f32 {
-        let p2 = *p - self.center;
-        let q = Vec3::new(Vec3::new(p2.x(),p2.z(),0.).length()-self.sizes.x(),p2.y(),0.);
-        return q.length() - self.sizes.y();
-    }
-    fn get_outward_normal(&self,p: &Point3) -> Vec3 {
-        return get_outward_numeric_normal(self,p);
-    }
-    fn material(&self) -> &Material{
-        return &self.material;
-    }
-    fn center(&self) -> &Point3{
-        return &self.center;
-    }
 }
 
 pub struct HittableList{
     pub spheres: Vec<Sphere>,
     pub infinite_planes: Vec<InfinitePlane>,
     pub parallelograms: Vec<Parallelogram>,
-    pub objects: Vec<Box<dyn Hittable + Send + Sync>>,
+    pub objects: Vec<Box<dyn Traced + Send + Sync>>,
     pub marched_spheres: Vec<MarchedSphere>,
     pub marched_boxes: Vec<MarchedBox>,
     pub marched_torus: Vec<MarchedTorus>,
@@ -297,7 +45,7 @@ impl HittableList{
     pub fn add_parallelogram(&mut self,obj: &Parallelogram) -> () {
         self.parallelograms.push(*obj);
     }
-    pub fn add(&mut self,obj: Box<dyn Hittable + Send + Sync>) -> () {
+    pub fn add(&mut self,obj: Box<dyn Traced + Send + Sync>) -> () {
         self.objects.push(obj);
     }
     pub fn add_marched_sphere(&mut self,obj: &MarchedSphere) -> () {
@@ -384,6 +132,7 @@ impl HittableList{
 
             if  d < HIT_SIZE {//We hit something
                 rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: material.unwrap()});
+                break;
             }
             else { //Move forward
                 t += d;//This only works if our direction in our Ray is unit length!!!

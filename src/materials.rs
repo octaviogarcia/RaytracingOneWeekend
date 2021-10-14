@@ -57,17 +57,17 @@ impl Material{
             new_dir = hr.normal;
         }
         //let new_dir = Vec3::rand_in_hemisphere(&hr.normal);
-        let new_ray = Ray::new(hr.point, new_dir);
+        let new_ray = Ray::new(&hr.point, &new_dir);
         return MaterialScatterResult{attenuation: self.albedo,ray: new_ray};
     }
     pub fn scatter_metal(&self,r_in: &Ray,hr: &HitRecord) -> MaterialScatterResult {
-        let reflected: Vec3 = reflect(&r_in.dir.unit(), &hr.normal);
-        let new_ray = Ray::new(hr.point, reflected + self.fuzz*Vec3::rand_in_unit_sphere());
+        let reflected: Vec3 = reflect(&r_in.dir, &hr.normal);
+        let new_ray = Ray::new(&hr.point, &(reflected + self.fuzz*Vec3::rand_in_unit_sphere()));
         return MaterialScatterResult{attenuation: self.albedo,ray: new_ray};
     }
 
     pub fn scatter_dielectric(&self,r_in: &Ray,hr: &HitRecord) -> MaterialScatterResult {
-        let dir_unit = r_in.dir.unit();
+        let dir_unit = r_in.dir;//assert length == 1
         let front_face = dir_unit.dot(hr.normal) < 0.;
         let refraction_ratio: f32;
         let normal: Vec3;
@@ -92,7 +92,7 @@ impl Material{
             new_dir = refract(&dir_unit,&normal,refraction_ratio);
         }
 
-        return MaterialScatterResult{attenuation:  Color::new(1.0,1.0,1.0),ray: Ray::new(hr.point,new_dir.unit())};
+        return MaterialScatterResult{attenuation:  Color::new(1.0,1.0,1.0),ray: Ray::new(&hr.point,&new_dir)};
     }
 }
 

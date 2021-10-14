@@ -48,6 +48,6 @@ impl Camera{
         let rand_in_lens = self.lens_radius * Vec3::rand_in_unit_disc();
         let offset = self.u_of_plane*rand_in_lens.x() + self.v_of_plane*rand_in_lens.y();
         let direction = self.lower_left_corner + u*self.horizontal + v*self.vertical - self.origin;
-        return Ray::new(self.origin+offset,(direction-offset).unit());
+        return Ray::new(&(self.origin+offset),&(direction-offset).unit());
     }
 }

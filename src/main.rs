@@ -13,6 +13,12 @@ use ray::*;
 mod hits;
 use hits::*;
 
+mod traced;
+use traced::*;
+
+mod marched;
+use marched::*;
+
 mod camera;
 use camera::*;
 
@@ -43,8 +49,7 @@ fn ray_color(r: &Ray,world: &HittableList, depth: u32,tmin: f32,tmax: f32) -> Co
                 curr_ray = rslt.ray;
             },
             None => {
-                let unit_dir: Vec3 = r.dir.unit();
-                let t: f32 = 0.5*(unit_dir.y() + 1.0);
+                let t: f32 = 0.5*(r.dir.y() + 1.0);
                 let lerped_sky_color = lerp(t,Color::new(1.0,1.0,1.0),Color::new(0.5,0.7,1.0));
                 return curr_color*lerped_sky_color;
             }
@@ -97,7 +102,7 @@ fn random_scene() -> HittableList{
         //world.add_sphere(&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_box(&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat});
-        //world.add_infinite_plane(&InfinitePlane{center: Point3::new(-4.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat});
+        //world.add_infinite_plane(&InfinitePlane::new(&Point3::new(-4.,1.,0.),&Vec3::new(0.,0.,1.),&mat});
         world.add_parallelogram(&Parallelogram::new(//xy
             &Point3::new(0.,0.,0.),
             &Vec3::new_unit(1.,0.,0.),&Vec3::new_unit(0.,1.,0.),
