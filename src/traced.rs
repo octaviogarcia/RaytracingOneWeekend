@@ -109,13 +109,27 @@ pub struct Parallelogram {//Easier in parametric [f(t,s) = u*t+v*s+origin] form
     pub v: UnitVec3,
     pub v_length: f32,
     pub uxv: UnitVec3,
-    pub ubase_inv: Mat3x3,//Transforms a point (X,Y,Z) to the plane local coordinates (UCOORD,_,_)
-    pub vbase_inv: Mat3x3,//Transforms a point (X,Y,Z) to the plane local coordinates (_,VCOORD,_)
+    pub ubase_inv: Mat3x3,//Transforms a point (X,Y,Z) to the plane local coordinates (UCOORD,NORMAL,UORTHO)
+    pub vbase_inv: Mat3x3,//Transforms a point (X,Y,Z) to the plane local coordinates (VCOORD,NORMAL,VORTHO)
     pub material: Material,
+    pub vslope_u: f32,//slope of V in Ubase
+    pub uslope_v: f32,//slope of u in Vbase
+    pub v_length_in_u_orthogonal: f32,//length of v in u's orthonormal vector
+    pub u_length_in_v_orthogonal: f32,//length of u in v's orthonormal vector
 }
 
 impl Parallelogram {
     pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f32,v_length: f32,material: &Material) -> Self{
+/*
+    /u          #     /u          # |uxvxv
+   /            #    /            # |
+  /             #   /             # |     
+ /              #  /              # |
+.___________v   # .               # .___________v
+                #  \_             #
+                #     \_          #
+                #        \_ uxvxu #
+       */
         let u_unit = u.unit();
         let v_unit = v.unit();
         let uxv = u_unit.cross(v_unit).unit();
@@ -125,9 +139,22 @@ impl Parallelogram {
         let vbase = Mat3x3::new3v_vert(&v_unit,&uxv,&uxvxv);
         let ubase_inv = ubase.inverse();
         let vbase_inv = vbase.inverse();
+
+        let v_in_u = ubase_inv.dot(&v_unit);
+        let vslope_u = v_in_u.z()/v_in_u.x();
+        let v_length_in_u_orthogonal = (v_length*v_unit).dot(uxvxu).abs();
+
+        let u_in_v = vbase_inv.dot(&u_unit);
+        let uslope_v = u_in_v.z()/u_in_v.x();
+        let u_length_in_v_orthogonal = (u_length*u_unit).dot(uxvxv).abs();
+        
         return Self{origin: *origin,material: *material,
             u: u_unit,u_length: u_length,v: v_unit,v_length: v_length,uxv: uxv,
-            ubase_inv: ubase_inv,vbase_inv: vbase_inv};
+            ubase_inv: ubase_inv,vbase_inv: vbase_inv,
+            vslope_u: vslope_u,uslope_v: uslope_v,
+            v_length_in_u_orthogonal: v_length_in_u_orthogonal,
+            u_length_in_v_orthogonal: u_length_in_v_orthogonal,
+        };
     }
     pub fn new3points(origin: &Point3,upoint: &Point3,vpoint: &Point3,material: &Material) -> Self{
         let u_rel = *upoint-*origin;
@@ -146,19 +173,15 @@ impl Traced for Parallelogram {
         }
         let point = r.at(root);
         let point_from_origin = point - self.origin;
-        let u = self.ubase_inv.dot(&point_from_origin);
+        let u = self.ubase_inv.dot(&point_from_origin);//@SPEED: we don't need the Y coord.. its always 0 because its on the plane by this point
         let v = self.vbase_inv.dot(&point_from_origin);
-        if u.x() < 0. || v.x() < 0.{
+        if u.x() < 0. || v.x() < 0. || u.z().abs() > self.v_length_in_u_orthogonal || v.z().abs() > self.u_length_in_v_orthogonal {
             return None;
         }
-        let v_in_u = self.ubase_inv.dot(&self.v); 
-        let vslope = v_in_u.z()/v_in_u.x();
-        if (u.z()/u.x()) > vslope{
+        if (u.z()/u.x()) > self.vslope_u{
             return None;
         }
-        let u_in_v = self.vbase_inv.dot(&self.u); 
-        let uslope = u_in_v.z()/u_in_v.x();
-        if (v.z()/v.x()) < uslope{
+        if (v.z()/v.x()) < self.uslope_v{
             return None;
         }
         let outward_normal = normal_against_direction(&self.uxv,normal_dot_dir);

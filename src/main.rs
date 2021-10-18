@@ -124,8 +124,8 @@ fn random_scene() -> HittableList{
         /*world.add_parallelogram(&Parallelogram::new3points(
             &Point3::new(6.,1.,0.),&Point3::new(6.,1.1,0.5),&Point3::new(6.,1.5,0.),&Material::new_lambertian(Color::new(1.,0.,1.))
         ));*/
-        let p2 = Point3::new(7.,1.,0.);
-        let p1 = Point3::new(6.,1.1,0.5);
+        let p1 = Point3::new(7.,1.,0.);
+        let p2 = Point3::new(6.,1.1,0.5);
         let p3 = Point3::new(6.,1.5,0.);
         world.add_sphere(&Sphere{center: p1, radius: 0.05, material: Material::new_lambertian(Color::new(1.,0.,0.))});
         world.add_sphere(&Sphere{center: p2, radius: 0.05, material: Material::new_lambertian(Color::new(0.,1.,0.))});
