@@ -238,8 +238,8 @@ impl Mat3x3 {
                            self.at_row(1).dot(t.at_row(0)),self.at_row(1).dot(t.at_row(1)),self.at_row(1).dot(t.at_row(2)),
                            self.at_row(2).dot(t.at_row(0)),self.at_row(2).dot(t.at_row(1)),self.at_row(2).dot(t.at_row(2)));
     }
-    pub fn at(&self,row: usize,col: usize) -> f32{
-        return self.e[row].e[col];
+    pub fn at(&self,row: usize,col: usize) -> &f32{
+        return &self.e[row].e[col];
     }
     pub fn at_row(&self,row: usize) -> Vec3{
         return self.e[row];
@@ -251,14 +251,24 @@ impl Mat3x3 {
         return Self::new3v(&self.at_col(0),&self.at_col(1),&self.at_col(2));   
     }
     pub fn determinant(&self) -> f32{
-        return self.at(0,0)*self.at(1,1)*self.at(2,2)
-             + self.at(0,1)*self.at(1,2)*self.at(2,0)
-             + self.at(0,2)*self.at(1,0)*self.at(2,1)
-             - self.at(0,0)*self.at(1,2)*self.at(2,1)
-             - self.at(0,1)*self.at(1,0)*self.at(2,2)
-             - self.at(0,2)*self.at(1,1)*self.at(2,0);
+        let mut sum: f32 = 0.;//Kahan summation
+        let mut c: f32 = 0.;
+        let input = [(self.at(0,0)*self.at(1,1)*self.at(2,2)),
+                     (self.at(0,1)*self.at(1,2)*self.at(2,0)),
+                     (self.at(0,2)*self.at(1,0)*self.at(2,1)),
+                     (-self.at(0,0)*self.at(1,2)*self.at(2,1)),
+                     (-self.at(0,1)*self.at(1,0)*self.at(2,2)),
+                     (-self.at(0,2)*self.at(1,1)*self.at(2,0))];
+        for i in input{
+            let y = i - c;
+            let t = sum + y;
+            c = (t - sum) - y;
+            sum = t;
+        }
+        return sum;
     }
     pub fn inverse(&self) -> Mat3x3{
+        let det = self.determinant();
         let row0 = Vec3::new(self.at(1,1)*self.at(2,2)-self.at(1,2)*self.at(2,1),
                              self.at(0,2)*self.at(2,1)-self.at(0,1)*self.at(2,2),
                              self.at(0,1)*self.at(1,2)-self.at(0,2)*self.at(1,1));
@@ -268,7 +278,7 @@ impl Mat3x3 {
         let row2 = Vec3::new(self.at(1,0)*self.at(2,1)-self.at(1,1)*self.at(2,0),
                              self.at(0,1)*self.at(2,0)-self.at(0,0)*self.at(2,1),
                              self.at(0,0)*self.at(1,1)-self.at(0,1)*self.at(1,0));
-        return Self::new3v(&row0,&row1,&row2)/self.determinant();
+        return Self::new3v(&row0,&row1,&row2)/det;
     }
 }
 impl Mul<f32> for Mat3x3{

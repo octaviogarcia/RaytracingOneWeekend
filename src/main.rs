@@ -103,40 +103,15 @@ fn random_scene() -> HittableList{
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_box(&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat});
         //world.add_infinite_plane(&InfinitePlane::new(&Point3::new(-4.,1.,0.),&Vec3::new(0.,0.,1.),&mat});
-        /*world.add_parallelogram(&Parallelogram::new(//xy
-            &Point3::new(0.,0.,0.),
-            &Vec3::new_unit(1.,0.,0.),&Vec3::new_unit(0.,1.,0.),
-                                   4.,                       1.,
-            &Material::new_lambertian(Color::new(1.,0.,0.))
-        ));
-        world.add_parallelogram(&Parallelogram::new(//zy
-            &Point3::new(0.,0.,0.),
-            &Vec3::new_unit(0.,0.,1.),&Vec3::new_unit(0.,1.,0.),
-                                   1.,                       4.,
-            &Material::new_lambertian(Color::new(0.,1.,0.))
-        ));
-        world.add_parallelogram(&Parallelogram::new(//xz
-            &Point3::new(0.,0.,0.),
-            &Vec3::new_unit(1.,0.,0.), &Vec3::new_unit(0.,0.,1.),
-                                  1.,                         4.,
-            &Material::new_lambertian(Color::new(0.,0.,1.))
-        ));*/
-        /*world.add_parallelogram(&Parallelogram::new3points(
-            &Point3::new(6.,1.,0.),&Point3::new(6.,1.1,0.5),&Point3::new(6.,1.5,0.),&Material::new_lambertian(Color::new(1.,0.,1.))
-        ));*/
         let p1 = Point3::new(7.,1.,0.);
         let p2 = Point3::new(6.,1.1,0.5);
         let p3 = Point3::new(6.,1.5,0.);
-        world.add_sphere(&Sphere{center: p1, radius: 0.05, material: Material::new_lambertian(Color::new(1.,0.,0.))});
-        world.add_sphere(&Sphere{center: p2, radius: 0.05, material: Material::new_lambertian(Color::new(0.,1.,0.))});
-        world.add_sphere(&Sphere{center: p3, radius: 0.05, material: Material::new_lambertian(Color::new(0.,0.,1.))});
-
         world.add_parallelogram(&Parallelogram::new3points(
-            &p1,&p2,&p3,&Material::new_lambertian(Color::new(1.,0.,1.))
+            &p1,&p2,&p3,&Material::new_metal(Color::new(1.,0.5,1.))
         ));
-        /*world.add_triangle(&Triangle::new3points(
-            &Point3::new(8.,1.,0.),&Point3::new(6.,1.1,0.5),&Point3::new(6.,1.5,0.),&Material::new_lambertian(Color::new(1.,1.,0.))
-        ));*/
+        world.add_triangle(&Triangle::new3points(
+            &(p1+Point3::new(0.,0.5,0.)),&p2,&p3,&Material::new_lambertian(Color::new(1.,1.,0.))
+        ));
     }
     {
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));

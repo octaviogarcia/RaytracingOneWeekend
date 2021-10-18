@@ -55,24 +55,6 @@ impl InfinitePlane {
         return InfinitePlane{center: *center,normal: normal.unit(),material: *material};
     }
 }
-/*
-//Bunch of ifs to get expected values for the axis directions... probably a more consistent way...
-if      normal.y() == 0. && normal.z() == 0.{//(nx 0 0) generates (0 nx 0),(0 0 nx)
-    u = Vec3::new(0.,normal.x(),0.).unit();
-    v = Vec3::new(0.,       0.,normal.x()).unit();
-}
-else if normal.x() == 0. && normal.z() == 0. {//(0 ny 0) generates (ny 0 0),(0 0 ny)
-    u = Vec3::new(normal.y(),0.,0.).unit();
-    v = Vec3::new(       0., 0.,normal.y()).unit();
-}
-else if normal.x() == 0. && normal.y() == 0. {//(0 0 nz) generates (nz 0 0),(0 nz 0)
-    u = Vec3::new(normal.z(),       0.,0.).unit();
-    v = Vec3::new(       0.,normal.z(),0.).unit();
-}
-else{
-    u = Vec3::new(-normal.y(),normal.x(),0.).unit();
-    v = normal.cross(u).unit();
-}*/
 
 #[inline]
 fn ray_plane_intersect(r: &Ray,plane_normal: &UnitVec3,plane_center: &Point3) -> (f32,f32){
@@ -100,7 +82,6 @@ impl Traced for InfinitePlane {
     }
 }
 
-pub type Triangle = Parallelogram;
 #[derive(Copy, Clone)]
 pub struct Parallelogram {//Easier in parametric [f(t,s) = u*t+v*s+origin] form
     pub origin: Point3,
@@ -120,11 +101,8 @@ impl Parallelogram {
         let v_unit = v.unit();
         let uxv = u_unit.cross(v_unit).unit();
         let uxvxu = uxv.cross(u_unit).unit();
-        let base = Mat3x3::new3v_vert(&u_unit,&uxv,&uxvxu);
-        let base_inv = base.inverse();
+        let base_inv = Mat3x3::new3v_vert(&u_unit,&uxv,&uxvxu).inverse();
         let v_in_base = base_inv.dot(&v_unit);
-        //Law of cosines
-        //let opposite_length = (u_length*u_length + v_length*v_length - 2.*u_length*v_length * u_unit.dot(v_unit)).sqrt();
         return Self{origin: *origin,material: *material,
             u: u_unit,u_length: u_length,v: v_unit,v_length: v_length,uxv: uxv,
             base_inv: base_inv, v_in_base: v_in_base
@@ -137,6 +115,19 @@ impl Parallelogram {
         let v_length = v_rel.length();
         return Self::new(origin,&u_rel,&v_rel,u_length,v_length,material);
     }
+    #[inline]
+    fn calc_barycentric(&self,coords2d: &Point3) -> (f32,f32,f32){
+        let rx = coords2d.x();
+        let ry = coords2d.z();
+        let ux = 1.;
+        let uy = 0.;
+        let vx = self.v_in_base.x();
+        let vy = self.v_in_base.z();
+        let det = ux*vy - vx*uy;
+        let lambda1 = ( (rx*vy - vx*ry)/det)/self.u_length;
+        let lambda2 = (-(rx*uy - ux*ry)/det)/self.v_length;
+        return (lambda1,lambda2,1.-lambda1-lambda2);
+    }
 }
 
 impl Traced for Parallelogram {
@@ -148,22 +139,46 @@ impl Traced for Parallelogram {
         let point = r.at(root);
         let point_from_origin = point - self.origin;
         let coords2d = self.base_inv.dot(&point_from_origin);//@SPEED: Y coord is useless, its 0 since we intersected
-        let rx = coords2d.x();
-        let ry = coords2d.z();
-        let ux = 1.;
-        let uy = 0.;
-        let vx = self.v_in_base.x();
-        let vy = self.v_in_base.z();
-        let det = ux*vy - vx*uy;
-        let lambda1 =  (rx*vy - vx*ry)/det;
-        let lambda2 = -(rx*uy - ux*ry)/det;
-        if lambda1 < 0. || lambda2 < 0. || lambda1 > self.u_length || lambda2 > self.v_length{
+        let (lambda1, lambda2, _) = self.calc_barycentric(&coords2d);
+        if lambda1 < 0. || lambda2 < 0. || lambda1 > 1. || lambda2 > 1. {
             return None;
         }
         let outward_normal = normal_against_direction(&self.uxv,normal_dot_dir);
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
     }
 }
+
+#[derive(Copy,Clone)]
+pub struct Triangle {
+    pub parallelogram: Parallelogram
+}
+impl Triangle {
+    pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f32,v_length: f32,material: &Material) -> Self{
+        return Self{parallelogram: Parallelogram::new(origin,u,v,u_length,v_length,material)};
+    }
+    pub fn new3points(origin: &Point3,upoint: &Point3,vpoint: &Point3,material: &Material) -> Self{
+        return Self{parallelogram: Parallelogram::new3points(origin,upoint,vpoint,material)};
+    }
+}
+
+impl Traced for Triangle {//Find a way to abstract Parallelogram and triangle... without having dynamic dispatch
+    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
+        let (root,normal_dot_dir) = ray_plane_intersect(r,&self.parallelogram.uxv,&self.parallelogram.origin);
+        if root == INF || root < t_min || root > t_max {
+            return None;
+        }
+        let point = r.at(root);
+        let point_from_origin = point - self.parallelogram.origin;
+        let coords2d = self.parallelogram.base_inv.dot(&point_from_origin);//@SPEED: Y coord is useless, its 0 since we intersected
+        let (lambda1, lambda2, lambda3) = self.parallelogram.calc_barycentric(&coords2d);
+        if lambda1 < 0. || lambda2 < 0. || lambda1 > 1. || lambda2 > 1. || lambda3 < 0. || lambda3 > 1.{
+            return None;
+        }
+        let outward_normal = normal_against_direction(&self.parallelogram.uxv,normal_dot_dir);
+        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.parallelogram.material});
+    }
+}
+
 
 /*
 #[derive(Copy, Clone)]
