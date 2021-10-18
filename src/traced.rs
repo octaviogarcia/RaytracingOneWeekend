@@ -119,8 +119,12 @@ impl Parallelogram {
         let u_unit = u.unit();
         let v_unit = v.unit();
         let uxv = u_unit.cross(v_unit).unit();
-        let ubase_inv = Mat3x3::new3v(&u_unit,&uxv,&uxv.cross(u_unit).unit()).inverse();
-        let vbase_inv = Mat3x3::new3v(&v_unit,&uxv,&uxv.cross(v_unit).unit()).inverse();
+        let uxvxu = uxv.cross(u_unit).unit();
+        let uxvxv = uxv.cross(v_unit).unit();
+        let ubase = Mat3x3::new3v_vert(&u_unit,&uxv,&uxvxu);
+        let vbase = Mat3x3::new3v_vert(&v_unit,&uxv,&uxvxv);
+        let ubase_inv = ubase.inverse();
+        let vbase_inv = vbase.inverse();
         return Self{origin: *origin,material: *material,
             u: u_unit,u_length: u_length,v: v_unit,v_length: v_length,uxv: uxv,
             ubase_inv: ubase_inv,vbase_inv: vbase_inv};
@@ -128,12 +132,9 @@ impl Parallelogram {
     pub fn new3points(origin: &Point3,upoint: &Point3,vpoint: &Point3,material: &Material) -> Self{
         let u_rel = *upoint-*origin;
         let u_length = u_rel.length();
-        let u_unit = u_rel/u_length;
-
         let v_rel = *vpoint-*origin;
         let v_length = v_rel.length();
-        let v_unit = v_rel/v_length;
-        return Self::new(origin,&u_unit,&v_unit,u_length,v_length,material);
+        return Self::new(origin,&u_rel,&v_rel,u_length,v_length,material);
     }
 }
 
@@ -145,11 +146,21 @@ impl Traced for Parallelogram {
         }
         let point = r.at(root);
         let point_from_origin = point - self.origin;
-        let ucoord = self.ubase_inv.dot(&point_from_origin).e[0];
-        let vcoord = self.vbase_inv.dot(&point_from_origin).e[0];
-        if ucoord < 0. || vcoord < 0. || ucoord > self.u_length || vcoord > self.v_length {
+        let u = self.ubase_inv.dot(&point_from_origin);
+        let v = self.vbase_inv.dot(&point_from_origin);
+        if u.x() < 0. || v.x() < 0.{
             return None;
-        } 
+        }
+        let v_in_u = self.ubase_inv.dot(&self.v); 
+        let vslope = v_in_u.z()/v_in_u.x();
+        if (u.z()/u.x()) > vslope{
+            return None;
+        }
+        let u_in_v = self.vbase_inv.dot(&self.u); 
+        let uslope = u_in_v.z()/u_in_v.x();
+        if (v.z()/v.x()) < uslope{
+            return None;
+        }
         let outward_normal = normal_against_direction(&self.uxv,normal_dot_dir);
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
     }
