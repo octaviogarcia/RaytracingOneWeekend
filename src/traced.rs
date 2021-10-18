@@ -109,51 +109,25 @@ pub struct Parallelogram {//Easier in parametric [f(t,s) = u*t+v*s+origin] form
     pub v: UnitVec3,
     pub v_length: f32,
     pub uxv: UnitVec3,
-    pub ubase_inv: Mat3x3,//Transforms a point (X,Y,Z) to the plane local coordinates (UCOORD,NORMAL,UORTHO)
-    pub vbase_inv: Mat3x3,//Transforms a point (X,Y,Z) to the plane local coordinates (VCOORD,NORMAL,VORTHO)
+    pub base_inv: Mat3x3,//Transforms a point (X,Y,Z) to the plane 2d coordinates
+    pub v_in_base: Vec3,//Vec2, Z is 0 @SPEED
     pub material: Material,
-    pub vslope_u: f32,//slope of V in Ubase
-    pub uslope_v: f32,//slope of u in Vbase
-    pub v_length_in_u_orthogonal: f32,//length of v in u's orthonormal vector
-    pub u_length_in_v_orthogonal: f32,//length of u in v's orthonormal vector
 }
 
 impl Parallelogram {
     pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f32,v_length: f32,material: &Material) -> Self{
-/*
-    /u          #     /u          # |uxvxv
-   /            #    /            # |
-  /             #   /             # |     
- /              #  /              # |
-.___________v   # .               # .___________v
-                #  \_             #
-                #     \_          #
-                #        \_ uxvxu #
-       */
         let u_unit = u.unit();
         let v_unit = v.unit();
         let uxv = u_unit.cross(v_unit).unit();
         let uxvxu = uxv.cross(u_unit).unit();
-        let uxvxv = uxv.cross(v_unit).unit();
-        let ubase = Mat3x3::new3v_vert(&u_unit,&uxv,&uxvxu);
-        let vbase = Mat3x3::new3v_vert(&v_unit,&uxv,&uxvxv);
-        let ubase_inv = ubase.inverse();
-        let vbase_inv = vbase.inverse();
-
-        let v_in_u = ubase_inv.dot(&v_unit);
-        let vslope_u = v_in_u.z()/v_in_u.x();
-        let v_length_in_u_orthogonal = (v_length*v_unit).dot(uxvxu).abs();
-
-        let u_in_v = vbase_inv.dot(&u_unit);
-        let uslope_v = u_in_v.z()/u_in_v.x();
-        let u_length_in_v_orthogonal = (u_length*u_unit).dot(uxvxv).abs();
-        
+        let base = Mat3x3::new3v_vert(&u_unit,&uxv,&uxvxu);
+        let base_inv = base.inverse();
+        let v_in_base = base_inv.dot(&v_unit);
+        //Law of cosines
+        //let opposite_length = (u_length*u_length + v_length*v_length - 2.*u_length*v_length * u_unit.dot(v_unit)).sqrt();
         return Self{origin: *origin,material: *material,
             u: u_unit,u_length: u_length,v: v_unit,v_length: v_length,uxv: uxv,
-            ubase_inv: ubase_inv,vbase_inv: vbase_inv,
-            vslope_u: vslope_u,uslope_v: uslope_v,
-            v_length_in_u_orthogonal: v_length_in_u_orthogonal,
-            u_length_in_v_orthogonal: u_length_in_v_orthogonal,
+            base_inv: base_inv, v_in_base: v_in_base
         };
     }
     pub fn new3points(origin: &Point3,upoint: &Point3,vpoint: &Point3,material: &Material) -> Self{
@@ -173,15 +147,17 @@ impl Traced for Parallelogram {
         }
         let point = r.at(root);
         let point_from_origin = point - self.origin;
-        let u = self.ubase_inv.dot(&point_from_origin);//@SPEED: we don't need the Y coord.. its always 0 because its on the plane by this point
-        let v = self.vbase_inv.dot(&point_from_origin);
-        if u.x() < 0. || v.x() < 0. || u.z().abs() > self.v_length_in_u_orthogonal || v.z().abs() > self.u_length_in_v_orthogonal {
-            return None;
-        }
-        if (u.z()/u.x()) > self.vslope_u{
-            return None;
-        }
-        if (v.z()/v.x()) < self.uslope_v{
+        let coords2d = self.base_inv.dot(&point_from_origin);//@SPEED: Y coord is useless, its 0 since we intersected
+        let rx = coords2d.x();
+        let ry = coords2d.z();
+        let ux = 1.;
+        let uy = 0.;
+        let vx = self.v_in_base.x();
+        let vy = self.v_in_base.z();
+        let det = ux*vy - vx*uy;
+        let lambda1 =  (rx*vy - vx*ry)/det;
+        let lambda2 = -(rx*uy - ux*ry)/det;
+        if lambda1 < 0. || lambda2 < 0. || lambda1 > self.u_length || lambda2 > self.v_length{
             return None;
         }
         let outward_normal = normal_against_direction(&self.uxv,normal_dot_dir);
