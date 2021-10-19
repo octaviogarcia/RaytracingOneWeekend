@@ -82,24 +82,8 @@ impl Traced for InfinitePlane {
     }
 }
 
-trait BaricentricLambdaTest {
-    fn check_lambdas(&self,l1: f32,l2: f32,l3: f32) -> bool;
-}
-pub struct TriangleTest {}
-pub struct ParallelogramTest {}
-impl BaricentricLambdaTest for TriangleTest {
-    fn check_lambdas(&self,l1: f32,l2: f32,l3: f32) -> bool{
-        return l1 > 0. && l2 > 0. && l3 > 0. && l1 < 1. && l2 < 1. && l3 < 0.;
-    }
-}
-impl BaricentricLambdaTest for ParallelogramTest {
-    fn check_lambdas(&self,l1: f32,l2: f32,l3: f32) -> bool{
-        return l1 > 0. && l2 > 0. && l1 < 1. && l2 < 1.;
-    }
-}
-
 #[derive(Copy, Clone)]
-pub struct Barycentric<const BLT: dyn BaricentricLambdaTest>{
+pub struct Barycentric<const BT: usize>{
     pub origin: Point3,
     pub u: UnitVec3,
     pub u_length: f32,
@@ -111,7 +95,8 @@ pub struct Barycentric<const BLT: dyn BaricentricLambdaTest>{
     pub material: Material,
 }
 
-impl <const BLT: dyn BaricentricLambdaTest> Barycentric<BLT> {
+//Current rust version doesn't suport direct const enum templates... so I use an usize...
+impl <const BT: usize> Barycentric<BT> {
     pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f32,v_length: f32,material: &Material) -> Self{
         let u_unit = u.unit();
         let v_unit = v.unit();
@@ -144,6 +129,12 @@ impl <const BLT: dyn BaricentricLambdaTest> Barycentric<BLT> {
         let lambda2 = (-(rx*uy - ux*ry)/det)/self.v_length;
         return (lambda1,lambda2,1.-lambda1-lambda2);
     }
+    fn check_lambdas_triangle(&self,l1: f32,l2: f32,l3: f32) -> bool{
+        return l1 > 0. && l2 > 0. && l3 > 0. && l1 < 1. && l2 < 1. && l3 < 1.;
+    }
+    fn check_lambdas_parallelogram(&self,l1: f32,l2: f32,l3: f32) -> bool{
+        return l1 > 0. && l2 > 0. && l1 < 1. && l2 < 1.;
+    }
     pub fn hit_aux(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         let (root,normal_dot_dir) = ray_plane_intersect(r,&self.uxv,&self.origin);
         if root == INF || root < t_min || root > t_max {
@@ -153,7 +144,16 @@ impl <const BLT: dyn BaricentricLambdaTest> Barycentric<BLT> {
         let point_from_origin = point - self.origin;
         let coords2d = self.base_inv.dot(&point_from_origin);//@SPEED: Y coord is useless, its 0 since we intersected
         let (lambda1, lambda2, lambda3) = self.calc_barycentric(&coords2d);
-        let correct = BLT.check_lambdas(lambda1,lambda2,lambda3);
+        let correct: bool;
+        if BT == 0 {//Hope the compiler optimizes these static IFs!
+            correct = self.check_lambdas_parallelogram(lambda1,lambda2,lambda3);
+        }
+        else if BT == 1 {
+            correct = self.check_lambdas_triangle(lambda1,lambda2,lambda3);
+        }
+        else{
+            panic!("Barycentric case not fulfilled");
+        }
         if !correct { 
             return None;
         }
@@ -162,11 +162,11 @@ impl <const BLT: dyn BaricentricLambdaTest> Barycentric<BLT> {
     }
 }
 
-impl <const BLT: dyn BaricentricLambdaTest> Traced for Barycentric<BLT>{
+impl <const BT: usize> Traced for Barycentric<BT> {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         return self.hit_aux(r,t_min,t_max);
     }
 }
 
-pub type Parallelogram = Barycentric<ParallelogramTest{}>;
-pub type Triangle = Barycentric<TriangleTest{}>;
+pub type Parallelogram = Barycentric<0>;
+pub type Triangle = Barycentric<1>;
