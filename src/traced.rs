@@ -82,8 +82,24 @@ impl Traced for InfinitePlane {
     }
 }
 
+trait BaricentricLambdaTest {
+    fn check_lambdas(&self,l1: f32,l2: f32,l3: f32) -> bool;
+}
+pub struct TriangleTest {}
+pub struct ParallelogramTest {}
+impl BaricentricLambdaTest for TriangleTest {
+    fn check_lambdas(&self,l1: f32,l2: f32,l3: f32) -> bool{
+        return l1 > 0. && l2 > 0. && l3 > 0. && l1 < 1. && l2 < 1. && l3 < 0.;
+    }
+}
+impl BaricentricLambdaTest for ParallelogramTest {
+    fn check_lambdas(&self,l1: f32,l2: f32,l3: f32) -> bool{
+        return l1 > 0. && l2 > 0. && l1 < 1. && l2 < 1.;
+    }
+}
+
 #[derive(Copy, Clone)]
-pub struct Parallelogram {//Easier in parametric [f(t,s) = u*t+v*s+origin] form
+pub struct Barycentric<const BLT: dyn BaricentricLambdaTest>{
     pub origin: Point3,
     pub u: UnitVec3,
     pub u_length: f32,
@@ -95,7 +111,7 @@ pub struct Parallelogram {//Easier in parametric [f(t,s) = u*t+v*s+origin] form
     pub material: Material,
 }
 
-impl Parallelogram {
+impl <const BLT: dyn BaricentricLambdaTest> Barycentric<BLT> {
     pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f32,v_length: f32,material: &Material) -> Self{
         let u_unit = u.unit();
         let v_unit = v.unit();
@@ -128,10 +144,7 @@ impl Parallelogram {
         let lambda2 = (-(rx*uy - ux*ry)/det)/self.v_length;
         return (lambda1,lambda2,1.-lambda1-lambda2);
     }
-}
-
-impl Traced for Parallelogram {
-    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
+    pub fn hit_aux(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         let (root,normal_dot_dir) = ray_plane_intersect(r,&self.uxv,&self.origin);
         if root == INF || root < t_min || root > t_max {
             return None;
@@ -139,8 +152,9 @@ impl Traced for Parallelogram {
         let point = r.at(root);
         let point_from_origin = point - self.origin;
         let coords2d = self.base_inv.dot(&point_from_origin);//@SPEED: Y coord is useless, its 0 since we intersected
-        let (lambda1, lambda2, _) = self.calc_barycentric(&coords2d);
-        if lambda1 < 0. || lambda2 < 0. || lambda1 > 1. || lambda2 > 1. {
+        let (lambda1, lambda2, lambda3) = self.calc_barycentric(&coords2d);
+        let correct = BLT.check_lambdas(lambda1,lambda2,lambda3);
+        if !correct { 
             return None;
         }
         let outward_normal = normal_against_direction(&self.uxv,normal_dot_dir);
@@ -148,75 +162,11 @@ impl Traced for Parallelogram {
     }
 }
 
-#[derive(Copy,Clone)]
-pub struct Triangle {
-    pub parallelogram: Parallelogram
-}
-impl Triangle {
-    pub fn new(origin: &Point3,u: &UnitVec3,v: &UnitVec3,u_length: f32,v_length: f32,material: &Material) -> Self{
-        return Self{parallelogram: Parallelogram::new(origin,u,v,u_length,v_length,material)};
-    }
-    pub fn new3points(origin: &Point3,upoint: &Point3,vpoint: &Point3,material: &Material) -> Self{
-        return Self{parallelogram: Parallelogram::new3points(origin,upoint,vpoint,material)};
-    }
-}
-
-impl Traced for Triangle {//Find a way to abstract Parallelogram and triangle... without having dynamic dispatch
+impl <const BLT: dyn BaricentricLambdaTest> Traced for Barycentric<BLT>{
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
-        let (root,normal_dot_dir) = ray_plane_intersect(r,&self.parallelogram.uxv,&self.parallelogram.origin);
-        if root == INF || root < t_min || root > t_max {
-            return None;
-        }
-        let point = r.at(root);
-        let point_from_origin = point - self.parallelogram.origin;
-        let coords2d = self.parallelogram.base_inv.dot(&point_from_origin);//@SPEED: Y coord is useless, its 0 since we intersected
-        let (lambda1, lambda2, lambda3) = self.parallelogram.calc_barycentric(&coords2d);
-        if lambda1 < 0. || lambda2 < 0. || lambda1 > 1. || lambda2 > 1. || lambda3 < 0. || lambda3 > 1.{
-            return None;
-        }
-        let outward_normal = normal_against_direction(&self.parallelogram.uxv,normal_dot_dir);
-        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.parallelogram.material});
+        return self.hit_aux(r,t_min,t_max);
     }
 }
 
-
-/*
-#[derive(Copy, Clone)]
-pub struct Cube {
-    pub center: Point3,
-    pub normals: [UnitVec3;6],
-    pub length: f32,
-    pub material: Material
-}
-
-impl Cube{
-    pub fn new(center: &Point3,length: f32,material: &Material) -> Self {
-        let n = {}
-        return Self{center: *center,length: length,material: *material};
-    }
-}
-
-impl Traced for Cube {
-    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
-        let oc = r.orig - self.center;
-        let a = r.dir.length_squared();
-        let half_b = oc.dot(r.dir);
-        let c = oc.length_squared() - self.radius*self.radius;
-        let discriminant = half_b*half_b - a*c;
-        if discriminant < 0. {
-            return None;
-        }
-        let sqrtd = discriminant.sqrt();
-        let mut root = (-half_b - sqrtd)/a;
-        if root < t_min || root > t_max{
-            root = (-half_b + sqrtd)/a;
-            if root < t_min || root > t_max{
-                return None;
-            }
-        }
-        let point = r.at(root);
-        let outward_normal = (point - self.center)/self.radius;
-        //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
-        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
-    }
-}*/
+pub type Parallelogram = Barycentric<ParallelogramTest{}>;
+pub type Triangle = Barycentric<TriangleTest{}>;
