@@ -129,13 +129,15 @@ impl <const BT: usize> Barycentric<BT> {
         let lambda2 = (-(rx*uy - ux*ry)/det)/self.v_length;
         return (lambda1,lambda2,1.-lambda1-lambda2);
     }
+    #[inline]
     fn check_lambdas_triangle(&self,l1: f32,l2: f32,l3: f32) -> bool{
         return l1 > 0. && l2 > 0. && l3 > 0. && l1 < 1. && l2 < 1. && l3 < 1.;
     }
+    #[inline]
     fn check_lambdas_parallelogram(&self,l1: f32,l2: f32,l3: f32) -> bool{
         return l1 > 0. && l2 > 0. && l1 < 1. && l2 < 1.;
     }
-    pub fn hit_aux(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
+    fn hit_aux(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         let (root,normal_dot_dir) = ray_plane_intersect(r,&self.uxv,&self.origin);
         if root == INF || root < t_min || root > t_max {
             return None;
