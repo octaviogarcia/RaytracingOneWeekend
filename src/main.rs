@@ -179,8 +179,15 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u32,tmin: f32,tmax: f32,
             let j_f = line as f32;
             let i_f = col as f32;
 
-            let u = (i_f+f32::rand())/(image_width_f-1.);
-            let v = (j_f+f32::rand())/(image_height_f-1.);
+            //Construct a blue noise wannabe with a low discrepancy random number
+            //https://en.wikipedia.org/wiki/Low-discrepancy_sequence#Construction_of_low-discrepancy_sequences
+            let jitter1 = (((curr_samples| 1) == 0) as u32) as f32;
+            let jitter2 = (((curr_samples| 2) == 0) as u32) as f32;
+            //@TODO: Graph and check discrepancy of this algorith
+            let i_rand = f32::rand()*0.5 + jitter1*0.5;
+            let j_rand = f32::rand()*0.5 + jitter2*0.5;
+            let u = (i_f+i_rand)/(image_width_f-1.);
+            let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
 
