@@ -167,6 +167,22 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u32,tmin: f32,tmax: f32,
     const EPS: f32 = 0.01; 
     const MAX_USELESS_RUNS: u32 = 5;
 
+
+    //Construct a blue noise wannabe with a low discrepancy random number
+    //https://en.wikipedia.org/wiki/Low-discrepancy_sequence#Construction_of_low-discrepancy_sequences
+    let jitters: Vec<(f32,f32)> = {
+        let mut ret: Vec<(f32,f32)> = Vec::with_capacity(samples_per_pixel as usize);
+        for s in 0..samples_per_pixel{
+            let div: u32 = s / 2;
+            let mmod: u32 = s - div*2;//@TODO: Pregenerate jitters and shuffle por proper
+            let jitteri = (div&1) as f32;//mod 2
+            let jitterj = mmod as f32;
+            ret.push((jitteri,jitterj));
+        }
+        ret.shuffle(&mut rand::thread_rng());
+        ret
+    };
+
     for _sample in 0..samples_per_pixel{
         for pos_idx in 0..thread_pixels_len{
             let idx = thread_pixels[pos_idx];
@@ -179,13 +195,8 @@ fn draw(camera: &Camera,world: &HittableList,max_depth: u32,tmin: f32,tmax: f32,
             let j_f = line as f32;
             let i_f = col as f32;
 
-            //Construct a blue noise wannabe with a low discrepancy random number
-            //https://en.wikipedia.org/wiki/Low-discrepancy_sequence#Construction_of_low-discrepancy_sequences
-            let jitter1 = (((curr_samples| 1) == 0) as u32) as f32;
-            let jitter2 = (((curr_samples| 2) == 0) as u32) as f32;
-            //@TODO: Graph and check discrepancy of this algorith
-            let i_rand = f32::rand()*0.5 + jitter1*0.5;
-            let j_rand = f32::rand()*0.5 + jitter2*0.5;
+            let i_rand = (f32::rand() + jitters[curr_samples as usize].0)/2.;
+            let j_rand = (f32::rand() + jitters[curr_samples as usize].1)/2.;
             let u = (i_f+i_rand)/(image_width_f-1.);
             let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
