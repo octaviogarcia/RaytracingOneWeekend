@@ -1,7 +1,7 @@
 
 
-use crate::vec3;
-use vec3::{Vec3,UnitVec3,Point3,Mat3x3};
+use crate::vec3::{Vec3,UnitVec3,Point3};
+use crate::mat3x3::{Mat3x3};
 use crate::utils::{INF};
 use crate::ray::Ray;
 use crate::hits::HitRecord;

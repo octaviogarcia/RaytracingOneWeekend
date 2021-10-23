@@ -4,6 +4,8 @@ extern crate sdl2;
 mod vec3;
 use vec3::*;
 
+mod mat3x3;
+
 mod utils;
 use utils::*;
 
