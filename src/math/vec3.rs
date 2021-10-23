@@ -196,8 +196,8 @@ impl Mul<f32> for Vec3{
 }
 impl Mul<Vec3> for f32{
     type Output = Vec3;
-    fn mul(self, vec3: Vec3) -> Vec3{
-        return vec3*self;
+    fn mul(self, other: Vec3) -> Vec3{
+        return other*self;
     }
 }
 impl Div<f32> for Vec3{

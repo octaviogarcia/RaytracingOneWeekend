@@ -1,5 +1,5 @@
 
-use crate::vec3::{Vec3,UnitVec3,Point3};
+use crate::math::vec3::{Vec3,UnitVec3,Point3};
 use crate::utils::{min,max};
 use crate::ray::Ray;
 use crate::materials::Material;

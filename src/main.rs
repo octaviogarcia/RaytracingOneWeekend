@@ -1,10 +1,8 @@
 extern crate num_cpus;
 extern crate sdl2;
 
-mod vec3;
-use vec3::*;
-
-mod mat3x3;
+mod math;
+use math::vec3::*;
 
 mod utils;
 use utils::*;
@@ -333,7 +331,7 @@ fn main() {
     }*/
 }
 
-fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u32>,true_samples: &Vec<u32>,samples_per_pixel: u32,image_width: u32,image_height: u32){
+fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u32>,true_samples: &Vec<u32>,_samples_per_pixel: u32,image_width: u32,image_height: u32){
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -381,34 +379,6 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u32>,true_samples: &Vec<u32>,sa
                 let x = pos - y*image_width;
                 texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
             }
-            //Some shitty filter to denoise early frames. Maybe try doing Compress sensing or something like that
-            //When samples are low, it averages on neighbours. When samples are high, it priorizes takes the "true" pixel value
-            /*for line in 1..(image_height-1) {
-                for col in 1..(image_width-1) {
-                    let smpls = samples[(line*image_width+col) as usize] as f32;
-                    let inside = samples_per_pixel as f32 + smpls;//Starts at spp, goes to 2*spp
-                    let outside = samples_per_pixel as f32 - smpls;//Starts at spp, goes to 0
-                    let total_w = outside*8. + inside;
-                    let filter: [[f32; 3]; 3] = [
-                        [outside,outside,outside],
-                        [outside, inside,outside],
-                        [outside,outside,outside]];
-                    let mut c = Color::new(0.,0.,0.);
-                    for fline in 0..3{
-                        for fcol in 0..3{
-                            let aux_line = line+(fline-1);
-                            let aux_col  = col+(fcol-1);
-                            let pos = (aux_line*image_width+aux_col) as usize;
-                            let aux = normalize_color(colors[pos],samples[pos]);
-                            let w = filter[fline as usize][fcol as usize];
-                            c += w*aux;
-                        }
-                    }
-                    c /= total_w;
-                    texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
-                    texture_canvas.draw_point(sdl2::rect::Point::new(col as i32, line as i32)).unwrap();
-                }
-            }*/
         }).unwrap();
 
         canvas.clear();

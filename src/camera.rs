@@ -1,4 +1,4 @@
-use crate::vec3::*;
+use crate::math::vec3::*;
 use crate::ray::*;
 use crate::utils::degrees_to_radians;
 

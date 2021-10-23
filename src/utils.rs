@@ -1,4 +1,4 @@
-use crate::vec3;
+use crate::math::vec3;
 use vec3::Color;
 
 pub fn min(x: f32,y: f32) -> f32{

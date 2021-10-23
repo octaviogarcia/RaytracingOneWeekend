@@ -1,5 +1,5 @@
 use crate::ray::Ray;
-use crate::vec3::*;
+use crate::math::vec3::*;
 use crate::hits::HitRecord;
 use crate::utils::min;
 use crate::utils::MyRandom;
