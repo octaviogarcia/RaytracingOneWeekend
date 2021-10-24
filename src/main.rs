@@ -117,7 +117,8 @@ fn random_scene() -> HittableList{
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));
         //world.add_sphere(&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
         //world.add_marched_sphere(&MarchedSphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
-        world.add_marched_box(&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
+        //world.add_marched_box(&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
+        world.add_cube(&Cube{center: Point3::new(4.,1.,0.), radius: 0.5, material: mat});
         //world.add_infinite_plane(&InfinitePlane{center: Point3::new(4.,1.,0.),normal: Vec3::new(0.,0.,1.), material:  Material::new_metal(Color::new(1.,1.,1.))});
     }
     return world;

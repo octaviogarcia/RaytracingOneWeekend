@@ -2,7 +2,7 @@
 
 use crate::math::vec3::{Vec3,UnitVec3,Point3};
 use crate::math::mat3x3::{Mat3x3};
-use crate::utils::{INF};
+use crate::utils::{INF,max,min};
 use crate::ray::Ray;
 use crate::hits::HitRecord;
 use crate::materials::Material;
@@ -172,3 +172,55 @@ impl <const BT: usize> Traced for Barycentric<BT> {
 
 pub type Parallelogram = Barycentric<0>;
 pub type Triangle = Barycentric<1>;
+
+
+#[derive(Copy, Clone)]
+pub struct Cube {
+    pub center: Point3,
+    pub radius: f32,
+    pub material: Material
+}
+/*
+Intersection
+{max(|x-c|,|y-c|,|z-c|) = r = ||p-c||_inf
+{p = ut + o
+=>
+max(|ux t + ox - cx|,|uy t + oy - cy|,|uy t + oy - cz|) = r
+=>
+For each case
+i = x,y,z
+|ui t + oi - ci| = r
+  ui t + oi - ci = r -> t1 =  ( r-oi+ci)/ui
+-(ui t + oi - ci) = r -> t2 = (-r-oi+ci)/ui
+- We only care when t > 0 (our ray always moves forward, "negative directions" are encoded in ui)
+- plug t in in ||p-c||_inf = r. If it doesn't satisfy, it's not solution
+=> We want the smallest positive t
+*/
+
+impl Traced for Cube {
+    fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
+        let mut smallest_t = INF;
+        for i in 0..3{
+            if r.dir[i].abs() < 0.000001{
+                continue;
+            }
+            let t1 = ( self.radius - r.orig[i] + self.center[i])/r.dir[i];
+            let t2 = (-self.radius - r.orig[i] + self.center[i])/r.dir[i];
+            let t: f32;
+            if t1 >= 0. && t2 >= 0.{
+                t = min(t1,t2);
+            }
+            else {
+                t = max(t1,t2);
+            }
+            if t < 0. || t > smallest_t {continue;}
+            let is_solution = ((r.at(t) - self.center).abs().max_val() - self.radius) <= 0.001;
+            if !is_solution {continue;}
+            smallest_t = t;
+        }
+        if smallest_t == INF {return None;}
+        let point = r.at(smallest_t);
+        let outward_normal = (point - self.center).unit();
+        return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material});
+    }
+}

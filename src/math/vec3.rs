@@ -42,6 +42,9 @@ impl Vec3{
     pub fn abs(&self) -> Self {
         Vec3::new(abs(self.x()),abs(self.y()),abs(self.z()))
     }
+    pub fn max_val(&self) -> f32{
+        return self.x().max(self.y().max(self.z()));
+    }
     pub fn max(&self,v: &Vec3) -> Self {
         Vec3::new(max(self.x(),v.x()),max(self.y(),v.y()),max(self.z(),v.z()))
     }
