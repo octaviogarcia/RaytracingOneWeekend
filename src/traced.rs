@@ -196,10 +196,10 @@ i = x,y,z
 - plug t in in ||p-c||_inf = r. If it doesn't satisfy, it's not solution
 => We want the smallest positive t
 */
-
 impl Traced for Cube {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         let mut smallest_t = INF;
+        let mut idx = usize::MAX;
         for i in 0..3{
             if r.dir[i].abs() < 0.000001{
                 continue;
@@ -213,14 +213,19 @@ impl Traced for Cube {
             else {
                 t = max(t1,t2);
             }
-            if t < 0. || t > smallest_t {continue;}
-            let is_solution = ((r.at(t) - self.center).abs().max_val() - self.radius) <= 0.001;
+            if t > smallest_t || t > t_max || t < t_min {continue;}//We should check t < 0. but we already do that with t < t_min...
+            let f = (r.at(t) - self.center).abs().max_val();
+            let is_solution = (f-self.radius) <= 0.00001;
             if !is_solution {continue;}
             smallest_t = t;
+            idx = i;
         }
-        if smallest_t == INF {return None;}
+        if idx == usize::MAX {return None;}
         let point = r.at(smallest_t);
-        let outward_normal = (point - self.center).unit();
+        let outward_normal: Vec3 = [Vec3::new(1.,0.,0.),Vec3::new(0.,1.,0.),Vec3::new(0.,0.,1.)][idx]
+                                  *(1. as f32).copysign((r.at(smallest_t) - self.center)[idx]);
+        //Which argument in max(x,y,z) is "activated" defines the axis (pair of faces)
+        //The sign of the inside (derivative of abs value) defines between those 2
         return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material});
     }
 }
