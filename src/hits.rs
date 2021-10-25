@@ -86,52 +86,41 @@ impl HittableList{
         //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
+        //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
         for obj in &self.spheres{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                if hr.t < closest_so_far {
-                    closest_so_far = hr.t;
-                    rec = Some(hr);
-                }
+                closest_so_far = hr.t;
+                rec = Some(hr);
             }
         }
         for obj in &self.infinite_planes{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                if hr.t < closest_so_far {
-                    closest_so_far = hr.t;
-                    rec = Some(hr);
-                }
+                closest_so_far = hr.t;
+                rec = Some(hr);
             }
         }
         for obj in &self.parallelograms{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                if hr.t < closest_so_far {
-                    closest_so_far = hr.t;
-                    rec = Some(hr);
-                }
+                closest_so_far = hr.t;
+                rec = Some(hr);
             }
         }
         for obj in &self.triangles{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                if hr.t < closest_so_far {
-                    closest_so_far = hr.t;
-                    rec = Some(hr);
-                }
+                closest_so_far = hr.t;
+                rec = Some(hr);
             }
         }
         for obj in &self.cubes{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                if hr.t < closest_so_far {
-                    closest_so_far = hr.t;
-                    rec = Some(hr);
-                }
+                closest_so_far = hr.t;
+                rec = Some(hr);
             }
         }
         for obj in &self.objects{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                if hr.t < closest_so_far {
-                    closest_so_far = hr.t;
-                    rec = Some(hr);
-                }
+                closest_so_far = hr.t;
+                rec = Some(hr);
             }
         }
 
