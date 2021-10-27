@@ -196,6 +196,7 @@ i = x,y,z
 - plug t in in ||p-c||_inf = r. If it doesn't satisfy, it's not solution
 => We want the smallest positive t
 */
+
 impl Traced for Cube {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         let mut smallest_t = INF;

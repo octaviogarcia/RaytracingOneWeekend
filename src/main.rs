@@ -38,7 +38,7 @@ struct ColorsBox {
 }
 unsafe impl Send for ColorsBox{}
 
-fn ray_color(r: &Ray,world: &HittableList, depth: u32,tmin: f32,tmax: f32) -> Color{
+fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32) -> Color{
     let mut curr_color = Color::new(1.,1.,1.);
     let mut curr_ray: Ray = *r;
     for _i in 0..depth{
@@ -135,7 +135,7 @@ use std::thread;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-fn draw(camera: &Camera,world: &HittableList,max_depth: u32,tmin: f32,tmax: f32,
+fn draw(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax: f32,
     samples_per_pixel: u32,image_width: u32,image_height: u32,
     colors_box: ColorsBox,
     tid: u32,assigned_thread: &Vec<u32>,samples_atom: &AtomicU64)
@@ -309,8 +309,9 @@ fn main() {
         let assgn_th = arc_assigned_thread.clone();
         let tmin = 0.001;
         let tmax = 100.0;//@TODO: You could find these from bounding boxes from the scene
+        
         let draw_thread = move || {
-            return draw(&cam,&wrld,max_depth,tmin,tmax,
+            return draw(&cam,&wrld.freeze(&cam),max_depth,tmin,tmax,
                 samples_per_pixel,image_width,image_height,
                 colors_box,
                 i,&assgn_th,&smpls_atom);
