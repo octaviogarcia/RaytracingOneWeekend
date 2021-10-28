@@ -140,14 +140,13 @@ impl <'a> FrozenHittableList<'a>{
                 found_obj = Some(Arc::new(*obj));
             }
         })*
-        //@TODO: See how I can return dynamic Marched objects
         for obj in &self.hl.marched_objects {
-            let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
+            let d = obj.sdf(p).abs();
             if d < max_dis {
                 max_dis = d;
                 normal = obj.get_outward_normal(p);//Slow vtable call
                 material = Some(*obj.material());//Slow vtable call
-                found_obj = Some(obj.clone());//I don't know if this is safe
+                found_obj = Some(obj.clone());
             }
         }
         return (max_dis,normal,material,found_obj);
