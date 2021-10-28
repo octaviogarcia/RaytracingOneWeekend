@@ -14,94 +14,52 @@ pub struct HitRecord {
 }
 
 macro_rules! hittable_list {
-($($name:ident ; $typ:ty),*) => {
-    pub struct HittableList{
-        pub objects: Vec<Box<dyn Traced + Send + Sync>>,
-        pub marched_objects: Vec<Box<dyn Marched + Send + Sync>>,
-        $($name: Vec<$typ>,)*
-    }
-    impl HittableList {
-        pub fn new() -> Self{
-            return HittableList{
-                objects: Vec::new(),
-                marched_objects: Vec::new(),
-                $($name: Vec::new(),)*
-            };
-        }
-        #[allow(dead_code)]
-        pub fn clear(&mut self) -> (){
-            self.objects.clear();
-            self.marched_objects.clear();
-            $(self.$name.clear();)*
-        }
-        #[allow(dead_code)]
-        pub fn add_traced(&mut self,obj: Box<dyn Traced + Send + Sync>) -> () {
-            self.objects.push(obj);
-        }
-        #[allow(dead_code)]
-        pub fn add_marched(&mut self,obj: Box<dyn Marched + Send + Sync>) -> () {
-            self.marched_objects.push(obj);
-        }
-        pub fn freeze(&self,cam: &Camera) -> FrozenHittableList{
-            return FrozenHittableList::new(self,cam);
-        }
-    }
-    $(impl std::ops::AddAssign<&$typ> for HittableList{
-        fn add_assign(&mut self, obj: &$typ){
-            self.$name.push(*obj)
-        }
-    })*
-};
+($($traced_ident:ident ; $traced:ty),* | $($marched_ident:ident ; $marched:ty),*) => {
+
+pub struct HittableList{
+    pub objects: Vec<Box<dyn Traced + Send + Sync>>,
+    pub marched_objects: Vec<Box<dyn Marched + Send + Sync>>,
+    $($traced_ident: Vec<$traced>,)*
+    $($marched_ident: Vec<$marched>,)*
 }
-
-hittable_list!(spheres;Sphere, cubes;Cube, triangles;Triangle,infinite_planes;InfinitePlane,parallelograms;Parallelogram,
-               marched_spheres;MarchedSphere,marched_boxes;MarchedBox,marched_torus;MarchedTorus);
-
-//Only tested with abs(obj.sdf(r.at(t))) < HIT_SIZE
-#[allow(dead_code)]
-fn root_find(obj: Option<Box<(dyn Marched + Send + Sync)>>,t: f32,r: &Ray,hit_size: f32) -> f32 {
-    let o = obj.unwrap();
-
-    let mut first_side_t   = t;
-    let mut first_side_val = o.sdf(&r.at(t));
-    //If positive ADD to the ray, (we are going inside the surface). Else, SUBSTRACT, we are going outside.
-    let sign = [-1.,1.][(first_side_val > 0.) as usize];
-    let mut other_side_t   = first_side_t + (sign)*hit_size;
-    let mut other_side_val = o.sdf(&r.at(other_side_t));
-    let mut max_iters = 10;
-    while (first_side_val > 0.) == (other_side_val > 0.)  && max_iters > 0{//Find a point on the other side
-        other_side_t += (sign)*hit_size;
-        other_side_val = o.sdf(&r.at(other_side_t));
-        max_iters-=1;
+impl HittableList {
+    pub fn new() -> Self{
+        return HittableList{
+            objects: Vec::new(),
+            marched_objects: Vec::new(),
+            $($traced_ident: Vec::new(),)*
+            $($marched_ident: Vec::new(),)*
+        };
     }
-    if max_iters == 0 {return INF;}
-    //Now bisect
-    let mut middle_t   = (first_side_t + other_side_t)/2.;
-    let mut middle_val = o.sdf(&r.at(middle_t));
-    for _i in 0..5 {
-        if (middle_val > 0.) == (first_side_val > 0.){
-            first_side_t   = middle_t;
-            first_side_val = middle_val;
-        }
-        else if (middle_val > 0.) == (other_side_val > 0.){
-            other_side_t   = middle_t;
-            other_side_val = middle_val;
-        }
-        middle_t   = (first_side_t + other_side_t)/2.;
-        middle_val = o.sdf(&r.at(middle_t));
+    #[allow(dead_code)]
+    pub fn clear(&mut self) -> (){
+        self.objects.clear();
+        self.marched_objects.clear();
+        $(self.$traced_ident.clear();)*
+        $(self.$marched_ident.clear();)*
     }
-    //Asume its good enough to do Newtons
-    let mut ti = middle_t;
-    let mut fi = middle_val;
-    for _i in 0..20 {
-        let eps = hit_size/10.;
-        let feps = o.sdf(&r.at(ti+eps));
-        let dfi = (feps - fi)/eps;
-        ti = ti - fi/dfi;
-        fi = o.sdf(&r.at(ti)); 
+    #[allow(dead_code)]
+    pub fn add_traced(&mut self,obj: Box<dyn Traced + Send + Sync>) -> () {
+        self.objects.push(obj);
     }
-    return ti;
+    #[allow(dead_code)]
+    pub fn add_marched(&mut self,obj: Box<dyn Marched + Send + Sync>) -> () {
+        self.marched_objects.push(obj);
+    }
+    pub fn freeze(&self,cam: &Camera) -> FrozenHittableList{
+        return FrozenHittableList::new(self,cam);
+    }
 }
+$(impl std::ops::AddAssign<&$traced> for HittableList{
+    fn add_assign(&mut self, obj: &$traced){
+        self.$traced_ident.push(*obj)
+    }
+})*
+$(impl std::ops::AddAssign<&$marched> for HittableList{
+    fn add_assign(&mut self, obj: &$marched){
+        self.$marched_ident.push(*obj)
+    }
+})*
 
 pub struct FrozenHittableList<'a>{
     hl: &'a HittableList,//@TODO: implement some sort of KD tree or octotree
@@ -116,36 +74,12 @@ impl <'a> FrozenHittableList<'a>{
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
-        for obj in &self.hl.spheres{
+        $(for obj in &self.hl.$traced_ident{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
                 rec = Some(hr);
             }
-        }
-        for obj in &self.hl.infinite_planes{
-            if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                closest_so_far = hr.t;
-                rec = Some(hr);
-            }
-        }
-        for obj in &self.hl.parallelograms{
-            if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                closest_so_far = hr.t;
-                rec = Some(hr);
-            }
-        }
-        for obj in &self.hl.triangles{
-            if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                closest_so_far = hr.t;
-                rec = Some(hr);
-            }
-        }
-        for obj in &self.hl.cubes{
-            if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
-                closest_so_far = hr.t;
-                rec = Some(hr);
-            }
-        }
+        })*
         for obj in &self.hl.objects{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
@@ -193,7 +127,7 @@ impl <'a> FrozenHittableList<'a>{
         let mut normal = Vec3::ZERO;
         let mut material = None;
         let mut found_obj: Option<Box<(dyn Marched + Send + Sync)>> = None;
-        for obj in &self.hl.marched_spheres {
+        $(for obj in &self.hl.$marched_ident{
             let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
             if d < max_dis {
                 max_dis = d;
@@ -201,25 +135,7 @@ impl <'a> FrozenHittableList<'a>{
                 material = Some(obj.material);
                 found_obj = Some(Box::new(*obj));
             }
-        }
-        for obj in &self.hl.marched_boxes {
-            let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
-            if d < max_dis {
-                max_dis = d;
-                normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
-                material = Some(obj.material);
-                found_obj = Some(Box::new(*obj));
-            }
-        }
-        for obj in &self.hl.marched_torus {
-            let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
-            if d < max_dis {
-                max_dis = d;
-                normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
-                material = Some(obj.material);
-                found_obj = Some(Box::new(*obj));
-            }
-        }
+        })*
         //@TODO: See how I can return dynamic Marched objects
         /*for obj in &self.marched_objects {
             let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
@@ -233,4 +149,55 @@ impl <'a> FrozenHittableList<'a>{
         }*/
         return (max_dis,normal,material,found_obj);
     }
+}
+
+};}
+
+hittable_list!(spheres;Sphere, cubes;Cube, triangles;Triangle,infinite_planes;InfinitePlane,parallelograms;Parallelogram
+              |marched_spheres;MarchedSphere,marched_boxes;MarchedBox,marched_torus;MarchedTorus);
+
+//Only tested with abs(obj.sdf(r.at(t))) < HIT_SIZE
+#[allow(dead_code)]
+fn root_find(obj: Option<Box<(dyn Marched + Send + Sync)>>,t: f32,r: &Ray,hit_size: f32) -> f32 {
+    let o = obj.unwrap();
+
+    let mut first_side_t   = t;
+    let mut first_side_val = o.sdf(&r.at(t));
+    //If positive ADD to the ray, (we are going inside the surface). Else, SUBSTRACT, we are going outside.
+    let sign = [-1.,1.][(first_side_val > 0.) as usize];
+    let mut other_side_t   = first_side_t + (sign)*hit_size;
+    let mut other_side_val = o.sdf(&r.at(other_side_t));
+    let mut max_iters = 10;
+    while (first_side_val > 0.) == (other_side_val > 0.)  && max_iters > 0{//Find a point on the other side
+        other_side_t += (sign)*hit_size;
+        other_side_val = o.sdf(&r.at(other_side_t));
+        max_iters-=1;
+    }
+    if max_iters == 0 {return INF;}
+    //Now bisect
+    let mut middle_t   = (first_side_t + other_side_t)/2.;
+    let mut middle_val = o.sdf(&r.at(middle_t));
+    for _i in 0..5 {
+        if (middle_val > 0.) == (first_side_val > 0.){
+            first_side_t   = middle_t;
+            first_side_val = middle_val;
+        }
+        else if (middle_val > 0.) == (other_side_val > 0.){
+            other_side_t   = middle_t;
+            other_side_val = middle_val;
+        }
+        middle_t   = (first_side_t + other_side_t)/2.;
+        middle_val = o.sdf(&r.at(middle_t));
+    }
+    //Asume its good enough to do Newtons
+    let mut ti = middle_t;
+    let mut fi = middle_val;
+    for _i in 0..20 {
+        let eps = hit_size/10.;
+        let feps = o.sdf(&r.at(ti+eps));
+        let dfi = (feps - fi)/eps;
+        ti = ti - fi/dfi;
+        fi = o.sdf(&r.at(ti)); 
+    }
+    return ti;
 }
