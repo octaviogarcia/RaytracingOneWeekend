@@ -51,6 +51,7 @@ pub struct InfinitePlane {
 }
 
 impl InfinitePlane {
+    #[allow(dead_code)]
     pub fn new(center: &Point3,normal: &UnitVec3,material: &Material) -> Self{
         return InfinitePlane{center: *center,normal: normal.unit(),material: *material};
     }
@@ -134,7 +135,7 @@ impl <const BT: usize> Barycentric<BT> {
         return l1 > 0. && l2 > 0. && l3 > 0. && l1 < 1. && l2 < 1. && l3 < 1.;
     }
     #[inline]
-    fn check_lambdas_parallelogram(&self,l1: f32,l2: f32,l3: f32) -> bool{
+    fn check_lambdas_parallelogram(&self,l1: f32,l2: f32,_l3: f32) -> bool{
         return l1 > 0. && l2 > 0. && l1 < 1. && l2 < 1.;
     }
     fn hit_aux(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {

@@ -26,61 +26,55 @@ pub struct HittableList{
     pub marched_objects: Vec<Box<dyn Marched + Send + Sync>>,
 }
 
+macro_rules! add_obj {
+    ( $x: ty, $name: ident ) => {
+        impl std::ops::AddAssign<&$x> for HittableList{
+            fn add_assign(&mut self, obj: &$x){
+                self.$name.push(*obj)
+            }
+        }
+    };
+}
+
+add_obj!(Sphere,spheres);
+add_obj!(InfinitePlane,infinite_planes);
+add_obj!(Parallelogram,parallelograms);
+add_obj!(Triangle,triangles);
+add_obj!(Cube,cubes);
+add_obj!(MarchedSphere,marched_spheres);
+add_obj!(MarchedBox,marched_boxes);
+add_obj!(MarchedTorus,marched_torus);
+
+macro_rules! new_and_clear {
+    ($($name:ident),*) => {
+        impl HittableList {
+            pub fn new() -> Self{
+                return HittableList{
+                $(
+                    $name: Vec::new(),
+                )*
+                };
+            }
+            #[allow(dead_code)]
+            pub fn clear(&mut self) -> (){
+                $(
+                    self.$name.clear();
+                )*
+            }
+        }
+    };
+}
+
+new_and_clear!(spheres,infinite_planes,parallelograms,triangles,cubes,objects,marched_spheres,marched_boxes,marched_torus,marched_objects);
+
 impl HittableList{
-    pub fn new() -> Self {
-        return HittableList{
-            spheres: Vec::new(),
-            infinite_planes: Vec::new(),
-            parallelograms: Vec::new(),
-            triangles: Vec::new(),
-            cubes: Vec::new(),
-            objects: Vec::new(),
-            marched_spheres: Vec::new(),
-            marched_boxes: Vec::new(),
-            marched_torus: Vec::new(),
-            marched_objects: Vec::new()};
-    }
-    pub fn add_sphere(&mut self,obj: &Sphere) -> () {
-        self.spheres.push(*obj);
-    }
-    pub fn add_infinite_plane(&mut self,obj: &InfinitePlane) -> () {
-        self.infinite_planes.push(*obj);
-    }
-    pub fn add_parallelogram(&mut self,obj: &Parallelogram) -> () {
-        self.parallelograms.push(*obj);
-    }
-    pub fn add_triangle(&mut self,obj: &Triangle) -> () {
-        self.triangles.push(*obj);
-    }
-    pub fn add_cube(&mut self,obj: &Cube) -> () {
-        self.cubes.push(*obj);
-    }
-    pub fn add(&mut self,obj: Box<dyn Traced + Send + Sync>) -> () {
+    #[allow(dead_code)]
+    pub fn add_traced(&mut self,obj: Box<dyn Traced + Send + Sync>) -> () {
         self.objects.push(obj);
     }
-    pub fn add_marched_sphere(&mut self,obj: &MarchedSphere) -> () {
-        self.marched_spheres.push(*obj);
-    }
-    pub fn add_marched_box(&mut self,obj: &MarchedBox) -> () {
-        self.marched_boxes.push(*obj);
-    }
-    pub fn add_marched_torus(&mut self,obj: &MarchedTorus) -> () {
-        self.marched_torus.push(*obj);
-    }
+    #[allow(dead_code)]
     pub fn add_marched(&mut self,obj: Box<dyn Marched + Send + Sync>) -> () {
         self.marched_objects.push(obj);
-    }
-    pub fn clear(&mut self) -> () {
-        self.spheres.clear();
-        self.infinite_planes.clear();
-        self.parallelograms.clear();
-        self.triangles.clear();
-        self.cubes.clear();
-        self.objects.clear();
-        self.marched_spheres.clear();
-        self.marched_boxes.clear();
-        self.marched_torus.clear();
-        self.marched_objects.clear();
     }
     pub fn freeze(&self,cam: &Camera) -> FrozenHittableList{
         return FrozenHittableList::new(self,cam);
@@ -88,6 +82,7 @@ impl HittableList{
 }
 
 //Only tested with abs(obj.sdf(r.at(t))) < HIT_SIZE
+#[allow(dead_code)]
 fn root_find(obj: Option<Box<(dyn Marched + Send + Sync)>>,t: f32,r: &Ray,hit_size: f32) -> f32 {
     let o = obj.unwrap();
 
@@ -137,7 +132,8 @@ pub struct FrozenHittableList<'a>{
 }
 
 impl <'a> FrozenHittableList<'a>{
-    pub fn new(hl: &'a HittableList,cam: &Camera) -> Self{ Self{hl: hl} }
+    pub fn new(hl: &'a HittableList,_cam: &Camera) -> Self{ Self{hl: hl} }
+    #[allow(dead_code)]
     pub fn unfreeze(&self) -> &HittableList { self.hl }
     pub fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         //Ray tracing section

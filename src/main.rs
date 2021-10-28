@@ -62,8 +62,8 @@ fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32)
 fn random_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
-    //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground});
-    world.add_sphere(&Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground});
+    //world+=&MarchedSphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground};
+    world+=&Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground};
     for a in -11..11{
         let af = a as f32;
         for b in -11..11{
@@ -85,41 +85,41 @@ fn random_scene() -> HittableList{
                 else{
                     sphere_mat = Material::new_dielectric(1.5);
                 }
-                world.add_sphere(&Sphere{center: center, radius: 0.2, material: sphere_mat});
+                world+=&Sphere{center: center, radius: 0.2, material: sphere_mat};
             }
         }
     }
     {
         let mat = Material::new_dielectric(1.5);
-        //world.add_sphere(&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
-        //world.add_marched_sphere(&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat});
-        //world.add_marched_box(&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
-        world.add_marched_torus(&MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat});
-        //world.add_infinite_plane(&InfinitePlane{center: Point3::new(0.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat});
+        //world+=&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat};
+        //world+=&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat};
+        //world+=&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat};
+        world+=&MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat};
+        //world+=&InfinitePlane{center: Point3::new(0.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat};
     }
     {
         //let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));
-        //world.add_sphere(&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
-        //world.add_marched_sphere(&MarchedSphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat});
-        //world.add_marched_box(&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat});
-        //world.add_infinite_plane(&InfinitePlane::new(&Point3::new(-4.,1.,0.),&Vec3::new(0.,0.,1.),&mat});
+        //world+=&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat};
+        //world+=&MarchedSphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat};
+        //world+=&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat};
+        //world+=&InfinitePlane::new(&Point3::new(-4.,1.,0.),&Vec3::new(0.,0.,1.),&mat};
         let p1 = Point3::new(7.,1.,0.);
         let p2 = Point3::new(6.,1.1,0.5);
         let p3 = Point3::new(6.,1.5,0.);
-        world.add_parallelogram(&Parallelogram::new3points(
+        world+=&Parallelogram::new3points(
             &p1,&p2,&p3,&Material::new_metal(Color::new(1.,0.5,1.))
-        ));
-        world.add_triangle(&Triangle::new3points(
+        );
+        world+=&Triangle::new3points(
             &(p1+Point3::new(0.,0.5,0.)),&p2,&p3,&Material::new_lambertian(Color::new(1.,1.,0.))
-        ));
+        );
     }
     {
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));
-        //world.add_sphere(&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
-        //world.add_marched_sphere(&MarchedSphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat});
-        //world.add_marched_box(&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat});
-        world.add_cube(&Cube{center: Point3::new(4.,1.,0.), radius: 0.5, material: mat});
-        //world.add_infinite_plane(&InfinitePlane{center: Point3::new(4.,1.,0.),normal: Vec3::new(0.,0.,1.), material:  Material::new_metal(Color::new(1.,1.,1.))});
+        //world+=&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat};
+        //world+=&MarchedSphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat};
+        //world+=&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat};
+        world+=&Cube{center: Point3::new(4.,1.,0.), radius: 0.5, material: mat};
+        //world+=&InfinitePlane{center: Point3::new(4.,1.,0.),normal: Vec3::new(0.,0.,1.), material:  Material::new_metal(Color::new(1.,1.,1.))};
     }
     return world;
 }

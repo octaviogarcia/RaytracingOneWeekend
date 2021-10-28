@@ -34,6 +34,7 @@ pub fn normalize_color(color: Color,samples_per_pixel: u32) -> Color{
     let b = clamp((color.z() * scale).sqrt(),0.,0.999);
     return Color::new(r,g,b);
 }
+#[allow(dead_code)]
 pub fn denormalize_color(color: Color,samples_per_pixel: u32) -> Color{
     let scale = samples_per_pixel as f32;
     let r = clamp(color.x()*color.x()*scale,0.,scale);
@@ -41,7 +42,7 @@ pub fn denormalize_color(color: Color,samples_per_pixel: u32) -> Color{
     let b = clamp(color.z()*color.z()*scale,0.,scale);
     return Color::new(r,g,b);
 }
-
+#[allow(dead_code)]
 pub fn write_ppm(colors: &Vec<Color>,samples_per_pixel: u32,image_width: u32,image_height: u32){
     let mut colors_str: String = "".to_owned();
     for c in colors{

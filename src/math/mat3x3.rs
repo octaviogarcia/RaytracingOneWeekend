@@ -8,8 +8,11 @@ pub struct Mat3x3 {
 }
 
 impl Mat3x3 {
+    #[allow(dead_code)]
     pub const ZERO : Self     = Self{ e: [Vec3{e:[0.,0.,0.]},Vec3{e:[0.,0.,0.]},Vec3{e:[0.,0.,0.]}]};
+    #[allow(dead_code)]
     pub const IDENTITY : Self = Self{ e: [Vec3{e:[1.,0.,0.]},Vec3{e:[0.,1.,0.]},Vec3{e:[0.,0.,1.]}]};
+    #[allow(dead_code)]
     pub fn new9f(e00: f32,e01: f32,e02: f32,e10: f32,e11: f32,e12: f32,e20: f32,e21: f32,e22: f32) -> Self{
         return Self{e: [Vec3::new(e00,e01,e02),Vec3::new(e10,e11,e12),Vec3::new(e20,e21,e22)]};
     }
@@ -24,6 +27,7 @@ impl Mat3x3 {
     pub fn dot(&self,v: &Vec3) -> Vec3{
         return Vec3::new(self.e[0].dot(*v),self.e[1].dot(*v),self.e[2].dot(*v));
     }
+    #[allow(dead_code)]
     pub fn dot_mat(&self,m: &Self) -> Self{
         let t = m.transpose();
         return Self::new9f(self.at_row(0).dot(t.at_row(0)),self.at_row(0).dot(t.at_row(1)),self.at_row(0).dot(t.at_row(2)),
@@ -33,12 +37,15 @@ impl Mat3x3 {
     pub fn at(&self,row: usize,col: usize) -> &f32{
         return &self.e[row].e[col];
     }
+    #[allow(dead_code)]
     pub fn at_row(&self,row: usize) -> Vec3{
         return self.e[row];
     }
+    #[allow(dead_code)]
     pub fn at_col(&self,col: usize) -> Vec3{
         return Vec3::new(self.e[0][col],self.e[1][col],self.e[2][col]);
     }
+    #[allow(dead_code)]
     pub fn transpose(&self) -> Mat3x3{
         return Self::new3v(&self.at_col(0),&self.at_col(1),&self.at_col(2));   
     }

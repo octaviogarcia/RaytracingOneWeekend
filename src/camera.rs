@@ -12,11 +12,13 @@ pub struct Camera{
     lower_left_corner: Point3,
     u_of_plane: UnitVec3,//"Up" unit plane vector
     v_of_plane: UnitVec3,//"Right" unit plane vector
+    #[allow(dead_code)]
     w_of_plane: UnitVec3,//Normal unit plane vector
     lens_radius: f32,//How far is the focal point from the plane
 }
 
 impl Camera{
+    #[allow(dead_code)]
     pub fn world_camera(vfov_in_degrees:f32,aspect_ratio: f32) -> Self{
         return Self::new(Point3::ZERO,Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),vfov_in_degrees,aspect_ratio,0.,1.);
     }
