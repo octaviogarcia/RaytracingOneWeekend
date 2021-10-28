@@ -13,19 +13,21 @@ pub struct HitRecord {
     pub t: f32,
 }
 
+use std::sync::Arc;
+
 macro_rules! hittable_list {
 ($($traced_ident:ident ; $traced:ty),* | $($marched_ident:ident ; $marched:ty),*) => {
 
 pub struct HittableList{
-    pub objects: Vec<Box<dyn Traced + Send + Sync>>,
-    pub marched_objects: Vec<Box<dyn Marched + Send + Sync>>,
+    pub traced_objects: Vec<Arc<dyn Traced + Send + Sync>>,
+    pub marched_objects: Vec<Arc<dyn Marched + Send + Sync>>,
     $($traced_ident: Vec<$traced>,)*
     $($marched_ident: Vec<$marched>,)*
 }
 impl HittableList {
     pub fn new() -> Self{
         return HittableList{
-            objects: Vec::new(),
+            traced_objects: Vec::new(),
             marched_objects: Vec::new(),
             $($traced_ident: Vec::new(),)*
             $($marched_ident: Vec::new(),)*
@@ -33,31 +35,33 @@ impl HittableList {
     }
     #[allow(dead_code)]
     pub fn clear(&mut self) -> (){
-        self.objects.clear();
+        self.traced_objects.clear();
         self.marched_objects.clear();
         $(self.$traced_ident.clear();)*
         $(self.$marched_ident.clear();)*
-    }
-    #[allow(dead_code)]
-    pub fn add_traced(&mut self,obj: Box<dyn Traced + Send + Sync>) -> () {
-        self.objects.push(obj);
-    }
-    #[allow(dead_code)]
-    pub fn add_marched(&mut self,obj: Box<dyn Marched + Send + Sync>) -> () {
-        self.marched_objects.push(obj);
     }
     pub fn freeze(&self,cam: &Camera) -> FrozenHittableList{
         return FrozenHittableList::new(self,cam);
     }
 }
+impl std::ops::AddAssign<Arc<dyn Traced + Send + Sync>> for HittableList {
+    fn add_assign(&mut self, obj: Arc<dyn Traced + Send + Sync>){
+        self.traced_objects.push(obj);
+    }
+}
+impl std::ops::AddAssign<Arc<dyn Marched + Send + Sync>> for HittableList {
+    fn add_assign(&mut self, obj: Arc<dyn Marched + Send + Sync>){
+        self.marched_objects.push(obj);
+    }
+}
 $(impl std::ops::AddAssign<&$traced> for HittableList{
     fn add_assign(&mut self, obj: &$traced){
-        self.$traced_ident.push(*obj)
+        self.$traced_ident.push(*obj);
     }
 })*
 $(impl std::ops::AddAssign<&$marched> for HittableList{
     fn add_assign(&mut self, obj: &$marched){
-        self.$marched_ident.push(*obj)
+        self.$marched_ident.push(*obj);
     }
 })*
 
@@ -80,7 +84,7 @@ impl <'a> FrozenHittableList<'a>{
                 rec = Some(hr);
             }
         })*
-        for obj in &self.hl.objects{
+        for obj in &self.hl.traced_objects{
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
                 rec = Some(hr);
@@ -122,35 +126,34 @@ impl <'a> FrozenHittableList<'a>{
         return rec; 
     }
 
-    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f32,Vec3,Option<Material>,Option<Box<(dyn Marched + Send + Sync)>>){
+    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f32,Vec3,Option<Material>,Option<Arc<(dyn Marched + Send + Sync)>>){
         let mut max_dis    = INF;
         let mut normal = Vec3::ZERO;
         let mut material = None;
-        let mut found_obj: Option<Box<(dyn Marched + Send + Sync)>> = None;
+        let mut found_obj: Option<Arc<(dyn Marched + Send + Sync)>> = None;
         $(for obj in &self.hl.$marched_ident{
             let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
             if d < max_dis {
                 max_dis = d;
                 normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
                 material = Some(obj.material);
-                found_obj = Some(Box::new(*obj));
+                found_obj = Some(Arc::new(*obj));
             }
         })*
         //@TODO: See how I can return dynamic Marched objects
-        /*for obj in &self.marched_objects {
+        for obj in &self.hl.marched_objects {
             let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
             if d < max_dis {
                 max_dis = d;
-                let o = obj.clone();
-                normal = o.get_outward_normal(p);//Slow vtable call
-                material = Some(*o.material());//Slow vtable call
-                found_obj = Some(o);//I don't know if this is safe
+                normal = obj.get_outward_normal(p);//Slow vtable call
+                material = Some(*obj.material());//Slow vtable call
+                found_obj = Some(obj.clone());//I don't know if this is safe
             }
-        }*/
+        }
         return (max_dis,normal,material,found_obj);
     }
 }
-
+ 
 };}
 
 hittable_list!(spheres;Sphere, cubes;Cube, triangles;Triangle,infinite_planes;InfinitePlane,parallelograms;Parallelogram

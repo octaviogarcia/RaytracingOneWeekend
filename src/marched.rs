@@ -11,6 +11,7 @@ pub trait Marched {
     fn center(&self) -> &Point3;
 }
 
+
 pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> UnitVec3{
     let eps = 0.0000001;
     let ex = Point3::new(eps, 0., 0.);

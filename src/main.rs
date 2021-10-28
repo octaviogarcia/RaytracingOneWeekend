@@ -94,6 +94,7 @@ fn random_scene() -> HittableList{
         //world+=&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat};
         //world+=&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat};
         //world+=&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat};
+        //world+=Arc::new(MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat}) as Arc<dyn Marched + Send + Sync>;
         world+=&MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat};
         //world+=&InfinitePlane{center: Point3::new(0.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat};
     }
