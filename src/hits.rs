@@ -13,73 +13,49 @@ pub struct HitRecord {
     pub t: f32,
 }
 
-pub struct HittableList{
-    pub spheres: Vec<Sphere>,
-    pub infinite_planes: Vec<InfinitePlane>,
-    pub parallelograms: Vec<Parallelogram>,
-    pub triangles: Vec<Triangle>,
-    pub cubes: Vec<Cube>,
-    pub objects: Vec<Box<dyn Traced + Send + Sync>>,
-    pub marched_spheres: Vec<MarchedSphere>,
-    pub marched_boxes: Vec<MarchedBox>,
-    pub marched_torus: Vec<MarchedTorus>,
-    pub marched_objects: Vec<Box<dyn Marched + Send + Sync>>,
-}
-
-macro_rules! add_obj {
-    ( $x: ty, $name: ident ) => {
-        impl std::ops::AddAssign<&$x> for HittableList{
-            fn add_assign(&mut self, obj: &$x){
-                self.$name.push(*obj)
-            }
+macro_rules! hittable_list {
+($($name:ident ; $typ:ty),*) => {
+    pub struct HittableList{
+        pub objects: Vec<Box<dyn Traced + Send + Sync>>,
+        pub marched_objects: Vec<Box<dyn Marched + Send + Sync>>,
+        $($name: Vec<$typ>,)*
+    }
+    impl HittableList {
+        pub fn new() -> Self{
+            return HittableList{
+                objects: Vec::new(),
+                marched_objects: Vec::new(),
+                $($name: Vec::new(),)*
+            };
         }
-    };
-}
-
-add_obj!(Sphere,spheres);
-add_obj!(InfinitePlane,infinite_planes);
-add_obj!(Parallelogram,parallelograms);
-add_obj!(Triangle,triangles);
-add_obj!(Cube,cubes);
-add_obj!(MarchedSphere,marched_spheres);
-add_obj!(MarchedBox,marched_boxes);
-add_obj!(MarchedTorus,marched_torus);
-
-macro_rules! new_and_clear {
-    ($($name:ident),*) => {
-        impl HittableList {
-            pub fn new() -> Self{
-                return HittableList{
-                $(
-                    $name: Vec::new(),
-                )*
-                };
-            }
-            #[allow(dead_code)]
-            pub fn clear(&mut self) -> (){
-                $(
-                    self.$name.clear();
-                )*
-            }
+        #[allow(dead_code)]
+        pub fn clear(&mut self) -> (){
+            self.objects.clear();
+            self.marched_objects.clear();
+            $(self.$name.clear();)*
         }
-    };
+        #[allow(dead_code)]
+        pub fn add_traced(&mut self,obj: Box<dyn Traced + Send + Sync>) -> () {
+            self.objects.push(obj);
+        }
+        #[allow(dead_code)]
+        pub fn add_marched(&mut self,obj: Box<dyn Marched + Send + Sync>) -> () {
+            self.marched_objects.push(obj);
+        }
+        pub fn freeze(&self,cam: &Camera) -> FrozenHittableList{
+            return FrozenHittableList::new(self,cam);
+        }
+    }
+    $(impl std::ops::AddAssign<&$typ> for HittableList{
+        fn add_assign(&mut self, obj: &$typ){
+            self.$name.push(*obj)
+        }
+    })*
+};
 }
 
-new_and_clear!(spheres,infinite_planes,parallelograms,triangles,cubes,objects,marched_spheres,marched_boxes,marched_torus,marched_objects);
-
-impl HittableList{
-    #[allow(dead_code)]
-    pub fn add_traced(&mut self,obj: Box<dyn Traced + Send + Sync>) -> () {
-        self.objects.push(obj);
-    }
-    #[allow(dead_code)]
-    pub fn add_marched(&mut self,obj: Box<dyn Marched + Send + Sync>) -> () {
-        self.marched_objects.push(obj);
-    }
-    pub fn freeze(&self,cam: &Camera) -> FrozenHittableList{
-        return FrozenHittableList::new(self,cam);
-    }
-}
+hittable_list!(spheres;Sphere, cubes;Cube, triangles;Triangle,infinite_planes;InfinitePlane,parallelograms;Parallelogram,
+               marched_spheres;MarchedSphere,marched_boxes;MarchedBox,marched_torus;MarchedTorus);
 
 //Only tested with abs(obj.sdf(r.at(t))) < HIT_SIZE
 #[allow(dead_code)]
