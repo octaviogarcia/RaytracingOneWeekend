@@ -23,21 +23,37 @@ impl Mat4x4 {
                  Vec4::new(e20,e21,e22,e23),
                  Vec4::new(e30,e31,e32,e33)]}
     }
+    #[allow(dead_code)]
     pub fn new4v(v0: &Vec4,v1: &Vec4,v2: &Vec4,v3: &Vec4) -> Self{
         Self{e: [*v0,*v1,*v2,*v3]}
     }
+    #[allow(dead_code)]
     pub fn new3v_vert(v0: &Vec4,v1: &Vec4,v2: &Vec4,v3: &Vec4) -> Self{
         Self{e: [Vec4::new(v0.x(),v1.y(),v2.x(),v3.x()),
                  Vec4::new(v0.y(),v1.y(),v2.y(),v3.y()),
                  Vec4::new(v0.z(),v1.z(),v2.z(),v3.z()),
                  Vec4::new(v0.w(),v1.w(),v2.w(),v3.w())]}
     }
+    #[allow(dead_code)]
     pub fn dot(&self,v: &Vec4) -> Vec4{
         Vec4::new(self.e[0].dot(*v),self.e[1].dot(*v),self.e[2].dot(*v),self.e[3].dot(*v))
     }
-    pub fn dotv3(&self,v: &Vec3) -> Vec4{
+    #[allow(dead_code)]
+    pub fn dot_v3_v4(&self,v: &Vec3) -> Vec4{
         let v4 = Vec4::new_v3(v,1.);
         Vec4::new(self.e[0].dot(v4),self.e[1].dot(v4),self.e[2].dot(v4),self.e[3].dot(v4))
+    }
+    #[allow(dead_code)]
+    pub fn dot_v3_v3(&self,v: &Vec3) -> Vec3{
+        let v4 = Vec4::new_v3(v,1.);
+        Vec3::new(self.e[0].dot(v4),self.e[1].dot(v4),self.e[2].dot(v4))
+    }
+    #[allow(dead_code)]
+    pub fn fast_homogenous_inverse(&self) -> Self{//https://stackoverflow.com/questions/155670/invert-4x4-matrix-numerical-most-stable-solution-needed
+        Self{e: [Vec4::new(self.at(0,0),self.at(1,0),self.at(2,0),-self.at_col(0).dot(self.at_col(3))),
+                 Vec4::new(self.at(0,1),self.at(1,1),self.at(2,1),-self.at_col(1).dot(self.at_col(3))),
+                 Vec4::new(self.at(0,2),self.at(1,2),self.at(2,2),-self.at_col(2).dot(self.at_col(3))),
+                 Vec4::new(          0.,          0.,          0.,                                 1.)]}
     }
     #[allow(dead_code)]
     pub fn dot_mat(&self,m: &Self) -> Self{
@@ -47,14 +63,13 @@ impl Mat4x4 {
                             self.at_row(2).dot(t.at_row(0)),self.at_row(2).dot(t.at_row(1)),self.at_row(2).dot(t.at_row(2)),self.at_row(2).dot(t.at_row(3)),
                             self.at_row(3).dot(t.at_row(0)),self.at_row(3).dot(t.at_row(1)),self.at_row(3).dot(t.at_row(2)),self.at_row(3).dot(t.at_row(3)));
     }
-    pub fn at(&self,row: usize,col: usize) -> &f32{
-        &self.e[row].e[col]
+    pub fn at(&self,row: usize,col: usize) -> f32{
+        self.e[row].e[col]
     }
     #[allow(dead_code)]
     pub fn at_row(&self,row: usize) -> Vec4{
         self.e[row]
     }
-    #[allow(dead_code)]
     pub fn at_col(&self,col: usize) -> Vec4{
         Vec4::new(self.e[0][col],self.e[1][col],self.e[2][col],self.e[3][col])
     }

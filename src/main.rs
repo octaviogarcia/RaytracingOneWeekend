@@ -85,6 +85,8 @@ fn random_scene() -> HittableList{
                 else{
                     sphere_mat = Material::new_dielectric(1.5);
                 }
+                //Scaling NOT Working, have to think about it
+                //let mat = Mat4x4::new_translate(&center).dot_mat(&Mat4x4::new_scale(&Vec3::new(2.,1.,1.))).fast_homogenous_inverse();
                 world+=&Sphere{center: center, radius: 0.2, material: sphere_mat};
             }
         }
