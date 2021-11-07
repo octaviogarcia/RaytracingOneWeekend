@@ -103,7 +103,7 @@ impl <const BT: usize> Barycentric<BT> {
         let v_unit = v.unit();
         let uxv = u_unit.cross(v_unit).unit();
         let uxvxu = uxv.cross(u_unit).unit();
-        let base_inv = Mat3x3::new3v_vert(&u_unit,&uxv,&uxvxu).inverse();
+        let base_inv = Mat3x3::new_3vec_vert(&u_unit,&uxv,&uxvxu).inverse();
         let v_in_base = base_inv.dot(&v_unit);
         return Self{origin: *origin,material: *material,
             u: u_unit,u_length: u_length,v: v_unit,v_length: v_length,uxv: uxv,

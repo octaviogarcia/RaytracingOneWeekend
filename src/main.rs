@@ -58,6 +58,7 @@ fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32)
     return -Color::ZERO;//If we run out of depth return -black
 }
 
+use crate::math::mat4x4::Mat4x4;
 
 fn random_scene() -> HittableList{
     let mut world = HittableList::new();
@@ -86,7 +87,11 @@ fn random_scene() -> HittableList{
                     sphere_mat = Material::new_dielectric(1.5);
                 }
                 //Scaling NOT Working, have to think about it
-                //let mat = Mat4x4::new_translate(&center).dot_mat(&Mat4x4::new_scale(&Vec3::new(2.,1.,1.))).fast_homogenous_inverse();
+                /*let mat = Mat4x4::new_translate(&center).dot_mat(&Mat4x4::new_scale(&Vec3::new(2.,1.,1.)));
+                let mat2 = mat.fast_homogenous_inverse();
+                println!("mat {:?}",mat);
+                println!("inv {:?}",mat2);
+                println!("I {:?}",mat.dot_mat(&mat2));*/
                 world+=&Sphere{center: center, radius: 0.2, material: sphere_mat};
             }
         }

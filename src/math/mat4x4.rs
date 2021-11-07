@@ -1,5 +1,6 @@
 use super::vec4::Vec4;
 use super::vec3::Vec3;
+use super::mat3x3::Mat3x3;
 //(-e[0]-)
 //(-e[1]-)
 //(-e[2]-)
@@ -14,7 +15,7 @@ impl Mat4x4 {
     #[allow(dead_code)]
     pub const IDENTITY : Self = Self{ e: [Vec4{e:[1.,0.,0.,0.]},Vec4{e:[0.,1.,0.,0.]},Vec4{e:[0.,0.,1.,0.]},Vec4{e:[0.,0.,0.,1.]}]};
     #[allow(dead_code)]
-    pub fn new16f(e00: f32,e01: f32,e02: f32,e03: f32,
+    pub fn new_16f(e00: f32,e01: f32,e02: f32,e03: f32,
                   e10: f32,e11: f32,e12: f32,e13: f32,
                   e20: f32,e21: f32,e22: f32,e23: f32,
                   e30: f32,e31: f32,e32: f32,e33: f32) -> Self{
@@ -24,41 +25,47 @@ impl Mat4x4 {
                  Vec4::new(e30,e31,e32,e33)]}
     }
     #[allow(dead_code)]
-    pub fn new4v(v0: &Vec4,v1: &Vec4,v2: &Vec4,v3: &Vec4) -> Self{
+    pub fn new_4vec(v0: &Vec4,v1: &Vec4,v2: &Vec4,v3: &Vec4) -> Self{
         Self{e: [*v0,*v1,*v2,*v3]}
     }
     #[allow(dead_code)]
-    pub fn new3v_vert(v0: &Vec4,v1: &Vec4,v2: &Vec4,v3: &Vec4) -> Self{
+    pub fn new_4vec_vert(v0: &Vec4,v1: &Vec4,v2: &Vec4,v3: &Vec4) -> Self{
         Self{e: [Vec4::new(v0.x(),v1.y(),v2.x(),v3.x()),
                  Vec4::new(v0.y(),v1.y(),v2.y(),v3.y()),
                  Vec4::new(v0.z(),v1.z(),v2.z(),v3.z()),
                  Vec4::new(v0.w(),v1.w(),v2.w(),v3.w())]}
+    }
+    pub fn new_m3x3(m: &Mat3x3) -> Self{
+        Self{e: [Vec4::new_v3(&m.e[0],0.),
+                 Vec4::new_v3(&m.e[1],0.),
+                 Vec4::new_v3(&m.e[2],0.),
+                 Vec4::new(0.,0.,0.,1.)]}
     }
     #[allow(dead_code)]
     pub fn dot(&self,v: &Vec4) -> Vec4{
         Vec4::new(self.e[0].dot(*v),self.e[1].dot(*v),self.e[2].dot(*v),self.e[3].dot(*v))
     }
     #[allow(dead_code)]
-    pub fn dot_v3_v4(&self,v: &Vec3) -> Vec4{
+    pub fn dot_v3_r_v4(&self,v: &Vec3) -> Vec4{
         let v4 = Vec4::new_v3(v,1.);
         Vec4::new(self.e[0].dot(v4),self.e[1].dot(v4),self.e[2].dot(v4),self.e[3].dot(v4))
     }
     #[allow(dead_code)]
-    pub fn dot_v3_v3(&self,v: &Vec3) -> Vec3{
+    pub fn dot_v3_r_v3(&self,v: &Vec3) -> Vec3{
         let v4 = Vec4::new_v3(v,1.);
         Vec3::new(self.e[0].dot(v4),self.e[1].dot(v4),self.e[2].dot(v4))
     }
     #[allow(dead_code)]
     pub fn fast_homogenous_inverse(&self) -> Self{//https://stackoverflow.com/questions/155670/invert-4x4-matrix-numerical-most-stable-solution-needed
-        Self{e: [Vec4::new(self.at(0,0),self.at(1,0),self.at(2,0),-self.at_col(0).dot(self.at_col(3))),
-                 Vec4::new(self.at(0,1),self.at(1,1),self.at(2,1),-self.at_col(1).dot(self.at_col(3))),
-                 Vec4::new(self.at(0,2),self.at(1,2),self.at(2,2),-self.at_col(2).dot(self.at_col(3))),
-                 Vec4::new(          0.,          0.,          0.,                                 1.)]}
+        //M = TS -> M^-1 = (TS)^-1 = S^-1 T^1
+        let s_inv = Self::new_m3x3(&Mat3x3::new_3vec(&self.e[0].xyz(),&self.e[1].xyz(),&self.e[2].xyz()).inverse());
+        let t_inv = Self::new_translate(&-self.at_col(3).xyz());
+        return s_inv.dot_mat(&t_inv);
     }
     #[allow(dead_code)]
     pub fn dot_mat(&self,m: &Self) -> Self{
         let t = m.transpose();
-        return Self::new16f(self.at_row(0).dot(t.at_row(0)),self.at_row(0).dot(t.at_row(1)),self.at_row(0).dot(t.at_row(2)),self.at_row(0).dot(t.at_row(3)),
+        return Self::new_16f(self.at_row(0).dot(t.at_row(0)),self.at_row(0).dot(t.at_row(1)),self.at_row(0).dot(t.at_row(2)),self.at_row(0).dot(t.at_row(3)),
                             self.at_row(1).dot(t.at_row(0)),self.at_row(1).dot(t.at_row(1)),self.at_row(1).dot(t.at_row(2)),self.at_row(1).dot(t.at_row(3)),
                             self.at_row(2).dot(t.at_row(0)),self.at_row(2).dot(t.at_row(1)),self.at_row(2).dot(t.at_row(2)),self.at_row(2).dot(t.at_row(3)),
                             self.at_row(3).dot(t.at_row(0)),self.at_row(3).dot(t.at_row(1)),self.at_row(3).dot(t.at_row(2)),self.at_row(3).dot(t.at_row(3)));
@@ -75,7 +82,7 @@ impl Mat4x4 {
     }
     #[allow(dead_code)]
     pub fn transpose(&self) -> Self{
-        Self::new4v(&self.at_col(0),&self.at_col(1),&self.at_col(2),&self.at_col(3))
+        Self::new_4vec(&self.at_col(0),&self.at_col(1),&self.at_col(2),&self.at_col(3))
     }
     #[allow(dead_code)]
     pub fn new_translate(v: &Vec3) -> Self{
@@ -125,7 +132,7 @@ use std::ops::{Mul,Div};
 impl Mul<f32> for Mat4x4{
     type Output = Self;
     fn mul(self, scalar: f32) -> Self{
-        return Self::new4v(&(self.e[0]*scalar),&(self.e[1]*scalar),&(self.e[2]*scalar),&(self.e[3]*scalar));
+        return Self::new_4vec(&(self.e[0]*scalar),&(self.e[1]*scalar),&(self.e[2]*scalar),&(self.e[3]*scalar));
     }
 }
 impl Div<f32> for Mat4x4{

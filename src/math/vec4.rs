@@ -26,6 +26,12 @@ impl Vec4{
     pub fn dot(&self,other: Self) -> f32{
         self.e[0]*other.e[0]+self.e[1]*other.e[1]+self.e[2]*other.e[2]+self.e[3]*other.e[3]
     }
+    pub fn dot_v3(&self,other: Vec3) -> f32{
+        self.e[0]*other.e[0]+self.e[1]*other.e[1]+self.e[2]*other.e[2]//+self.e[3]*0.
+    }
+    pub fn dot_p3(&self,other: Vec3) -> f32{
+        self.e[0]*other.e[0]+self.e[1]*other.e[1]+self.e[2]*other.e[2]+self.e[3]
+    }
     pub fn length_squared(&self) -> f32 {
         self.dot(*self)
     }
@@ -43,6 +49,9 @@ impl Vec4{
     }
     pub fn min(&self,v: &Vec4) -> Self {
         Vec4::new(min(self.x(),v.x()),min(self.y(),v.y()),min(self.z(),v.z()),min(self.w(),v.w()))
+    }
+    pub fn xyz(&self) -> Vec3{
+        Vec3::new(self.x(),self.y(),self.z())
     }
 }
 use std::ops::{Neg,Index,IndexMut,AddAssign,SubAssign,MulAssign,DivAssign,Add,Sub,Mul,Div};

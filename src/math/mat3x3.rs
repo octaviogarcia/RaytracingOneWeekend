@@ -13,13 +13,13 @@ impl Mat3x3 {
     #[allow(dead_code)]
     pub const IDENTITY : Self = Self{ e: [Vec3{e:[1.,0.,0.]},Vec3{e:[0.,1.,0.]},Vec3{e:[0.,0.,1.]}]};
     #[allow(dead_code)]
-    pub fn new9f(e00: f32,e01: f32,e02: f32,e10: f32,e11: f32,e12: f32,e20: f32,e21: f32,e22: f32) -> Self{
+    pub fn new_9f(e00: f32,e01: f32,e02: f32,e10: f32,e11: f32,e12: f32,e20: f32,e21: f32,e22: f32) -> Self{
         return Self{e: [Vec3::new(e00,e01,e02),Vec3::new(e10,e11,e12),Vec3::new(e20,e21,e22)]};
     }
-    pub fn new3v(v0: &Vec3,v1: &Vec3,v2: &Vec3) -> Self{
+    pub fn new_3vec(v0: &Vec3,v1: &Vec3,v2: &Vec3) -> Self{
         return Self{e: [*v0,*v1,*v2]};
     }
-    pub fn new3v_vert(v0: &Vec3,v1: &Vec3,v2: &Vec3) -> Self{
+    pub fn new_3vec_vert(v0: &Vec3,v1: &Vec3,v2: &Vec3) -> Self{
         return Self{e: [Vec3::new(v0.x(),v1.y(),v2.x()),
                         Vec3::new(v0.y(),v1.y(),v2.y()),
                         Vec3::new(v0.z(),v1.z(),v2.z())]};
@@ -30,7 +30,7 @@ impl Mat3x3 {
     #[allow(dead_code)]
     pub fn dot_mat(&self,m: &Self) -> Self{
         let t = m.transpose();
-        return Self::new9f(self.at_row(0).dot(t.at_row(0)),self.at_row(0).dot(t.at_row(1)),self.at_row(0).dot(t.at_row(2)),
+        return Self::new_9f(self.at_row(0).dot(t.at_row(0)),self.at_row(0).dot(t.at_row(1)),self.at_row(0).dot(t.at_row(2)),
                            self.at_row(1).dot(t.at_row(0)),self.at_row(1).dot(t.at_row(1)),self.at_row(1).dot(t.at_row(2)),
                            self.at_row(2).dot(t.at_row(0)),self.at_row(2).dot(t.at_row(1)),self.at_row(2).dot(t.at_row(2)));
     }
@@ -47,7 +47,7 @@ impl Mat3x3 {
     }
     #[allow(dead_code)]
     pub fn transpose(&self) -> Mat3x3{
-        return Self::new3v(&self.at_col(0),&self.at_col(1),&self.at_col(2));   
+        return Self::new_3vec(&self.at_col(0),&self.at_col(1),&self.at_col(2));   
     }
     pub fn determinant(&self) -> f32{
         let mut sum: f32 = 0.;//Kahan summation
@@ -77,7 +77,7 @@ impl Mat3x3 {
         let row2 = Vec3::new(self.at(1,0)*self.at(2,1)-self.at(1,1)*self.at(2,0),
                              self.at(0,1)*self.at(2,0)-self.at(0,0)*self.at(2,1),
                              self.at(0,0)*self.at(1,1)-self.at(0,1)*self.at(1,0));
-        return Self::new3v(&row0,&row1,&row2)/det;
+        return Self::new_3vec(&row0,&row1,&row2)/det;
     }
 }
 
@@ -86,7 +86,7 @@ use std::ops::{Mul,Div};
 impl Mul<f32> for Mat3x3{
     type Output = Self;
     fn mul(self, scalar: f32) -> Self{
-        return Self::new3v(&(self.e[0]*scalar),&(self.e[1]*scalar),&(self.e[2]*scalar));
+        return Self::new_3vec(&(self.e[0]*scalar),&(self.e[1]*scalar),&(self.e[2]*scalar));
     }
 }
 impl Div<f32> for Mat3x3{
