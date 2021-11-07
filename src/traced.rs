@@ -2,6 +2,7 @@
 
 use crate::math::vec3::{Vec3,UnitVec3,Point3};
 use crate::math::mat3x3::{Mat3x3};
+use crate::math::mat4x4::{Mat4x4};
 use crate::utils::{INF,max,min};
 use crate::ray::Ray;
 use crate::hits::HitRecord;
@@ -9,9 +10,16 @@ use crate::materials::Material;
 
 #[derive(Copy, Clone)]
 pub struct Sphere {
-    pub center: Point3,
+    pub m_local_to_world: Mat4x4,
+    pub m_word_to_local: Mat4x4,
     pub radius: f32,
     pub material: Material
+}
+
+impl Sphere {
+    pub fn new(m_local_to_world: &Mat4x4,r: f32,mat: &Material) -> Self{
+        Sphere{m_local_to_world: *m_local_to_world,m_word_to_local: m_local_to_world.fast_homogenous_inverse(),radius: r,material: *mat}
+    }
 }
 
 pub trait Traced {
@@ -20,10 +28,11 @@ pub trait Traced {
 
 impl Traced for Sphere {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
-        let oc = r.orig - self.center;
-        let a = r.dir.length_squared();
-        let half_b = oc.dot(r.dir);
-        let c = oc.length_squared() - self.radius*self.radius;
+        let orig = self.m_word_to_local.dot_p3(&r.orig);
+        let dir = self.m_word_to_local.dot_v3(&r.dir);//.unit();
+        let a = dir.length_squared();
+        let half_b = orig.dot(dir);
+        let c = orig.length_squared() - self.radius*self.radius;
         let discriminant = half_b*half_b - a*c;
         if discriminant < 0. {
             return None;
@@ -36,8 +45,10 @@ impl Traced for Sphere {
                 return None;
             }
         }
-        let point = r.at(root);
-        let outward_normal = (point - self.center)/self.radius;
+        let local_point = orig + root*dir;
+        let local_normal = local_point / self.radius;
+        let point = self.m_local_to_world.dot_p3(&local_point);
+        let outward_normal = self.m_local_to_world.dot_v3(&local_normal).unit();
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
     }

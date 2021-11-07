@@ -1,5 +1,5 @@
 use super::vec4::Vec4;
-use super::vec3::Vec3;
+use super::vec3::{Vec3,Point3};
 use super::mat3x3::Mat3x3;
 //(-e[0]-)
 //(-e[1]-)
@@ -46,13 +46,13 @@ impl Mat4x4 {
         Vec4::new(self.e[0].dot(*v),self.e[1].dot(*v),self.e[2].dot(*v),self.e[3].dot(*v))
     }
     #[allow(dead_code)]
-    pub fn dot_v3_r_v4(&self,v: &Vec3) -> Vec4{
+    pub fn dot_p3(&self,v: &Point3) -> Point3{
         let v4 = Vec4::new_v3(v,1.);
-        Vec4::new(self.e[0].dot(v4),self.e[1].dot(v4),self.e[2].dot(v4),self.e[3].dot(v4))
+        Point3::new(self.e[0].dot(v4),self.e[1].dot(v4),self.e[2].dot(v4))
     }
     #[allow(dead_code)]
-    pub fn dot_v3_r_v3(&self,v: &Vec3) -> Vec3{
-        let v4 = Vec4::new_v3(v,1.);
+    pub fn dot_v3(&self,v: &Point3) -> Point3{
+        let v4 = Vec4::new_v3(v,0.);
         Vec3::new(self.e[0].dot(v4),self.e[1].dot(v4),self.e[2].dot(v4))
     }
     #[allow(dead_code)]
@@ -70,6 +70,7 @@ impl Mat4x4 {
                             self.at_row(2).dot(t.at_row(0)),self.at_row(2).dot(t.at_row(1)),self.at_row(2).dot(t.at_row(2)),self.at_row(2).dot(t.at_row(3)),
                             self.at_row(3).dot(t.at_row(0)),self.at_row(3).dot(t.at_row(1)),self.at_row(3).dot(t.at_row(2)),self.at_row(3).dot(t.at_row(3)));
     }
+    #[allow(dead_code)]      
     pub fn at(&self,row: usize,col: usize) -> f32{
         self.e[row].e[col]
     }
@@ -84,21 +85,18 @@ impl Mat4x4 {
     pub fn transpose(&self) -> Self{
         Self::new_4vec(&self.at_col(0),&self.at_col(1),&self.at_col(2),&self.at_col(3))
     }
-    #[allow(dead_code)]
     pub fn new_translate(v: &Vec3) -> Self{
         Self{ e: [Vec4{e:[1.,0.,0.,v.x()]},
                   Vec4{e:[0.,1.,0.,v.y()]},
                   Vec4{e:[0.,0.,1.,v.z()]},
                   Vec4{e:[0.,0.,0.,   1.]}] }
     }
-    #[allow(dead_code)]
     pub fn new_scale(v: &Vec3) -> Self{
         Self{ e: [ Vec4{e:[v.x(),   0.,    0.,0.]},
                    Vec4{e:[   0.,v.y(),    0.,0.]},
                    Vec4{e:[   0.,   0., v.z(),0.]},
                    Vec4{e:[   0.,   0.,    0.,1.]}] }
     }
-    #[allow(dead_code)]
     pub fn new_rotate_x(f: f32) -> Self{
         let c = f.cos();
         let s = f.sin();
@@ -107,7 +105,6 @@ impl Mat4x4 {
                   Vec4{e:[0.,-s, c,0.]},
                   Vec4{e:[0.,0.,0.,1.]}] }
     }
-    #[allow(dead_code)]
     pub fn new_rotate_y(f: f32) -> Self{
         let c = f.cos();
         let s = f.sin();
@@ -116,7 +113,6 @@ impl Mat4x4 {
                   Vec4{e:[ s,0., c,0.]},
                   Vec4{e:[0.,0.,0.,1.]}] }
     }
-    #[allow(dead_code)]
     pub fn new_rotate_z(f: f32) -> Self{
         let c = f.cos();
         let s = f.sin();

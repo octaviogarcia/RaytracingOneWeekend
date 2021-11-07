@@ -64,7 +64,7 @@ fn random_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
     //world+=&MarchedSphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground};
-    world+=&Sphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground};
+    world+=&Sphere::new(&Mat4x4::new_translate(&Point3::new(0., -1000.,0.)),1000.0,&mat_ground);
     for a in -11..11{
         let af = a as f32;
         for b in -11..11{
@@ -86,13 +86,13 @@ fn random_scene() -> HittableList{
                 else{
                     sphere_mat = Material::new_dielectric(1.5);
                 }
-                //Scaling NOT Working, have to think about it
-                /*let mat = Mat4x4::new_translate(&center).dot_mat(&Mat4x4::new_scale(&Vec3::new(2.,1.,1.)));
-                let mat2 = mat.fast_homogenous_inverse();
-                println!("mat {:?}",mat);
-                println!("inv {:?}",mat2);
-                println!("I {:?}",mat.dot_mat(&mat2));*/
-                world+=&Sphere{center: center, radius: 0.2, material: sphere_mat};
+                //Scaling looks slighty off? Maybe normals are wrong?
+                let m_local_to_world = Mat4x4::new_translate(&center)
+                .dot_mat(&Mat4x4::new_rotate_x(f32::rand()*2.*PI))
+                .dot_mat(&Mat4x4::new_rotate_y(f32::rand()*2.*PI))
+                .dot_mat(&Mat4x4::new_rotate_z(f32::rand()*2.*PI))
+                .dot_mat(&Mat4x4::new_scale(&Vec3::new(f32::rand()+1.,f32::rand()+1.,f32::rand()+1.)));
+                world+=&Sphere::new(&m_local_to_world,0.2,&sphere_mat);
             }
         }
     }
