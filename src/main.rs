@@ -64,7 +64,7 @@ fn random_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
     //world+=&MarchedSphere{center: Point3::new(0., -1000.,0.), radius: 1000.0, material: mat_ground};
-    world+=&Sphere::new(&Mat4x4::new_translate(&Point3::new(0., -1000.,0.)),1000.0,&mat_ground);
+    world+=&Sphere::new_with_radius(&Point3::new(0., -1000.,0.),1000.0,&mat_ground);
     for a in -11..11{
         let af = a as f32;
         for b in -11..11{
@@ -86,13 +86,15 @@ fn random_scene() -> HittableList{
                 else{
                     sphere_mat = Material::new_dielectric(1.5);
                 }
-                //Scaling looks slighty off? Maybe normals are wrong?
-                let m_local_to_world = Mat4x4::new_translate(&center)
-                .dot_mat(&Mat4x4::new_rotate_x(f32::rand()*2.*PI))
-                .dot_mat(&Mat4x4::new_rotate_y(f32::rand()*2.*PI))
-                .dot_mat(&Mat4x4::new_rotate_z(f32::rand()*2.*PI))
-                .dot_mat(&Mat4x4::new_scale(&Vec3::new(f32::rand()+1.,f32::rand()+1.,f32::rand()+1.)));
-                world+=&Sphere::new(&m_local_to_world,0.2,&sphere_mat);
+
+                //READ BOTTOM UP in order of operations
+                let m_local_to_world = Mat4x4::new_translate(&center)//Move it
+                .dot_mat(&Mat4x4::new_rotate_x(f32::rand()*2.*PI))//Rotate randomly
+                .dot_mat(&Mat4x4::new_rotate_y(f32::rand()*2.*PI))//Rotate randomly
+                .dot_mat(&Mat4x4::new_rotate_z(f32::rand()*2.*PI))//Rotate randomly
+                .dot_mat(&Mat4x4::new_scale(&Vec3::new(f32::rand()+1.,f32::rand()+1.,f32::rand()+1.)))//Warp into an egg
+                .dot_mat(&Mat4x4::new_scale(&Vec3::new(0.2,0.2,0.2)));//Set Radius
+                world+=&Sphere::new(&m_local_to_world,&sphere_mat);
             }
         }
     }

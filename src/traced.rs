@@ -12,13 +12,17 @@ use crate::materials::Material;
 pub struct Sphere {
     pub m_local_to_world: Mat4x4,
     pub m_word_to_local: Mat4x4,
-    pub radius: f32,
     pub material: Material
 }
 
 impl Sphere {
-    pub fn new(m_local_to_world: &Mat4x4,r: f32,mat: &Material) -> Self{
-        Sphere{m_local_to_world: *m_local_to_world,m_word_to_local: m_local_to_world.fast_homogenous_inverse(),radius: r,material: *mat}
+    pub fn new(m_local_to_world: &Mat4x4,mat: &Material) -> Self{
+        Sphere{m_local_to_world: *m_local_to_world,m_word_to_local: m_local_to_world.fast_homogenous_inverse(),material: *mat}
+    }
+    pub fn new_with_radius(o: &Point3,r: f32,mat: &Material) -> Self {
+        let m = Mat4x4::new_translate(&o)
+        .dot_mat(&Mat4x4::new_scale(&Vec3::new(r,r,r)));
+        Sphere{m_local_to_world: m,m_word_to_local: m.fast_homogenous_inverse(),material: *mat}
     }
 }
 
@@ -28,11 +32,11 @@ pub trait Traced {
 
 impl Traced for Sphere {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
-        let orig = self.m_word_to_local.dot_p3(&r.orig);
-        let dir = self.m_word_to_local.dot_v3(&r.dir);//.unit();
-        let a = dir.length_squared();
-        let half_b = orig.dot(dir);
-        let c = orig.length_squared() - self.radius*self.radius;
+        let new_r = r.transform(&self.m_word_to_local);
+        let a =  new_r.dir.length_squared();
+        let half_b = new_r.orig.dot(new_r.dir);
+        //Assume in local coords its a 1 radii sphere
+        let c = new_r.orig.length_squared() - 1.;//self.radius*self.radius;
         let discriminant = half_b*half_b - a*c;
         if discriminant < 0. {
             return None;
@@ -45,10 +49,9 @@ impl Traced for Sphere {
                 return None;
             }
         }
-        let local_point = orig + root*dir;
-        let local_normal = local_point / self.radius;
+        let local_point = new_r.at(root);
         let point = self.m_local_to_world.dot_p3(&local_point);
-        let outward_normal = self.m_local_to_world.dot_v3(&local_normal).unit();
+        let outward_normal = self.m_local_to_world.dot_v3(&local_point).unit();
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
     }
