@@ -128,7 +128,12 @@ fn random_scene() -> HittableList{
         //world+=&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat};
         //world+=&MarchedSphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat};
         //world+=&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat};
-        world+=&Cube{center: Point3::new(4.,1.,0.), radius: 0.5, material: mat};
+        let m_local_to_world = Mat4x4::new_translate(&Point3::new(4.,1.,0.))//Move it
+        .dot_mat(&Mat4x4::new_rotate_x(f32::rand()*2.*PI))//Rotate randomly
+        .dot_mat(&Mat4x4::new_rotate_y(f32::rand()*2.*PI))//Rotate randomly
+        .dot_mat(&Mat4x4::new_rotate_z(f32::rand()*2.*PI));//Rotate randomly
+        world+=&Cube::new(&m_local_to_world,&mat);
+        //world+=&Cube::new_with_length(&Point3::new(4.,1.,0.),1.,&mat);
         //world+=&InfinitePlane{center: Point3::new(4.,1.,0.),normal: Vec3::new(0.,0.,1.), material:  Material::new_metal(Color::new(1.,1.,1.))};
     }
     return world;

@@ -82,7 +82,7 @@ fn ray_plane_intersect(r: &Ray,plane_normal: &UnitVec3,plane_center: &Point3) ->
 }
 #[inline]
 fn normal_against_direction(normal: &Vec3,normal_dot_dir: f32) -> Vec3{
-    return *normal*([1.,-1.][(normal_dot_dir > 0.) as usize]);//if positive is same direction... reverse it
+    return *normal*((1. as f32).copysign(-normal_dot_dir));//if positive is same direction... reverse it
 }
 
 impl Traced for InfinitePlane {
@@ -117,7 +117,8 @@ impl <const BT: usize> Barycentric<BT> {
         let v_unit = v.unit();
         let uxv = u_unit.cross(v_unit).unit();
         let uxvxu = uxv.cross(u_unit).unit();
-        let base_inv = Mat3x3::new_3vec_vert(&u_unit,&uxv,&uxvxu).inverse();
+        //Orthonormal basis, its inverse = transpose
+        let base_inv = Mat3x3::new_3vec_vert(&u_unit,&uxv,&uxvxu).transpose();//.inverse();
         let v_in_base = base_inv.dot(&v_unit);
         return Self{origin: *origin,material: *material,
             u: u_unit,u_length: u_length,v: v_unit,v_length: v_length,uxv: uxv,
@@ -191,9 +192,21 @@ pub type Triangle = Barycentric<1>;
 
 #[derive(Copy, Clone)]
 pub struct Cube {
-    pub center: Point3,
-    pub radius: f32,
+    pub m_local_to_world: Mat4x4,
+    pub m_word_to_local: Mat4x4,
     pub material: Material
+}
+impl Cube {
+    #[allow(dead_code)]
+    pub fn new(m_local_to_world: &Mat4x4,mat: &Material) -> Self{
+        Self{m_local_to_world: *m_local_to_world,m_word_to_local: m_local_to_world.fast_homogenous_inverse(),material: *mat}
+    }
+    #[allow(dead_code)]
+    pub fn new_with_length(o: &Point3,length: f32,mat: &Material) -> Self {
+        let m = Mat4x4::new_translate(&o)
+        .dot_mat(&Mat4x4::new_scale(&Vec3::new(length,length,length)));
+        Self{m_local_to_world: m,m_word_to_local: m.fast_homogenous_inverse(),material: *mat}
+    }
 }
 /*
 Intersection
@@ -214,14 +227,13 @@ i = x,y,z
 
 impl Traced for Cube {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
+        let new_r = r.transform(&self.m_word_to_local);
         let mut smallest_t = INF;
         let mut idx = usize::MAX;
         for i in 0..3{
-            if r.dir[i].abs() < 0.000001{
-                continue;
-            }
-            let t1 = ( self.radius - r.orig[i] + self.center[i])/r.dir[i];
-            let t2 = (-self.radius - r.orig[i] + self.center[i])/r.dir[i];
+            //In local coords r=0.5 and center=(0,0,0)
+            let t1 = ( 0.5 - new_r.orig[i])/new_r.dir[i];
+            let t2 = (-0.5 - new_r.orig[i])/new_r.dir[i];
             let t: f32;
             if t1 >= 0. && t2 >= 0.{
                 t = min(t1,t2);
@@ -230,18 +242,20 @@ impl Traced for Cube {
                 t = max(t1,t2);
             }
             if t > smallest_t || t > t_max || t < t_min {continue;}//We should check t < 0. but we already do that with t < t_min...
-            let f = (r.at(t) - self.center).abs().max_val();
-            let is_solution = (f-self.radius) <= 0.00001;
+            let f = new_r.at(t).abs().max_val();
+            let is_solution = (f-0.5).abs() <= 0.00001;
             if !is_solution {continue;}
             smallest_t = t;
             idx = i;
         }
         if idx == usize::MAX {return None;}
-        let point = r.at(smallest_t);
-        let outward_normal: Vec3 = [Vec3::new(1.,0.,0.),Vec3::new(0.,1.,0.),Vec3::new(0.,0.,1.)][idx]
-                                  *(1. as f32).copysign((r.at(smallest_t) - self.center)[idx]);
-        //Which argument in max(x,y,z) is "activated" defines the axis (pair of faces)
-        //The sign of the inside (derivative of abs value) defines between those 2
+        let local_point = new_r.at(smallest_t);
+        //Which argument in max(x,y,z) is "activated" defines the pair of faces
+        //The sign of the inside (derivative of abs value) defines what face between the pair
+        let local_outward_normal: Vec3 = [Vec3::new(1.,0.,0.),Vec3::new(0.,1.,0.),Vec3::new(0.,0.,1.)][idx]
+                                  *(1. as f32).copysign(new_r.at(smallest_t)[idx]);
+        let point = self.m_local_to_world.dot_p3(&local_point);
+        let outward_normal = self.m_local_to_world.dot_v3(&local_outward_normal);
         return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material});
     }
 }
