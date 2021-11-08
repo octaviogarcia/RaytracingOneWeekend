@@ -123,7 +123,7 @@ impl Mat4x4 {
     }
 }
 
-use std::ops::{Mul,Div};
+use std::ops::{Mul,Div,BitXor};
 
 impl Mul<f32> for Mat4x4{
     type Output = Self;
@@ -137,3 +137,64 @@ impl Div<f32> for Mat4x4{
         self * (1./scalar)
     }
 }
+impl BitXor<&Mat4x4> for Mat4x4{
+    type Output = Self;
+    fn bitxor(self,other: &Self) -> Self{
+        self.dot_mat(other)
+    }
+}
+impl BitXor<Mat4x4> for Mat4x4{
+    type Output = Self;
+    fn bitxor(self,other: Self) -> Self{
+        self.dot_mat(&other)
+    }
+}
+
+#[macro_export]
+macro_rules! m4x4 {
+    (RX $f:expr) => {
+        Mat4x4::new_rotate_x($f)
+    };
+    (RY $f:expr) => {
+        Mat4x4::new_rotate_y($f)
+    };
+    (RZ $f:expr) => {
+        Mat4x4::new_rotate_z($f)
+    };
+    (TR $f1:expr,$f2:expr,$f3:expr) => {
+        Mat4x4::new_translate(&Vec3::new($f1,$f2,$f3))
+    };
+    (TR $v:expr) => {
+        Mat4x4::new_translate(&$v)
+    };
+    (SC $f1:expr,$f2:expr,$f3:expr) => {
+        Mat4x4::new_scale(&Vec3::new($f1,$f2,$f3))
+    };
+    (SC $v:expr) => {
+        Mat4x4::new_scale(&$v)
+    };
+    (ID) => {
+        Mat4x4::IDENTITY
+    };
+    () => {
+        Mat4x4::IDENTITY
+    };
+}
+/*
+#[macro_export]
+macro_rules! transforms {
+    ($($e: expr;)*) => {
+        m4x4!($e)
+    };
+}*/
+/*
+#[macro_export]
+macro_rules! transforms {
+    ($($ty:ident ; $f:expr);*) => {
+        Mat4x4::IDENTITY(^m4x4!($ty $f))*
+    };
+}
+macro_rules! transform {
+    ($($traced_ident:ident ; $traced:ty),* | $($marched_ident:ident ; $marched:ty),*) => {
+    }
+}*/

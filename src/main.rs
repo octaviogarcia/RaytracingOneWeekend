@@ -88,12 +88,10 @@ fn random_scene() -> HittableList{
                 }
 
                 //READ BOTTOM UP in order of operations
-                let m_local_to_world = Mat4x4::new_translate(&center)//Move it
-                .dot_mat(&Mat4x4::new_rotate_x(f32::rand()*2.*PI))//Rotate randomly
-                .dot_mat(&Mat4x4::new_rotate_y(f32::rand()*2.*PI))//Rotate randomly
-                .dot_mat(&Mat4x4::new_rotate_z(f32::rand()*2.*PI))//Rotate randomly
-                .dot_mat(&Mat4x4::new_scale(&Vec3::new(f32::rand()+1.,f32::rand()+1.,f32::rand()+1.)))//Warp into an egg
-                .dot_mat(&Mat4x4::new_scale(&Vec3::new(0.2,0.2,0.2)));//Set Radius
+                let m_local_to_world = m4x4!(TR center)
+                ^m4x4!(RX f32::rand()*2.*PI)^m4x4!(RY f32::rand()*2.*PI)^m4x4!(RZ f32::rand()*2.*PI)//Rotate randomly
+                ^m4x4!(SC f32::rand()+1.,f32::rand()+1.,f32::rand()+1.)//Warp into an egg
+                ^m4x4!(SC 0.2,0.2,0.2);//Set Radius
                 world+=&Sphere::new(&m_local_to_world,&sphere_mat);
             }
         }
@@ -128,10 +126,8 @@ fn random_scene() -> HittableList{
         //world+=&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat};
         //world+=&MarchedSphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat};
         //world+=&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat};
-        let m_local_to_world = Mat4x4::new_translate(&Point3::new(4.,1.,0.))//Move it
-        .dot_mat(&Mat4x4::new_rotate_x(f32::rand()*2.*PI))//Rotate randomly
-        .dot_mat(&Mat4x4::new_rotate_y(f32::rand()*2.*PI))//Rotate randomly
-        .dot_mat(&Mat4x4::new_rotate_z(f32::rand()*2.*PI));//Rotate randomly
+        let m_local_to_world = m4x4!(TR 4.,1.,0.)//Move it
+        ^m4x4!(RX f32::rand()*2.*PI)^m4x4!(RY f32::rand()*2.*PI)^m4x4!(RZ f32::rand()*2.*PI);//Rotate randomly
         world+=&Cube::new(&m_local_to_world,&mat);
         //world+=&Cube::new_with_length(&Point3::new(4.,1.,0.),1.,&mat);
         //world+=&InfinitePlane{center: Point3::new(4.,1.,0.),normal: Vec3::new(0.,0.,1.), material:  Material::new_metal(Color::new(1.,1.,1.))};

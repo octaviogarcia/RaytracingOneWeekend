@@ -231,6 +231,7 @@ impl Traced for Cube {
         let mut smallest_t = INF;
         let mut idx = usize::MAX;
         for i in 0..3{
+            if new_r.dir[i].abs() < 0.00001 {continue;}
             //In local coords r=0.5 and center=(0,0,0)
             let t1 = ( 0.5 - new_r.orig[i])/new_r.dir[i];
             let t2 = (-0.5 - new_r.orig[i])/new_r.dir[i];
