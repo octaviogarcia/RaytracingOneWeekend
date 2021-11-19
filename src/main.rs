@@ -173,9 +173,6 @@ fn draw(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax
     thread_pixels_back.shrink_to_fit();
     thread_pixels_useless_runs.shrink_to_fit();
 
-    //Flip it by thread odness so we don't give priority to starting pixels while drawing
-    if (tid % 2) == 1 { thread_pixels = thread_pixels.into_iter().rev().collect(); }
-
     const EPS: f32 = 0.01; 
     const MAX_USELESS_RUNS: u32 = 5;
 
@@ -282,25 +279,40 @@ fn main() {
         thread::spawn(move || {
             let total_samples = (image_size as u64)*(samples_per_pixel as u64);
             let total_samples_f = total_samples as f64;
+            let start = std::time::Instant::now();
             loop {
                 let progress = smpls_atom.load(Ordering::Relaxed);
                 print_progress((progress as f64)/total_samples_f);
                 if total_samples == progress{ 
                     print_progress(1.0);
-                    return;
+                    break;
                 }
                 ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 2));
             }
+            println!("{} seconds",start.elapsed().as_secs());
         });
     }
 
     let num_threads = num_cpus::get() as u32 - 1;
 
     let mut assigned_thread: Vec<u32> = Vec::with_capacity(image_size as usize);
-    for cidx in 0..image_size{
-        assigned_thread.push(cidx%num_threads);
+    {
+        const CACHE_SIZE: usize = 32*1024;
+        const CHUNK_SIZE: usize = CACHE_SIZE/std::mem::size_of::<Color>();
+        let mut cidx: usize = 0;
+        let size = image_size as usize;
+        let mut thread_id = 0;
+        'lwhile: while cidx < size {
+            for aux in (cidx)..(cidx+CHUNK_SIZE){
+                if aux >= size{
+                    break 'lwhile;
+                }
+                assigned_thread.push(thread_id%num_threads);
+            }
+            cidx += CHUNK_SIZE;
+            thread_id += 1;
+        }
     }
-    assigned_thread.shuffle(&mut rand::thread_rng());
     assigned_thread.shrink_to_fit();
     let arc_assigned_thread = Arc::new(assigned_thread);
 
@@ -358,42 +370,40 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u32>,true_samples: &Vec<u32>,_s
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     let texture_creator = canvas.texture_creator();
-    let mut texture = texture_creator
-    .create_texture_target(texture_creator.default_pixel_format(), image_width as u32, image_height as u32)
-    .unwrap();
-
     let mut show_samples = false;
-
+    let mut pixels = vec!(0 as u8;(image_width*image_height*3) as usize);
     'running: loop {
-        canvas.with_texture_canvas(&mut texture, |texture_canvas| {
-            if show_samples {
-                let mut max_samples = 1.0;
-                for pos in 0..(image_width*image_height){
-                    if (true_samples[pos as usize] as f32) > max_samples {
-                        max_samples = true_samples[pos as usize] as f32;
-                    }
+        if show_samples{
+            let mut max_samples = 1.0;
+            for pos in 0..image_width*image_height{
+                if (true_samples[pos as usize] as f32) > max_samples {
+                    max_samples = true_samples[pos as usize] as f32;
                 }
-                for pos in 0..(image_width*image_height){
-                    let smpls = (true_samples[pos as usize] as f32)/max_samples;
-                    let c = normalize_color(Color::new(smpls,smpls,smpls),1);
-                    texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
-                    let y = pos / image_width;
-                    let x = pos - y*image_width;
-                    texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
-                }
-                return;
             }
-
-            for pos in 0..(image_width*image_height){
+            let mut aux: usize = 0;
+            for pos in 0..image_width*image_height{
+                let smpls = (true_samples[pos as usize] as f32)/max_samples;
+                let c = normalize_color(Color::new(smpls,smpls,smpls),1);
+                pixels[aux+0] = (c.x()*256.0) as u8;
+                pixels[aux+1] = (c.y()*256.0) as u8;
+                pixels[aux+2] = (c.z()*256.0) as u8;
+                aux += 3;
+            }
+        }
+        else{
+            let mut aux: usize = 0;
+            for pos in 0..image_width*image_height{
                 let smpls = samples[pos as usize];
                 let c = normalize_color(colors[pos as usize],smpls);
-                texture_canvas.set_draw_color(sdl2::pixels::Color::RGB((c.x()*256.0) as u8,(c.y()*256.0) as u8,(c.z()*256.0) as u8));
-                let y = pos / image_width;
-                let x = pos - y*image_width;
-                texture_canvas.draw_point(sdl2::rect::Point::new(x as i32, y as i32)).unwrap();
+                pixels[aux+0] = (c.x()*256.0) as u8;
+                pixels[aux+1] = (c.y()*256.0) as u8;
+                pixels[aux+2] = (c.z()*256.0) as u8;
+                aux += 3;
             }
-        }).unwrap();
-
+        }
+        //pitch = row in bytes. 1 byte per color -> 3*width
+        let texture = sdl2::surface::Surface::from_data(pixels.as_mut_slice(), image_width, image_height, image_width*3, sdl2::pixels::PixelFormatEnum::RGB24)
+        .unwrap().as_texture(&texture_creator).unwrap();
         canvas.clear();
         for event in event_pump.poll_iter() {
             match event {
