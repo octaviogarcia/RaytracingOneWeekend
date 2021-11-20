@@ -380,25 +380,23 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u32>,true_samples: &Vec<u32>,_s
                     max_samples = true_samples[pos as usize] as f32;
                 }
             }
-            let mut aux: usize = 0;
             for pos in 0..image_width*image_height{
+                let aux = (pos*3) as usize;
                 let smpls = (true_samples[pos as usize] as f32)/max_samples;
                 let c = normalize_color(Color::new(smpls,smpls,smpls),1);
                 pixels[aux+0] = (c.x()*256.0) as u8;
                 pixels[aux+1] = (c.y()*256.0) as u8;
                 pixels[aux+2] = (c.z()*256.0) as u8;
-                aux += 3;
             }
         }
         else{
-            let mut aux: usize = 0;
             for pos in 0..image_width*image_height{
+                let aux = (pos*3) as usize;
                 let smpls = samples[pos as usize];
                 let c = normalize_color(colors[pos as usize],smpls);
                 pixels[aux+0] = (c.x()*256.0) as u8;
                 pixels[aux+1] = (c.y()*256.0) as u8;
                 pixels[aux+2] = (c.z()*256.0) as u8;
-                aux += 3;
             }
         }
         //pitch = row in bytes. 1 byte per color -> 3*width
