@@ -297,20 +297,20 @@ fn main() {
 
     let mut assigned_thread: Vec<u32> = Vec::with_capacity(image_size as usize);
     {
-        const CACHE_SIZE: usize = 32*1024;
-        const CHUNK_SIZE: usize = CACHE_SIZE/std::mem::size_of::<Color>();
-        let mut cidx: usize = 0;
-        let size = image_size as usize;
-        let mut thread_id = 0;
-        'lwhile: while cidx < size {
-            for aux in (cidx)..(cidx+CHUNK_SIZE){
-                if aux >= size{
-                    break 'lwhile;
-                }
-                assigned_thread.push(thread_id%num_threads);
+        const CACHE_SIZE: u32 = 32*1024;
+        const CHUNK_SIZE: u32 = CACHE_SIZE/std::mem::size_of::<Color>() as u32;
+        for chunk in 0..(image_size / CHUNK_SIZE){
+            let id = chunk % num_threads;
+            for _i in 0..CHUNK_SIZE{
+                assigned_thread.push(id);
             }
-            cidx += CHUNK_SIZE;
-            thread_id += 1;
+        }
+        {
+            let id = (image_size / CHUNK_SIZE) % num_threads;//Last iteration is (image_size / CHUNK_SIZE - 1) % num_threads
+            let leftover = image_size - image_size/CHUNK_SIZE*CHUNK_SIZE;
+            for _i in 0..leftover{
+                assigned_thread.push(id);
+            }
         }
     }
     assigned_thread.shrink_to_fit();
