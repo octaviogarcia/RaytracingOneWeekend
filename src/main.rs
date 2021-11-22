@@ -146,6 +146,77 @@ use std::thread;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+    sum: f32,
+    old_avg: f32,
+    pub avg: f32,
+    m2: f32,
+    n: f32,
+    var: f32,
+    pub stddev: f32,
+}
+
+impl Stats{
+    pub fn new() -> Self {
+        Self{sum:0.,old_avg: 0.,avg:0.,m2:0.,n:0.,var:0.,stddev:0.}
+    }
+    pub fn add(&mut self,x: f32){
+        self.sum += x;
+        self.n   += 1.;
+        self.old_avg = self.avg;
+        self.avg     = self.sum / self.n;
+        self.m2     +=  (x-self.old_avg)*(x-self.avg);
+        self.var     = self.m2 / (self.n-1.);
+        self.stddev  = self.var.sqrt();
+    }
+}
+
+struct ThreadPixels{
+    //Assigned pixels to the threads
+    pub indexes: Vec<usize>,
+    pub len: usize,
+    //When rendering, here are added pixels that need to be rendered next pass
+    //After a pass is done, one is expected to swap() these 2 buffers
+    pub backbuff_indexes: Vec<usize>,
+    pub backbuff_len: usize,
+    //Useless run per pixel, past a threshold we stop raycasting it
+    pub useless_runs: Vec<u32>,
+}
+
+impl ThreadPixels{
+    pub fn new(expected_max_size: usize) -> Self{
+        Self{indexes: Vec::with_capacity(expected_max_size),len: 0,
+             backbuff_indexes: Vec::with_capacity(expected_max_size),backbuff_len: 0,
+             useless_runs: Vec::with_capacity(expected_max_size)}
+    }
+    #[inline]
+    pub fn add(&mut self,idx: usize){
+        self.indexes.push(idx);
+        self.len += 1;
+        self.backbuff_indexes.push(999999999);//Add garbage just to expand if len overflows expected_max_size
+        self.useless_runs.push(0);//Init to 0
+    }
+    pub fn shrink_to_fit(&mut self){
+        self.indexes.shrink_to_fit();
+        self.backbuff_indexes.shrink_to_fit();
+        self.useless_runs.shrink_to_fit();
+    }
+    pub fn swap_buffers(&mut self){
+        ::std::mem::swap(&mut self.indexes,&mut self.backbuff_indexes);
+        self.len = self.backbuff_len;
+        self.backbuff_len = 0;
+    }
+    pub fn add_useless_run(&mut self,is_useless: bool,i: usize) -> bool{//True if useless runs go past the threshold
+        self.useless_runs[i] += is_useless as u32;
+        self.useless_runs[i] *= is_useless as u32;
+        let mur     =  self.useless_runs[i] == 5;
+        //If the pixel render is "not useless", keep adding to the back buffer to draw in the next iteration
+        self.backbuff_indexes[self.backbuff_len] = self.indexes[i];
+        self.backbuff_len+=(!mur) as usize;
+        return mur;
+    }
+}
+
 fn draw(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax: f32,
     samples_per_pixel: u32,image_width: u32,image_height: u32,
     colors_box: ColorsBox,
@@ -155,46 +226,32 @@ fn draw(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax
     let image_height_f = image_height as f32;
     let image_size = (image_width*image_height) as usize;
 
-    let mut thread_pixels:       Vec<usize> = Vec::with_capacity(image_size);
-    let mut thread_pixels_len:  usize;
-    let mut thread_pixels_back:  Vec<usize> = Vec::with_capacity(image_size);
-    let mut thread_pixels_back_len:  usize = 0;
-    let mut thread_pixels_useless_runs: Vec<u32>   = Vec::with_capacity(image_size);
+    let mut thread_pixels = ThreadPixels::new(image_size);
     for pos in 0..image_size {
         if assigned_thread[pos] == tid {
-            thread_pixels.push(pos);
-            thread_pixels_back.push(9999999);
-            thread_pixels_useless_runs.push(0);
+            thread_pixels.add(pos);
         }
     }
-
     thread_pixels.shrink_to_fit();
-    thread_pixels_len = thread_pixels.len();
-    thread_pixels_back.shrink_to_fit();
-    thread_pixels_useless_runs.shrink_to_fit();
-
-    const EPS: f32 = 0.01; 
-    const MAX_USELESS_RUNS: u32 = 5;
-
 
     //Construct a blue noise wannabe with a low discrepancy random number
     //https://en.wikipedia.org/wiki/Low-discrepancy_sequence#Construction_of_low-discrepancy_sequences
     let jitters: Vec<(f32,f32)> = {
         let mut ret: Vec<(f32,f32)> = Vec::with_capacity(samples_per_pixel as usize);
         for s in 0..samples_per_pixel{
-            let div: u32 = s / 2;
-            let mmod: u32 = s - div*2;//@TODO: Pregenerate jitters and shuffle por proper
-            let jitteri = (div&1) as f32;//mod 2
-            let jitterj = mmod as f32;
+            let sdiv = s / 2;
+            let jitteri = (sdiv&1) as f32;//mod 2
+            let jitterj = (s&1) as f32;//mod 2
             ret.push((jitteri,jitterj));
-        }
+        }//produces (0,0),(0,1),(1,0),(1,1),(0,0),...
         ret.shuffle(&mut rand::thread_rng());
         ret
     };
 
     for _sample in 0..samples_per_pixel{
-        for pos_idx in 0..thread_pixels_len{
-            let idx = thread_pixels[pos_idx];
+        //posidx is a double indirection... indexes[pos_idx] is the pixel index in the main memory buffer
+        for pos_idx in 0..thread_pixels.len{
+            let idx = thread_pixels.indexes[pos_idx];
             let curr_samples = unsafe { (*colors_box.samples)[idx] };
             //Should never happen since we upkeep undone pixels with a backbuffer
             //assert!(curr_samples < samples_per_pixel);
@@ -222,27 +279,19 @@ fn draw(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax
                 let var = ((curr_color/old_color) - Color::new(1.,1.,1.)).abs();
                 let stats = max(max(var.x(),var.y()),var.z());
                 
-                thread_pixels_useless_runs[pos_idx] += (stats < EPS) as u32;
-                thread_pixels_useless_runs[pos_idx] *= (stats < EPS) as u32;
-
-                let mur     =  (thread_pixels_useless_runs[pos_idx] == MAX_USELESS_RUNS) as u32;
-                let mur_neg = (!(thread_pixels_useless_runs[pos_idx] == MAX_USELESS_RUNS)) as u32;
+                let mur     = thread_pixels.add_useless_run(stats < 0.01,pos_idx) as u32;
+                let mur_neg = 1 - mur;
+                //When enough useless runs go by we simply set it to the max (samples_per_pixel), else increment
                 let aux_samples = mur*samples_per_pixel+mur_neg*(curr_samples+1);
                 (*(colors_box.samples))[idx] = aux_samples;
                 (*(colors_box.colors))[idx]  = (aux_samples as f32)*curr_color;
-                samples_atom.fetch_add((aux_samples-curr_samples-1) as u64,Ordering::Relaxed);//-1 cause we fetch_add downthere
 
-                //If the pixel render is "not useless", keep adding to the back buffer to draw in the next iteration
-                thread_pixels_back[thread_pixels_back_len] = idx;
-                thread_pixels_back_len+=mur_neg as usize;
+                //Inform sample is done to Log Thread
+                //We fetch add left over samples, or 1
+                samples_atom.fetch_add((aux_samples-curr_samples) as u64,Ordering::Relaxed);
             }
-
-            //Inform sample is done to Log Thread
-            samples_atom.fetch_add(1,Ordering::Relaxed);
         }
-        ::std::mem::swap(&mut thread_pixels,&mut thread_pixels_back);
-        thread_pixels_len = thread_pixels_back_len;
-        thread_pixels_back_len = 0;
+        thread_pixels.swap_buffers();
     }
 }
 
@@ -289,7 +338,7 @@ fn main() {
                 }
                 ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 2));
             }
-            println!("{} seconds",start.elapsed().as_secs());
+            eprintln!("{} seconds",start.elapsed().as_secs());
         });
     }
 
