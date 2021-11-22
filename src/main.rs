@@ -147,25 +147,25 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-    sum: f32,
-    old_avg: f32,
-    pub avg: f32,
-    m2: f32,
+    sum: Color,
+    old_avg: Color,
+    pub avg: Color,
+    m2: Color,
     n: f32,
-    var: f32,
-    pub stddev: f32,
+    var: Color,
+    pub stddev: Color,
 }
 
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:0.,old_avg: 0.,avg:0.,m2:0.,n:0.,var:0.,stddev:0.}
+        Self{sum:Color::ZERO,old_avg: Color::ZERO,avg:Color::ZERO,m2:Color::ZERO,n:0.,var:Color::ZERO,stddev:Color::ZERO}
     }
-    pub fn add(&mut self,x: f32){
+    pub fn add(&mut self,x: &Color){
         self.sum += x;
         self.n   += 1.;
         self.old_avg = self.avg;
         self.avg     = self.sum / self.n;
-        self.m2     +=  (x-self.old_avg)*(x-self.avg);
+        self.m2     +=  (*x-self.old_avg)*(*x-self.avg);
         self.var     = self.m2 / (self.n-1.);
         self.stddev  = self.var.sqrt();
     }
@@ -190,7 +190,7 @@ impl ThreadPixels{
              useless_runs: Vec::with_capacity(expected_max_size)}
     }
     #[inline]
-    pub fn add(&mut self,idx: usize){
+    pub fn push(&mut self,idx: usize){
         self.indexes.push(idx);
         self.len += 1;
         self.backbuff_indexes.push(999999999);//Add garbage just to expand if len overflows expected_max_size
@@ -227,12 +227,15 @@ fn draw(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax
     let image_size = (image_width*image_height) as usize;
 
     let mut thread_pixels = ThreadPixels::new(image_size);
+    let mut stats: Vec<Stats> = Vec::with_capacity(image_size);
     for pos in 0..image_size {
         if assigned_thread[pos] == tid {
-            thread_pixels.add(pos);
+            thread_pixels.push(pos);
+            stats.push(Stats::new());
         }
     }
     thread_pixels.shrink_to_fit();
+    stats.shrink_to_fit();
 
     //Construct a blue noise wannabe with a low discrepancy random number
     //https://en.wikipedia.org/wiki/Low-discrepancy_sequence#Construction_of_low-discrepancy_sequences
@@ -247,6 +250,10 @@ fn draw(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax
         ret.shuffle(&mut rand::thread_rng());
         ret
     };
+
+    //If samples_per_pixel > 30, in the first 30 runs we simply render and gain statistics
+    //after that, we do the optimization
+    let minimal_stats_runs = samples_per_pixel.min(30); 
 
     for _sample in 0..samples_per_pixel{
         //posidx is a double indirection... indexes[pos_idx] is the pixel index in the main memory buffer
@@ -269,17 +276,17 @@ fn draw(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
 
             unsafe {
-                let old_color = (*(colors_box.colors))[idx]/(curr_samples as f32);
-
                 (*(colors_box.colors))[idx]       += pixel_color; 
                 (*(colors_box.samples))[idx]      += 1;
                 (*(colors_box.true_samples))[idx] += 1;
 
                 let curr_color = (*(colors_box.colors))[idx]/(curr_samples as f32 + 1.);
-                let var = ((curr_color/old_color) - Color::new(1.,1.,1.)).abs();
-                let stats = max(max(var.x(),var.y()),var.z());
-                
-                let mur     = thread_pixels.add_useless_run(stats < 0.01,pos_idx) as u32;
+                let stat = &mut stats[pos_idx];
+                stat.add(&curr_color);
+                let max_abs_z = ((curr_color - stat.avg)/stat.stddev).abs().max_val();
+                //We set the threshold at 2 stddevs
+                //If we are in the initial runs, always "adds" false, disabling per se the mechanism
+                let mur     = thread_pixels.add_useless_run(max_abs_z < 2. && curr_samples > minimal_stats_runs,pos_idx) as u32;
                 let mur_neg = 1 - mur;
                 //When enough useless runs go by we simply set it to the max (samples_per_pixel), else increment
                 let aux_samples = mur*samples_per_pixel+mur_neg*(curr_samples+1);

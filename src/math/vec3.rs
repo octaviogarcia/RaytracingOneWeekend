@@ -51,6 +51,9 @@ impl Vec3{
     pub fn min(&self,v: &Vec3) -> Self {
         Vec3::new(min(self.x(),v.x()),min(self.y(),v.y()),min(self.z(),v.z()))
     }
+    pub fn sqrt(&self) -> Self{
+        Vec3::new(self.x().sqrt(),self.y().sqrt(),self.z().sqrt())
+    }
     pub fn cross(&self, other: Self) -> Self{
         Self{ e : [
             self.e[1]*other.e[2] - self.e[2]*other.e[1],
@@ -123,6 +126,15 @@ impl AddAssign<Vec3> for Vec3{
         ]}
     }
 }
+impl AddAssign<&Vec3> for Vec3{
+    fn add_assign(&mut self, other: &Vec3){
+        *self = Vec3 { e: [
+            self.e[0]+other.e[0],
+            self.e[1]+other.e[1],
+            self.e[2]+other.e[2],
+        ]}
+    }
+}
 impl SubAssign<Vec3> for Vec3{
     fn sub_assign(&mut self, other: Vec3){
         *self += -other;
@@ -130,6 +142,15 @@ impl SubAssign<Vec3> for Vec3{
 }
 impl MulAssign<Vec3> for Vec3{
     fn mul_assign(&mut self, other: Vec3){
+        *self = Vec3 { e: [
+            self.e[0]*other.e[0],
+            self.e[1]*other.e[1],
+            self.e[2]*other.e[2],
+        ]}
+    }
+}
+impl MulAssign<&Vec3> for Vec3{
+    fn mul_assign(&mut self, other: &Vec3){
         *self = Vec3 { e: [
             self.e[0]*other.e[0],
             self.e[1]*other.e[1],
