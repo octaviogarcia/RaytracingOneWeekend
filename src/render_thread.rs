@@ -3,7 +3,8 @@ use crate::math::vec3::*;
 use crate::hits::*;
 use crate::camera::*;
 use crate::ray::*;
-
+use std::sync::atomic::{AtomicU64, Ordering};
+use crate::utils::{lerp,MyRandom};
 
 #[derive(Copy,Clone)]
 pub struct ColorsBox {
@@ -14,27 +15,25 @@ pub struct ColorsBox {
 unsafe impl Send for ColorsBox{}
 
 struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-    sum: Color,
-    old_avg: Color,
-    pub avg: Color,
-    m2: Color,
     n: f32,
-    var: Color,
+    sum: Color,
+    m2: Color,
+    pub avg: Color,
     pub stddev: Color,
 }
 
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,old_avg: Color::ZERO,avg:Color::ZERO,m2:Color::ZERO,n:0.,var:Color::ZERO,stddev:Color::ZERO}
+        Self{sum:Color::ZERO,m2:Color::ZERO,n:0.,avg:Color::ZERO,stddev:Color::ZERO}
     }
     pub fn add(&mut self,x: &Color){
+        let old_avg = self.avg;
         self.sum += x;
         self.n   += 1.;
-        self.old_avg = self.avg;
-        self.avg     = self.sum / self.n;
-        self.m2     +=  (*x-self.old_avg)*(*x-self.avg);
-        self.var     = self.m2 / (self.n-1.);
-        self.stddev  = self.var.sqrt();
+        self.avg   = self.sum / self.n;
+        self.m2  +=  (*x-old_avg)*(*x-self.avg);
+        let var   = self.m2 / (self.n-1.);
+        self.stddev = var.sqrt();
     }
 }
 
@@ -56,7 +55,6 @@ impl ThreadPixels{
              backbuff_indexes: Vec::with_capacity(expected_max_size),backbuff_len: 0,
              useless_runs: Vec::with_capacity(expected_max_size)}
     }
-    #[inline]
     pub fn push(&mut self,idx: usize){
         self.indexes.push(idx);
         self.len += 1;
@@ -83,9 +81,6 @@ impl ThreadPixels{
         return mur;
     }
 }
-
-use std::sync::atomic::{AtomicU64, Ordering};
-use crate::utils::{lerp,MyRandom};
 
 fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32) -> Color{
     let mut curr_color = Color::new(1.,1.,1.);
