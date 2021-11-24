@@ -18,22 +18,22 @@ struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
     n: f32,
     sum: Color,
     m2: Color,
-    pub avg: Color,
-    pub stddev: Color,
+    avg: Color
 }
 
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,m2:Color::ZERO,n:0.,avg:Color::ZERO,stddev:Color::ZERO}
+        Self{sum:Color::ZERO,m2:Color::ZERO,n:0.,avg:Color::ZERO}
     }
-    pub fn add(&mut self,x: &Color){
+    #[inline]
+    pub fn add(&mut self,x: &Color) -> f32{
         let old_avg = self.avg;
-        self.sum += x;
-        self.n   += 1.;
-        self.avg   = self.sum / self.n;
-        self.m2  +=  (*x-old_avg)*(*x-self.avg);
-        let var   = self.m2 / (self.n-1.);
-        self.stddev = var.sqrt();
+        self.sum   += x;
+        self.n     += 1.;
+        self.avg    = self.sum / self.n;
+        self.m2   +=  (*x-old_avg)*(*x-self.avg);
+        let var    = self.m2 / (self.n-1.);
+        return ((*x-self.avg)/var.sqrt()).abs().max_val();
     }
 }
 
@@ -167,8 +167,7 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
 
                 let curr_color = (*(colors_box.colors))[idx]/(curr_samples as f32 + 1.);
                 let stat = &mut stats[pos_idx];
-                stat.add(&curr_color);
-                let max_abs_z = ((curr_color - stat.avg)/stat.stddev).abs().max_val();
+                let max_abs_z = stat.add(&curr_color);
                 //We set the threshold at 2 stddevs
                 //If we are in the initial runs, always "adds" false, disabling per se the mechanism
                 let mur     = thread_pixels.add_useless_run(max_abs_z < 1.5 && curr_samples > minimal_stats_runs,pos_idx) as u32;
