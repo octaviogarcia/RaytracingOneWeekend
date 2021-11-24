@@ -71,7 +71,8 @@ impl ThreadPixels{
         self.len = self.backbuff_len;
         self.backbuff_len = 0;
     }
-    pub fn add_useless_run(&mut self,is_useless: bool,i: usize) -> bool{//True if useless runs go past the threshold
+    pub fn add_run(&mut self,max_abs_z: f32,samples: u32,i: usize) -> bool{//True if useless runs go past the threshold
+        let is_useless = max_abs_z < 1.5 && samples > 30;//@TODO: make configurable
         self.useless_runs[i] += is_useless as u32;
         self.useless_runs[i] *= is_useless as u32;
         let mur = self.useless_runs[i] == 10;//@TODO: make more configurable
@@ -136,10 +137,6 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
         ret
     };
 
-    //If samples_per_pixel > 30, in the first 30 runs we simply render and gain statistics
-    //after that, we do the optimization
-    let minimal_stats_runs = samples_per_pixel.min(30); 
-
     for _sample in 0..samples_per_pixel{
         //posidx is a double indirection... indexes[pos_idx] is the pixel index in the main memory buffer
         for pos_idx in 0..thread_pixels.len{
@@ -168,9 +165,9 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
                 let curr_color = (*(colors_box.colors))[idx]/(curr_samples as f32 + 1.);
                 let stat = &mut stats[pos_idx];
                 let max_abs_z = stat.add(&curr_color);
+                let mur = thread_pixels.add_run(max_abs_z,curr_samples,pos_idx) as u32;
                 //We set the threshold at 2 stddevs
                 //If we are in the initial runs, always "adds" false, disabling per se the mechanism
-                let mur     = thread_pixels.add_useless_run(max_abs_z < 1.5 && curr_samples > minimal_stats_runs,pos_idx) as u32;
                 let mur_neg = 1 - mur;
                 //When enough useless runs go by we simply set it to the max (samples_per_pixel), else increment
                 let aux_samples = mur*samples_per_pixel+mur_neg*(curr_samples+1);
