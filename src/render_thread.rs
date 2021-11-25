@@ -26,7 +26,8 @@ impl Stats{
         self.avg    = self.sum / self.n as f32;
         self.m2   +=  (*x-old_avg)*(*x-self.avg);
         let var    = self.m2 / (self.n as f32-1.);
-        return ((*x-self.avg)/var.sqrt()).abs().max_val();
+        let stddev = var.sqrt();
+        return ((*x-self.avg)/stddev).abs().max_val();
     }
 }
 
