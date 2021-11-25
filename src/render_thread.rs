@@ -7,35 +7,53 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use crate::utils::{lerp,MyRandom};
 
 #[derive(Copy,Clone)]
-pub struct ColorsBox {
-    pub colors: *mut Vec<Color>,
-    pub samples: *mut Vec<u32>,
-    pub true_samples: *mut Vec<u32>,
-}
-unsafe impl Send for ColorsBox{}
-
-struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-    n: f32,
+pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
+    pub n: u32,
     sum: Color,
     m2: Color,
-    avg: Color
+    pub avg: Color
 }
 
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,m2:Color::ZERO,n:0.,avg:Color::ZERO}
+        Self{sum:Color::ZERO,m2:Color::ZERO,n:0,avg:Color::ZERO}
     }
     #[inline]
     pub fn add(&mut self,x: &Color) -> f32{
         let old_avg = self.avg;
         self.sum   += x;
-        self.n     += 1.;
-        self.avg    = self.sum / self.n;
+        self.n     += 1;
+        self.avg    = self.sum / self.n as f32;
         self.m2   +=  (*x-old_avg)*(*x-self.avg);
-        let var    = self.m2 / (self.n-1.);
+        let var    = self.m2 / (self.n as f32-1.);
         return ((*x-self.avg)/var.sqrt()).abs().max_val();
     }
 }
+
+#[derive(Copy,Clone)]
+pub struct Pixel{
+    pub c: Color,
+    pub stats: Stats
+}
+impl Pixel{
+    pub fn new() -> Self{
+        Self{c: Color::ZERO,stats: Stats::new()}
+    }
+}
+
+#[derive(Copy,Clone)]
+pub struct PixelsBox {
+    pub pixels: *mut Vec<Pixel>,
+}
+unsafe impl Send for PixelsBox{}
+/*
+//This DOES NOT work... for some reason I need to struct init from main(), @CompilerBug ??
+impl PixelsBox{
+    pub fn new(image_size: usize) -> Self{
+        Self{pixels: &mut vec!(Pixel::new();image_size as usize)}
+    }
+}
+*/
 
 struct ThreadPixels{
     //Assigned pixels to the threads
@@ -75,11 +93,11 @@ impl ThreadPixels{
         let is_useless = max_abs_z < 1.5 && samples > 30;//@TODO: make configurable
         self.useless_runs[i] += is_useless as u32;
         self.useless_runs[i] *= is_useless as u32;
-        let mur = self.useless_runs[i] == 10;//@TODO: make more configurable
-        //If the pixel render is "not useless", keep adding to the back buffer to draw in the next iteration
+        let done = self.useless_runs[i] >= 10;//@TODO: make more configurable
+        //If the pixel render is not done, keep adding to the back buffer to draw in the next iteration
         self.backbuff_indexes[self.backbuff_len] = self.indexes[i];
-        self.backbuff_len+=(!mur) as usize;
-        return mur;
+        self.backbuff_len+=1 - done as usize;
+        return done;
     }
 }
 
@@ -105,23 +123,20 @@ fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32)
 
 pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax: f32,
     samples_per_pixel: u32,image_width: u32,image_height: u32,
-    colors_box: ColorsBox,
-    tid: u32,assigned_thread: &Vec<u32>,samples_atom: &AtomicU64)
+    pixels_box: PixelsBox,tid: u32,assigned_thread: &Vec<u32>,samples_atom: &AtomicU64)
 {
+    //println!("len is {}",unsafe{&*pixels_box.pixels}.len());
     let image_width_f  = image_width as f32;
     let image_height_f = image_height as f32;
     let image_size = (image_width*image_height) as usize;
 
     let mut thread_pixels = ThreadPixels::new(image_size);
-    let mut stats: Vec<Stats> = Vec::with_capacity(image_size);
     for pos in 0..image_size {
         if assigned_thread[pos] == tid {
             thread_pixels.push(pos);
-            stats.push(Stats::new());
         }
     }
     thread_pixels.shrink_to_fit();
-    stats.shrink_to_fit();
 
     //Construct a blue noise wannabe with a low discrepancy random number
     //https://en.wikipedia.org/wiki/Low-discrepancy_sequence#Construction_of_low-discrepancy_sequences
@@ -138,46 +153,28 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
     };
 
     for _sample in 0..samples_per_pixel{
-        //posidx is a double indirection... indexes[pos_idx] is the pixel index in the main memory buffer
-        for pos_idx in 0..thread_pixels.len{
-            let idx = thread_pixels.indexes[pos_idx];
-            let curr_samples = unsafe { (*colors_box.samples)[idx] };
+        //idx is a double indirection... indexes[pos_idx] is the pixel index in the main memory buffer
+        for idx in 0..thread_pixels.len{
+            let pxl_idx = thread_pixels.indexes[idx];
+            let pixel: &mut Pixel = &mut unsafe{&mut *pixels_box.pixels}[pxl_idx];
             //Should never happen since we upkeep undone pixels with a backbuffer
             //assert!(curr_samples < samples_per_pixel);
-
-            let line = (idx as u32) / image_width;
-            let col  = (idx as u32) - image_width*line;
+            let line = (pxl_idx as u32) / image_width;
+            let col  = (pxl_idx as u32) - image_width*line;
             let j_f = line as f32;
             let i_f = col as f32;
 
-            let i_rand = (f32::rand() + jitters[curr_samples as usize].0)/2.;
-            let j_rand = (f32::rand() + jitters[curr_samples as usize].1)/2.;
+            let i_rand = (f32::rand() + jitters[pixel.stats.n as usize].0)/2.;
+            let j_rand = (f32::rand() + jitters[pixel.stats.n as usize].1)/2.;
             let u = (i_f+i_rand)/(image_width_f-1.);
             let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
-
-            unsafe {
-                (*(colors_box.colors))[idx]       += pixel_color; 
-                (*(colors_box.samples))[idx]      += 1;
-                (*(colors_box.true_samples))[idx] += 1;
-
-                let curr_color = (*(colors_box.colors))[idx]/(curr_samples as f32 + 1.);
-                let stat = &mut stats[pos_idx];
-                let max_abs_z = stat.add(&curr_color);
-                let mur = thread_pixels.add_run(max_abs_z,curr_samples,pos_idx) as u32;
-                //We set the threshold at 2 stddevs
-                //If we are in the initial runs, always "adds" false, disabling per se the mechanism
-                let mur_neg = 1 - mur;
-                //When enough useless runs go by we simply set it to the max (samples_per_pixel), else increment
-                let aux_samples = mur*samples_per_pixel+mur_neg*(curr_samples+1);
-                (*(colors_box.samples))[idx] = aux_samples;
-                (*(colors_box.colors))[idx]  = (aux_samples as f32)*curr_color;
-
-                //Inform sample is done to Log Thread
-                //We fetch add left over samples, or 1
-                samples_atom.fetch_add((aux_samples-curr_samples) as u64,Ordering::Relaxed);
-            }
+            let max_abs_z = pixel.stats.add(&pixel_color);
+            let done = thread_pixels.add_run(max_abs_z,pixel.stats.n,idx) as u32;
+            let log_samples = done*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
+            //Inform left over samples or 1
+            samples_atom.fetch_add(log_samples as u64,Ordering::Relaxed);
         }
         thread_pixels.swap_buffers();
     }

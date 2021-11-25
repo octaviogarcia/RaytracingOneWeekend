@@ -27,13 +27,13 @@ pub fn clamp(x: f32,fmin: f32,fmax: f32) -> f32{
 pub fn lerp(t: f32,c1: Color,c2: Color) -> Color{
     return (1.0-t)*c1 + t*c2;
 }
-pub fn normalize_color(color: Color,samples_per_pixel: u32) -> Color{
-    let scale = 1.0/(samples_per_pixel as f32);
-    let r = clamp((color.x() * scale).sqrt(),0.,0.999);
-    let g = clamp((color.y() * scale).sqrt(),0.,0.999);
-    let b = clamp((color.z() * scale).sqrt(),0.,0.999);
+pub fn normalize_color(color: &Color) -> Color{
+    let r = clamp(color.x().sqrt(),0.,0.999);
+    let g = clamp(color.y().sqrt(),0.,0.999);
+    let b = clamp(color.z().sqrt(),0.,0.999);
     return Color::new(r,g,b);
 }
+/*
 #[allow(dead_code)]
 pub fn denormalize_color(color: Color,samples_per_pixel: u32) -> Color{
     let scale = samples_per_pixel as f32;
@@ -52,7 +52,7 @@ pub fn write_ppm(colors: &Vec<Color>,samples_per_pixel: u32,image_width: u32,ima
     }
     println!("P3\n{} {}\n255",image_width,image_height);
     print!("{}",colors_str);
-}
+}*/
 
 use rand::Rng;
 pub trait MyRandom{

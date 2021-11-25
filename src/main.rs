@@ -186,16 +186,14 @@ fn main() {
     }
     assigned_thread.shrink_to_fit();
     let arc_assigned_thread = Arc::new(assigned_thread);
-
-    let colors_box = render_thread::ColorsBox{colors: &mut vec!(Color::ZERO;image_size as usize),
-                               samples: &mut vec!(0;image_size as usize),
-                               true_samples: &mut vec!(0;image_size as usize)};
-
+    let pixels_box = render_thread::PixelsBox{pixels: &mut vec!(render_thread::Pixel::new();image_size as usize)};
+    //This DOES NOT work idk why @CompilerBug
+    //let pixels_box = render_thread::PixelsBox::new(image_size as usize);
+    //for some reason the bottom statement messes ups the len() of pixels in each thread if I do new()
     let mut handlers: Vec<thread::JoinHandle<()>> = Vec::with_capacity(num_threads as usize);
     let arc_camera = Arc::new(camera);
     let arc_world = Arc::new(world);
     eprintln!("Running {} threads",num_threads);
-
     for i in 0..num_threads {
         let cam = arc_camera.clone();
         let wrld = arc_world.clone();
@@ -203,20 +201,15 @@ fn main() {
         let assgn_th = arc_assigned_thread.clone();
         let tmin = 0.001;
         let tmax = 100.0;//@TODO: You could find these from bounding boxes from the scene
-        
         let draw_thread = move || {
             return render_thread::render(&cam,&wrld.freeze(&cam),max_depth,tmin,tmax,
                 samples_per_pixel,image_width,image_height,
-                colors_box,
+                pixels_box,
                 i,&assgn_th,&smpls_atom);
         };
         handlers.push(thread::spawn(draw_thread));
     }
-
-    let colors: &mut Vec<Color> = unsafe {&mut (*colors_box.colors) };
-    let samples: &mut Vec<u32> = unsafe {&mut (*colors_box.samples) };
-    let true_samples: &mut Vec<u32> = unsafe {&mut (*colors_box.true_samples) };
-    draw_to_sdl(&colors,&samples,&true_samples,samples_per_pixel,image_width,image_height);
+    draw_to_sdl(pixels_box.clone(),samples_per_pixel,image_width,image_height);
     /*
     {
         for h in handlers{
@@ -227,7 +220,7 @@ fn main() {
     }*/
 }
 
-fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u32>,true_samples: &Vec<u32>,_samples_per_pixel: u32,image_width: u32,image_height: u32){
+fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,image_width: u32,image_height: u32){
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
@@ -242,36 +235,36 @@ fn draw_to_sdl(colors: &Vec<Color>,samples: &Vec<u32>,true_samples: &Vec<u32>,_s
     let mut event_pump = sdl_context.event_pump().unwrap();
     let texture_creator = canvas.texture_creator();
     let mut show_samples = false;
-    let mut pixels = vec!(0 as u8;(image_width*image_height*3) as usize);
+    let mut sdlpixels = vec!(0 as u8;(image_width*image_height*3) as usize);
+    let pixels = unsafe{&*pixels_box.pixels};
     'running: loop {
         if show_samples{
-            let mut max_samples = 1.0;
+            let mut max_samples = 1;
             for pos in 0..image_width*image_height{
-                if (true_samples[pos as usize] as f32) > max_samples {
-                    max_samples = true_samples[pos as usize] as f32;
+                if pixels[pos as usize].stats.n > max_samples {
+                    max_samples = pixels[pos as usize].stats.n;
                 }
             }
             for pos in 0..image_width*image_height{
                 let aux = (pos*3) as usize;
-                let smpls = (true_samples[pos as usize] as f32)/max_samples;
-                let c = normalize_color(Color::new(smpls,smpls,smpls),1);
-                pixels[aux+0] = (c.x()*256.0) as u8;
-                pixels[aux+1] = (c.y()*256.0) as u8;
-                pixels[aux+2] = (c.z()*256.0) as u8;
+                let smpls = (pixels[pos as usize].stats.n as f32)/max_samples as f32;
+                let c = normalize_color(&Color::new(smpls,smpls,smpls));
+                sdlpixels[aux+0] = (c.x()*256.0) as u8;
+                sdlpixels[aux+1] = (c.y()*256.0) as u8;
+                sdlpixels[aux+2] = (c.z()*256.0) as u8;
             }
         }
         else{
             for pos in 0..image_width*image_height{
                 let aux = (pos*3) as usize;
-                let smpls = samples[pos as usize];
-                let c = normalize_color(colors[pos as usize],smpls);
-                pixels[aux+0] = (c.x()*256.0) as u8;
-                pixels[aux+1] = (c.y()*256.0) as u8;
-                pixels[aux+2] = (c.z()*256.0) as u8;
+                let c = normalize_color(&pixels[pos as usize].stats.avg);
+                sdlpixels[aux+0] = (c.x()*256.0) as u8;
+                sdlpixels[aux+1] = (c.y()*256.0) as u8;
+                sdlpixels[aux+2] = (c.z()*256.0) as u8;
             }
         }
         //pitch = row in bytes. 1 byte per color -> 3*width
-        let texture = sdl2::surface::Surface::from_data(pixels.as_mut_slice(), image_width, image_height, image_width*3, sdl2::pixels::PixelFormatEnum::RGB24)
+        let texture = sdl2::surface::Surface::from_data(sdlpixels.as_mut_slice(), image_width, image_height, image_width*3, sdl2::pixels::PixelFormatEnum::RGB24)
         .unwrap().as_texture(&texture_creator).unwrap();
         canvas.clear();
         for event in event_pump.poll_iter() {
