@@ -19,7 +19,7 @@ impl Stats{
         Self{sum:Color::ZERO,m2:Color::ZERO,n:0,avg:Color::ZERO}
     }
     #[inline]
-    pub fn add(&mut self,x: &Color) -> f32{
+    pub fn add(&mut self,x: &Color) -> bool{//Returns True if x was statistically useless
         let old_avg = self.avg;
         self.sum   += x;
         self.n     += 1;
@@ -27,7 +27,8 @@ impl Stats{
         self.m2   +=  (*x-old_avg)*(*x-self.avg);
         let var    = self.m2 / (self.n as f32-1.);
         let stddev = var.sqrt();
-        return ((*x-self.avg)/stddev).abs().max_val();
+        let max_abs_z = ((*x-self.avg)/stddev).abs().max_val();
+        return max_abs_z < 1.5 && self.n > 30;
     }
 }
 
@@ -47,14 +48,15 @@ pub struct PixelsBox {
     pub pixels: *mut Vec<Pixel>,
 }
 unsafe impl Send for PixelsBox{}
-/*
+
 //This DOES NOT work... for some reason I need to struct init from main(), @CompilerBug ??
 impl PixelsBox{
+    #[allow(dead_code)]
     pub fn new(image_size: usize) -> Self{
         Self{pixels: &mut vec!(Pixel::new();image_size as usize)}
     }
 }
-*/
+
 
 struct ThreadPixels{
     //Assigned pixels to the threads
@@ -90,8 +92,7 @@ impl ThreadPixels{
         self.len = self.backbuff_len;
         self.backbuff_len = 0;
     }
-    pub fn add_run(&mut self,max_abs_z: f32,samples: u32,i: usize) -> bool{//True if useless runs go past the threshold
-        let is_useless = max_abs_z < 1.5 && samples > 30;//@TODO: make configurable
+    pub fn add_run(&mut self,is_useless: bool,i: usize) -> bool{//True if useless runs go past the thresholde
         self.useless_runs[i] += is_useless as u32;
         self.useless_runs[i] *= is_useless as u32;
         let done = self.useless_runs[i] >= 10;//@TODO: make more configurable
@@ -171,8 +172,8 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
             let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
-            let max_abs_z = pixel.stats.add(&pixel_color);
-            let done = thread_pixels.add_run(max_abs_z,pixel.stats.n,idx) as u32;
+            let is_useless = pixel.stats.add(&pixel_color);
+            let done = thread_pixels.add_run(is_useless,idx) as u32;
             let log_samples = done*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
             //Inform left over samples or 1
             samples_atom.fetch_add(log_samples as u64,Ordering::Relaxed);
