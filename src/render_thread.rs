@@ -10,13 +10,12 @@ use crate::utils::{lerp,MyRandom};
 pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
     pub n: u32,
     sum: Color,
-    m2: Color,
     pub avg: Color
 }
 
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,m2:Color::ZERO,n:0,avg:Color::ZERO}
+        Self{sum:Color::ZERO,n:0,avg:Color::ZERO}
     }
     #[inline]
     pub fn add(&mut self,x: &Color) -> f32{
@@ -24,10 +23,7 @@ impl Stats{
         self.sum   += x;
         self.n     += 1;
         self.avg    = self.sum / self.n as f32;
-        self.m2   +=  (*x-old_avg)*(*x-self.avg);
-        let var    = self.m2 / (self.n as f32-1.);
-        let stddev = var.sqrt();
-        return ((*x-self.avg)/stddev).abs().max_val();
+        return (self.avg-old_avg).length();//Maybe do 1-norm instead
     }
 }
 
@@ -64,37 +60,37 @@ struct ThreadPixels{
     //After a pass is done, one is expected to swap() these 2 buffers
     pub backbuff_indexes: Vec<usize>,
     pub backbuff_len: usize,
-    //Useless run per pixel, past a threshold we stop raycasting it
-    pub useless_runs: Vec<u32>,
+    pub exponential_moving_average: Vec<f32>,
 }
 
 impl ThreadPixels{
     pub fn new(expected_max_size: usize) -> Self{
         Self{indexes: Vec::with_capacity(expected_max_size),len: 0,
              backbuff_indexes: Vec::with_capacity(expected_max_size),backbuff_len: 0,
-             useless_runs: Vec::with_capacity(expected_max_size)}
+             exponential_moving_average: Vec::with_capacity(expected_max_size)}
     }
     pub fn push(&mut self,idx: usize){
         self.indexes.push(idx);
         self.len += 1;
         self.backbuff_indexes.push(999999999);//Add garbage just to expand if len overflows expected_max_size
-        self.useless_runs.push(0);//Init to 0
+        self.exponential_moving_average.push(0.);//Init to 0
     }
     pub fn shrink_to_fit(&mut self){
         self.indexes.shrink_to_fit();
         self.backbuff_indexes.shrink_to_fit();
-        self.useless_runs.shrink_to_fit();
+        self.exponential_moving_average.shrink_to_fit();
     }
     pub fn swap_buffers(&mut self){
         ::std::mem::swap(&mut self.indexes,&mut self.backbuff_indexes);
         self.len = self.backbuff_len;
         self.backbuff_len = 0;
     }
-    pub fn add_run(&mut self,max_abs_z: f32,samples: u32,i: usize) -> bool{//True if useless runs go past the threshold
-        let is_useless = max_abs_z < 1.5 && samples > 30;//@TODO: make configurable
-        self.useless_runs[i] += is_useless as u32;
-        self.useless_runs[i] *= is_useless as u32;
-        let done = self.useless_runs[i] >= 10;//@TODO: make more configurable
+    pub fn add_run(&mut self,avg_variation: f32,samples: u32,i: usize) -> bool{
+        let ema = self.exponential_moving_average[i];
+        const ALPHA: f32 = 0.7;
+        let new_ema = ALPHA*ema + (1.-ALPHA)*avg_variation;
+        self.exponential_moving_average[i] = new_ema;
+        let done = samples > 30 && (new_ema < (1./256.));
         //If the pixel render is not done, keep adding to the back buffer to draw in the next iteration
         self.backbuff_indexes[self.backbuff_len] = self.indexes[i];
         self.backbuff_len+=1 - done as usize;
@@ -171,8 +167,8 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
             let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
-            let max_abs_z = pixel.stats.add(&pixel_color);
-            let done = thread_pixels.add_run(max_abs_z,pixel.stats.n,idx) as u32;
+            let avg_variation = pixel.stats.add(&pixel_color);
+            let done = thread_pixels.add_run(avg_variation,pixel.stats.n,idx) as u32;
             let log_samples = done*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
             //Inform left over samples or 1
             samples_atom.fetch_add(log_samples as u64,Ordering::Relaxed);
