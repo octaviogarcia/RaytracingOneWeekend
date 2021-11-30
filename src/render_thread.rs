@@ -10,20 +10,23 @@ use crate::utils::{lerp,MyRandom};
 pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
     pub n: u32,
     sum: Color,
-    pub avg: Color
+    pub avg: Color,
+    pub ema: f32,//exponential moving average
 }
 
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,n:0,avg:Color::ZERO}
+        Self{sum:Color::ZERO,n:0,avg:Color::ZERO,ema: 0.}
     }
     #[inline]
-    pub fn add(&mut self,x: &Color) -> f32{
+    pub fn add(&mut self,x: &Color) -> (){
         let old_avg = self.avg;
         self.sum   += x;
         self.n     += 1;
         self.avg    = self.sum / self.n as f32;
-        return (self.avg-old_avg).length();//Maybe do 1-norm instead
+        let avg_var = (self.avg-old_avg).length();//Maybe do 1-norm instead
+        const ALPHA: f32 = 0.7;
+        self.ema =  ALPHA*self.ema + (1.-ALPHA)*avg_var;
     }
 }
 
@@ -54,45 +57,37 @@ impl PixelsBox{
 
 struct ThreadPixels{
     //Assigned pixels to the threads
-    pub indexes: Vec<usize>,
+    pub list: Vec<usize>,
     pub len: usize,
     //When rendering, here are added pixels that need to be rendered next pass
     //After a pass is done, one is expected to swap() these 2 buffers
-    pub backbuff_indexes: Vec<usize>,
+    pub backbuff_list: Vec<usize>,
     pub backbuff_len: usize,
-    pub exponential_moving_average: Vec<f32>,
 }
 
 impl ThreadPixels{
     pub fn new(expected_max_size: usize) -> Self{
-        Self{indexes: Vec::with_capacity(expected_max_size),len: 0,
-             backbuff_indexes: Vec::with_capacity(expected_max_size),backbuff_len: 0,
-             exponential_moving_average: Vec::with_capacity(expected_max_size)}
+        Self{list: Vec::with_capacity(expected_max_size),len: 0,
+             backbuff_list: Vec::with_capacity(expected_max_size),backbuff_len: 0,}
     }
-    pub fn push(&mut self,idx: usize){
-        self.indexes.push(idx);
+    pub fn push(&mut self,pxl_idx: usize){
+        self.list.push(pxl_idx);
         self.len += 1;
-        self.backbuff_indexes.push(999999999);//Add garbage just to expand if len overflows expected_max_size
-        self.exponential_moving_average.push(0.);//Init to 0
+        self.backbuff_list.push(9999);//Add garbage just to expand if len overflows expected_max_size
     }
     pub fn shrink_to_fit(&mut self){
-        self.indexes.shrink_to_fit();
-        self.backbuff_indexes.shrink_to_fit();
-        self.exponential_moving_average.shrink_to_fit();
+        self.list.shrink_to_fit();
+        self.backbuff_list.shrink_to_fit();
     }
     pub fn swap_buffers(&mut self){
-        ::std::mem::swap(&mut self.indexes,&mut self.backbuff_indexes);
+        ::std::mem::swap(&mut self.list,&mut self.backbuff_list);
         self.len = self.backbuff_len;
         self.backbuff_len = 0;
     }
-    pub fn add_run(&mut self,avg_variation: f32,samples: u32,i: usize) -> bool{
-        let ema = self.exponential_moving_average[i];
-        const ALPHA: f32 = 0.7;
-        let new_ema = ALPHA*ema + (1.-ALPHA)*avg_variation;
-        self.exponential_moving_average[i] = new_ema;
-        let done = samples > 30 && (new_ema < (1./256.));
+    pub fn add_run(&mut self,i: usize,samples: u32,ema: f32) -> bool{
+        let done = samples > 30 && (ema < (1./256.));
         //If the pixel render is not done, keep adding to the back buffer to draw in the next iteration
-        self.backbuff_indexes[self.backbuff_len] = self.indexes[i];
+        self.backbuff_list[self.backbuff_len] = self.list[i];
         self.backbuff_len+=1 - done as usize;
         return done;
     }
@@ -152,7 +147,7 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
     for _sample in 0..samples_per_pixel{
         //idx is a double indirection... indexes[pos_idx] is the pixel index in the main memory buffer
         for idx in 0..thread_pixels.len{
-            let pxl_idx = thread_pixels.indexes[idx];
+            let pxl_idx = thread_pixels.list[idx];
             let pixel: &mut Pixel = &mut unsafe{&mut *pixels_box.pixels}[pxl_idx];
             //Should never happen since we upkeep undone pixels with a backbuffer
             //assert!(curr_samples < samples_per_pixel);
@@ -167,8 +162,8 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
             let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
-            let avg_variation = pixel.stats.add(&pixel_color);
-            let done = thread_pixels.add_run(avg_variation,pixel.stats.n,idx) as u32;
+            pixel.stats.add(&pixel_color);
+            let done = thread_pixels.add_run(idx,pixel.stats.n,pixel.stats.ema) as u32;
             let log_samples = done*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
             //Inform left over samples or 1
             samples_atom.fetch_add(log_samples as u64,Ordering::Relaxed);
