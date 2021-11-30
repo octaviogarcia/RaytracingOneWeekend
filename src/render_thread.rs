@@ -88,7 +88,7 @@ impl ThreadPixels{
     }
     pub fn add_run(&mut self,avg_variation: f32,samples: u32,i: usize) -> bool{
         let ema = self.exponential_moving_average[i];
-        const ALPHA: f32 = 0.7;
+        const ALPHA: f32 = 0.5;
         let new_ema = ALPHA*ema + (1.-ALPHA)*avg_variation;
         self.exponential_moving_average[i] = new_ema;
         let done = samples > 30 && (new_ema < (1./256.));
