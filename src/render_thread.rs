@@ -19,7 +19,7 @@ impl Stats{
         Self{sum:Color::ZERO,n:0,avg:Color::ZERO,ema: 0.}
     }
     #[inline]
-    pub fn add(&mut self,x: &Color) -> (){
+    pub fn add(&mut self,x: &Color) {
         let old_avg = self.avg;
         self.sum   += x;
         self.n     += 1;
@@ -46,14 +46,15 @@ pub struct PixelsBox {
     pub pixels: *mut Vec<Pixel>,
 }
 unsafe impl Send for PixelsBox{}
-/*
+
 //This DOES NOT work... for some reason I need to struct init from main(), @CompilerBug ??
 impl PixelsBox{
+    #[allow(dead_code)]
     pub fn new(image_size: usize) -> Self{
         Self{pixels: &mut vec!(Pixel::new();image_size as usize)}
     }
 }
-*/
+
 
 struct ThreadPixels{
     //Assigned pixels to the threads
