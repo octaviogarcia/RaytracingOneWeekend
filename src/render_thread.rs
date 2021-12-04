@@ -4,29 +4,35 @@ use crate::hits::*;
 use crate::camera::*;
 use crate::ray::*;
 use std::sync::atomic::{AtomicU64, Ordering};
-use crate::utils::{lerp,MyRandom};
+use crate::utils::{lerp,MyRandom,normalize_color};
 
 #[derive(Copy,Clone)]
 pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
     pub n: u32,
     sum: Color,
-    pub avg: Color,
-    pub ema: f32,//exponential moving average
+    pub color: (u8,u8,u8),
+    pub bad_avgs: u32,
 }
-
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,n:0,avg:Color::ZERO,ema: 0.}
+        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0}
     }
     #[inline]
-    pub fn add(&mut self,x: &Color) {
-        let old_avg = self.avg;
+    pub fn add(&mut self,x: &Color) -> bool{
+        let old_color = self.color;
         self.sum   += x;
         self.n     += 1;
-        self.avg    = self.sum / self.n as f32;
-        let avg_var = (self.avg-old_avg).length();//Maybe do 1-norm instead
-        const ALPHA: f32 = 0.7;
-        self.ema =  ALPHA*self.ema + (1.-ALPHA)*avg_var;
+        self.color = {            
+            let avg    = self.sum / self.n as f32;
+            let new_color = normalize_color(&avg)*256.;
+            (new_color.x() as u8,new_color.y() as u8,new_color.z() as u8)
+        };
+        let bad_run = (old_color.0 == self.color.0) 
+                   && (old_color.1 == self.color.1) 
+                   && (old_color.2 == self.color.2) ;// && self.n > 30;
+        self.bad_avgs += bad_run as u32;
+        self.bad_avgs *= bad_run as u32;
+        return self.bad_avgs >= 5;
     }
 }
 
@@ -85,12 +91,10 @@ impl ThreadPixels{
         self.len = self.backbuff_len;
         self.backbuff_len = 0;
     }
-    pub fn add_run(&mut self,i: usize,samples: u32,ema: f32) -> bool{
-        let done = samples > 30 && (ema < (1./256.));
+    pub fn add_run(&mut self,i: usize,done: bool){
         //If the pixel render is not done, keep adding to the back buffer to draw in the next iteration
         self.backbuff_list[self.backbuff_len] = self.list[i];
         self.backbuff_len+=1 - done as usize;
-        return done;
     }
 }
 
@@ -163,9 +167,9 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
             let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
             let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
-            pixel.stats.add(&pixel_color);
-            let done = thread_pixels.add_run(idx,pixel.stats.n,pixel.stats.ema) as u32;
-            let log_samples = done*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
+            let done = pixel.stats.add(&pixel_color);
+            thread_pixels.add_run(idx,done);
+            let log_samples = (done as u32)*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
             //Inform left over samples or 1
             samples_atom.fetch_add(log_samples as u64,Ordering::Relaxed);
         }

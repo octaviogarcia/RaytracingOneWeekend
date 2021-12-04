@@ -257,10 +257,10 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
         else{
             for pos in 0..image_width*image_height{
                 let aux = (pos*3) as usize;
-                let c = normalize_color(&pixels[pos as usize].stats.avg);
-                sdlpixels[aux+0] = (c.x()*256.0) as u8;
-                sdlpixels[aux+1] = (c.y()*256.0) as u8;
-                sdlpixels[aux+2] = (c.z()*256.0) as u8;
+                let c = pixels[pos as usize].stats.color;
+                sdlpixels[aux+0] = c.0;
+                sdlpixels[aux+1] = c.1;
+                sdlpixels[aux+2] = c.2;
             }
         }
         //pitch = row in bytes. 1 byte per color -> 3*width
