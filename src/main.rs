@@ -220,6 +220,49 @@ fn main() {
     }*/
 }
 
+
+#[inline]
+fn apply_box_filter_ij(pixels: &Vec<crate::render_thread::Pixel>,image_width: u32,sdlpixels: &mut Vec<u8>,
+    i: u32,j: u32,min_x: i32,max_x: i32,min_y: i32,max_y: i32){
+        let mut total_weight = 0.;
+        let mut color = Color::ZERO;
+        for y in min_y..=(max_y as i32){
+            for x in min_x..=(max_x as i32){
+                let idx = (i as i32+x)+(j as i32+y)*image_width as i32;
+                let n = pixels[idx as usize].stats.n as f32;
+                total_weight += n;
+                color += pixels[idx as usize].stats.sum;
+            }
+        }
+        let aux = i as usize + j as usize*image_width as usize;
+        let p = aux*3;
+        let c = normalize_color(&(color/total_weight));
+        sdlpixels[p+0] = (c.x() * 256.0) as u8;
+        sdlpixels[p+1] = (c.y() * 256.0) as u8;
+        sdlpixels[p+2] = (c.z() * 256.0) as u8;
+    }
+
+fn apply_box_filter(pixels: &Vec<crate::render_thread::Pixel>,image_height: u32,image_width: u32,sdlpixels: &mut Vec<u8>){
+    for j in 1..(image_height-1){
+        for i in 1..(image_width-1){
+            apply_box_filter_ij(pixels,image_width,sdlpixels,i,j,-1,1,-1,1);
+        }
+        //Left-Right lines
+        apply_box_filter_ij(pixels,image_width,sdlpixels,            0,j, 0,1,-1,1);
+        apply_box_filter_ij(pixels,image_width,sdlpixels,image_width-1,j,-1,0,-1,1);
+    }
+    //Top-Bottom lines
+    for i in 1..(image_width-1){
+        apply_box_filter_ij(pixels,image_width,sdlpixels,i,             0,-1,1, 0,1);
+        apply_box_filter_ij(pixels,image_width,sdlpixels,i,image_height-1,-1,1,-1,0);
+    }
+    //Corners
+    apply_box_filter_ij(pixels,image_width,sdlpixels,            0,             0, 0,1, 0,1);
+    apply_box_filter_ij(pixels,image_width,sdlpixels,image_width-1,             0,-1,0, 0,1);
+    apply_box_filter_ij(pixels,image_width,sdlpixels,            0,image_height-1, 0,1,-1,0);
+    apply_box_filter_ij(pixels,image_width,sdlpixels,image_width-1,image_height-1,-1,0,-1,0);
+}
+
 fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,image_width: u32,image_height: u32){
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -234,11 +277,27 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
 
     let mut event_pump = sdl_context.event_pump().unwrap();
     let texture_creator = canvas.texture_creator();
-    let mut show_samples = false;
+
+    const MODE_NORMAL: u32 = 0;
+    const MODE_SHOW_SAMPLES: u32 = 1;
+    const MODE_SAMPLE_WEIGHTED_BLUR: u32 = 2;
+    const MODE_COUNT: u32 = 3;//Rust enums fucking suck
+    let mut mode: u32 = MODE_NORMAL;
+
     let mut sdlpixels = vec!(0 as u8;(image_width*image_height*3) as usize);
     let pixels = unsafe{&*pixels_box.pixels};
     'running: loop {
-        if show_samples{
+        assert!(mode < MODE_COUNT);
+        if mode == MODE_NORMAL{
+            for pos in 0..image_width*image_height{
+                let aux = (pos*3) as usize;
+                let c = pixels[pos as usize].stats.color;
+                sdlpixels[aux+0] = c.0;
+                sdlpixels[aux+1] = c.1;
+                sdlpixels[aux+2] = c.2;
+            }
+        }
+        else if mode == MODE_SHOW_SAMPLES {
             let mut max_samples = 1;
             for pos in 0..image_width*image_height{
                 if pixels[pos as usize].stats.n > max_samples {
@@ -254,14 +313,8 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
                 sdlpixels[aux+2] = (c.z()*256.0) as u8;
             }
         }
-        else{
-            for pos in 0..image_width*image_height{
-                let aux = (pos*3) as usize;
-                let c = pixels[pos as usize].stats.color;
-                sdlpixels[aux+0] = c.0;
-                sdlpixels[aux+1] = c.1;
-                sdlpixels[aux+2] = c.2;
-            }
+        else if mode == MODE_SAMPLE_WEIGHTED_BLUR {
+            apply_box_filter(pixels,image_height,image_width,&mut sdlpixels);
         }
         //pitch = row in bytes. 1 byte per color -> 3*width
         let texture = sdl2::surface::Surface::from_data(sdlpixels.as_mut_slice(), image_width, image_height, image_width*3, sdl2::pixels::PixelFormatEnum::RGB24)
@@ -274,7 +327,7 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
                     break 'running
                 },
                 Event::KeyDown { keycode: Some(Keycode::Space), .. } => {
-                    show_samples = show_samples ^ true;
+                    mode = (mode + 1) % MODE_COUNT;
                 },
                 _ => {}
             }

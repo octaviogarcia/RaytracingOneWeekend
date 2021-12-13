@@ -9,7 +9,7 @@ use crate::utils::{lerp,MyRandom,normalize_color};
 #[derive(Copy,Clone)]
 pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
     pub n: u32,
-    sum: Color,
+    pub sum: Color,
     pub color: (u8,u8,u8),
     pub bad_avgs: u32,
 }

@@ -33,13 +33,12 @@ pub fn normalize_color(color: &Color) -> Color{
     let b = clamp(color.z().sqrt(),0.,0.999);
     return Color::new(r,g,b);
 }
+
 /*
-#[allow(dead_code)]
-pub fn denormalize_color(color: Color,samples_per_pixel: u32) -> Color{
-    let scale = samples_per_pixel as f32;
-    let r = clamp(color.x()*color.x()*scale,0.,scale);
-    let g = clamp(color.y()*color.y()*scale,0.,scale);
-    let b = clamp(color.z()*color.z()*scale,0.,scale);
+pub fn denormalize_color(color: &Color) -> Color{
+    let r = color.x()*color.x();
+    let g = color.y()*color.y();
+    let b = color.z()*color.z();
     return Color::new(r,g,b);
 }
 #[allow(dead_code)]
