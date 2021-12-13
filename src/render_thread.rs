@@ -12,11 +12,11 @@ pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_vari
     pub sum: Color,
     pub color: (u8,u8,u8),
     pub bad_avgs: u32,
-    //pub depth_sum: f32,
+    pub depth_sum: f32,
 }
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0}//,depth_sum: 0.}
+        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0,depth_sum: 0.}
     }
     #[inline]
     pub fn add(&mut self,x: &Color) -> bool{
@@ -99,43 +99,41 @@ impl ThreadPixels{
     }
 }
 
-/*
+
 #[inline]
-fn match_hit(hit_record: &Option<HitRecord>,curr_ray: &mut Ray,curr_color: &mut Color,tmin: f32,tmax: f32) -> f32{
+fn handle_hit(hit_record: &mut Option<HitRecord>,curr_ray: &mut Ray,curr_color: &mut Color) -> f32{
+    let depth: f32;
     match hit_record {
         Some(hr) => {
-            let rslt = hr.material.scatter(r,&hr);
-            curr_color =  &mut (*curr_color * rslt.attenuation);
-            curr_color *= rslt.attenuation;
-            curr_ray = rslt.ray;
+            let rslt = hr.material.scatter(&curr_ray,&hr);
+            *curr_color *= rslt.attenuation;
+            *curr_ray = rslt.ray;
+            depth = hr.t;
         },
         None => {
             let t: f32 = 0.5*(curr_ray.dir.y() + 1.0);//r.dir.y() + 1.0);
             let lerped_sky_color = lerp(t,Color::new(1.0,1.0,1.0),Color::new(0.5,0.7,1.0));
-            curr_color = &mut (*curr_color * lerped_sky_color);
+            *curr_color *= lerped_sky_color;
+            depth = f32::INFINITY;
         }
     }
-    return 0.;
-}*/
+    return depth;
+}
 
-fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32) -> Color{
+fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32) -> (Color,f32){
     let mut curr_color = Color::new(1.,1.,1.);
     let mut curr_ray: Ray = *r;
-    for _i in 0..depth{
-        match world.hit(&curr_ray,tmin,tmax) {
-            Some(hr) => {
-                let rslt = hr.material.scatter(&curr_ray,&hr);//(r,&hr);
-                curr_color *= rslt.attenuation;
-                curr_ray = rslt.ray;
-            },
-            None => {
-                let t: f32 = 0.5*(curr_ray.dir.y() + 1.0);//r.dir.y() + 1.0);
-                let lerped_sky_color = lerp(t,Color::new(1.0,1.0,1.0),Color::new(0.5,0.7,1.0));
-                return curr_color*lerped_sky_color;
-            }
+    //Get the depth with the first hit
+    let depthf = handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
+    if depthf.is_infinite(){
+        return (curr_color,tmax);
+    }
+    for _i in 1..depth{
+        if handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color).is_infinite(){
+            return (curr_color,tmax);
         }
     }
-    return -Color::ZERO;//If we run out of depth return -black
+    return (-Color::ZERO,depthf);//If we run out of depth return -black
 }
 
 pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax: f32,
@@ -186,8 +184,9 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
             let u = (i_f+i_rand)/(image_width_f-1.);
             let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
-            let pixel_color = ray_color(&ray,&world,max_depth,tmin,tmax);
+            let (pixel_color,depth) = ray_color(&ray,&world,max_depth,tmin,tmax);
             let done = pixel.stats.add(&pixel_color);
+            pixel.stats.avg_depth = ((pixel.stats.n-1)*pixel.stats.avg_depth+depth)/pixel.stats.n;
             thread_pixels.add_run(idx,done);
             let log_samples = (done as u32)*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
             //Inform left over samples or 1

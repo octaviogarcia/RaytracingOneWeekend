@@ -281,7 +281,8 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
     const MODE_NORMAL: u32 = 0;
     const MODE_SHOW_SAMPLES: u32 = 1;
     const MODE_SAMPLE_WEIGHTED_BLUR: u32 = 2;
-    const MODE_COUNT: u32 = 3;//Rust enums fucking suck
+    const MODE_SHOW_DEPTH: u32 = 3;
+    const MODE_COUNT: u32 = 4;//Rust enums fucking suck
     let mut mode: u32 = MODE_NORMAL;
 
     let mut sdlpixels = vec!(0 as u8;(image_width*image_height*3) as usize);
@@ -308,6 +309,28 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
                 let aux = (pos*3) as usize;
                 let smpls = (pixels[pos as usize].stats.n as f32)/max_samples as f32;
                 let c = normalize_color(&Color::new(smpls,smpls,smpls));
+                sdlpixels[aux+0] = (c.x()*256.0) as u8;
+                sdlpixels[aux+1] = (c.y()*256.0) as u8;
+                sdlpixels[aux+2] = (c.z()*256.0) as u8;
+            }
+        }
+        else if mode == MODE_SHOW_DEPTH {
+            let mut max_depth = -1.;
+            for pos in 0..image_width*image_height{
+                let ds = pixels[pos as usize].stats.depth_sum; 
+                let n  = pixels[pos as usize].stats.n as f32;
+                let d  = ds/n;
+                if d > max_depth {
+                    max_depth = d;
+                }
+            }
+            for pos in 0..image_width*image_height{
+                let aux = (pos*3) as usize;
+                let ds = pixels[pos as usize].stats.depth_sum; 
+                let n  = pixels[pos as usize].stats.n as f32;
+                let d  = ds/n;
+                let depth_0to1 = d/max_depth;
+                let c = normalize_color(&Color::new(depth_0to1,depth_0to1,depth_0to1));
                 sdlpixels[aux+0] = (c.x()*256.0) as u8;
                 sdlpixels[aux+1] = (c.y()*256.0) as u8;
                 sdlpixels[aux+2] = (c.z()*256.0) as u8;
