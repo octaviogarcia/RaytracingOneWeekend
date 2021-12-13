@@ -12,10 +12,11 @@ pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_vari
     pub sum: Color,
     pub color: (u8,u8,u8),
     pub bad_avgs: u32,
+    //pub depth_sum: f32,
 }
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0}
+        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0}//,depth_sum: 0.}
     }
     #[inline]
     pub fn add(&mut self,x: &Color) -> bool{
@@ -98,18 +99,37 @@ impl ThreadPixels{
     }
 }
 
+/*
+#[inline]
+fn match_hit(hit_record: &Option<HitRecord>,curr_ray: &mut Ray,curr_color: &mut Color,tmin: f32,tmax: f32) -> f32{
+    match hit_record {
+        Some(hr) => {
+            let rslt = hr.material.scatter(r,&hr);
+            curr_color =  &mut (*curr_color * rslt.attenuation);
+            curr_color *= rslt.attenuation;
+            curr_ray = rslt.ray;
+        },
+        None => {
+            let t: f32 = 0.5*(curr_ray.dir.y() + 1.0);//r.dir.y() + 1.0);
+            let lerped_sky_color = lerp(t,Color::new(1.0,1.0,1.0),Color::new(0.5,0.7,1.0));
+            curr_color = &mut (*curr_color * lerped_sky_color);
+        }
+    }
+    return 0.;
+}*/
+
 fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32) -> Color{
     let mut curr_color = Color::new(1.,1.,1.);
     let mut curr_ray: Ray = *r;
     for _i in 0..depth{
         match world.hit(&curr_ray,tmin,tmax) {
             Some(hr) => {
-                let rslt = hr.material.scatter(r,&hr);
+                let rslt = hr.material.scatter(&curr_ray,&hr);//(r,&hr);
                 curr_color *= rslt.attenuation;
                 curr_ray = rslt.ray;
             },
             None => {
-                let t: f32 = 0.5*(r.dir.y() + 1.0);
+                let t: f32 = 0.5*(curr_ray.dir.y() + 1.0);//r.dir.y() + 1.0);
                 let lerped_sky_color = lerp(t,Color::new(1.0,1.0,1.0),Color::new(0.5,0.7,1.0));
                 return curr_color*lerped_sky_color;
             }
