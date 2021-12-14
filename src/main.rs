@@ -401,6 +401,21 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
                 Event::KeyDown { keycode: Some(Keycode::Space), .. } => {
                     mode = (mode + 1) % MODE_COUNT;
                 },
+                Event::KeyDown { keycode: Some(Keycode::Kp0), ..} => {
+                    mode = 0;
+                }
+                Event::KeyDown { keycode: Some(Keycode::Kp1), ..} => {
+                    mode = 1;
+                }
+                Event::KeyDown { keycode: Some(Keycode::Kp2), ..} => {
+                    mode = 2;
+                }
+                Event::KeyDown { keycode: Some(Keycode::Kp3), ..} => {
+                    mode = 3;
+                }
+                Event::KeyDown { keycode: Some(Keycode::Kp4), ..} => {
+                    mode = 4;
+                }
                 _ => {}
             }
         }
