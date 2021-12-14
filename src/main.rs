@@ -263,7 +263,9 @@ fn apply_box_filter_ij_depth(pixels: &Vec<crate::render_thread::Pixel>,image_wid
         for x in min_x..=(max_x as i32){
             let idx = (i as i32+x)+(j as i32+y)*image_width as i32;
             let d = pixels[idx as usize].stats.avg_depth;
-            let w = 1./(1. + (d-di).abs()/di);
+            //let nf = pixels[idx as usize].stats.n as f32;
+            //let w = nf.log(2.)/(1. + ((d-di).abs()/di));
+            let w = 1./(1. + ((d-di).abs()/di));
             total_weight += w;
             let c = pixels[idx as usize].stats.sum/(pixels[idx as usize].stats.n as f32);
             color += w*c;
