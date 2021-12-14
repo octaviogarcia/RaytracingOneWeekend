@@ -12,27 +12,27 @@ pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_vari
     pub sum: Color,
     pub color: (u8,u8,u8),
     pub bad_avgs: u32,
-    pub depth_sum: f32,
+    pub avg_depth: f32,
 }
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0,depth_sum: 0.}
+        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0,avg_depth: 0.}
     }
     #[inline]
-    pub fn add(&mut self,x: &Color) -> bool{
+    pub fn add(&mut self,x: &Color,depth: f32) -> bool{
         let old_color = self.color;
         self.sum   += x;
         self.n     += 1;
         self.color = {            
             let avg    = self.sum / self.n as f32;
-            let new_color = normalize_color(&avg)*256.;
-            (new_color.x() as u8,new_color.y() as u8,new_color.z() as u8)
+            normalize_color(&avg).to_u8x3()
         };
         let bad_run = (old_color.0 == self.color.0) 
                    && (old_color.1 == self.color.1) 
                    && (old_color.2 == self.color.2) ;// && self.n > 30;
         self.bad_avgs += bad_run as u32;
         self.bad_avgs *= bad_run as u32;
+        self.avg_depth = ((self.n as f32-1.)*self.avg_depth+depth)/self.n as f32;
         return self.bad_avgs >= 5;
     }
 }
@@ -126,11 +126,11 @@ fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32)
     //Get the depth with the first hit
     let depthf = handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
     if depthf.is_infinite(){
-        return (curr_color,tmax);
+        return (curr_color,f32::INFINITY);
     }
     for _i in 1..depth{
         if handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color).is_infinite(){
-            return (curr_color,tmax);
+            return (curr_color,depthf);//Return the depth of the first hit!!!!
         }
     }
     return (-Color::ZERO,depthf);//If we run out of depth return -black
@@ -185,8 +185,7 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
             let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
             let (pixel_color,depth) = ray_color(&ray,&world,max_depth,tmin,tmax);
-            let done = pixel.stats.add(&pixel_color);
-            pixel.stats.avg_depth = ((pixel.stats.n-1)*pixel.stats.avg_depth+depth)/pixel.stats.n;
+            let done = pixel.stats.add(&pixel_color,depth);
             thread_pixels.add_run(idx,done);
             let log_samples = (done as u32)*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
             //Inform left over samples or 1

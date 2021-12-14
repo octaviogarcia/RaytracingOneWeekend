@@ -308,32 +308,31 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
             for pos in 0..image_width*image_height{
                 let aux = (pos*3) as usize;
                 let smpls = (pixels[pos as usize].stats.n as f32)/max_samples as f32;
-                let c = normalize_color(&Color::new(smpls,smpls,smpls));
-                sdlpixels[aux+0] = (c.x()*256.0) as u8;
-                sdlpixels[aux+1] = (c.y()*256.0) as u8;
-                sdlpixels[aux+2] = (c.z()*256.0) as u8;
+                let c = normalize_color(&Color::new(smpls,smpls,smpls)).to_u8x3();
+                sdlpixels[aux+0] = c.0;
+                sdlpixels[aux+1] = c.1;
+                sdlpixels[aux+2] = c.2;
             }
         }
         else if mode == MODE_SHOW_DEPTH {
             let mut max_depth = -1.;
-            for pos in 0..image_width*image_height{
-                let ds = pixels[pos as usize].stats.depth_sum; 
-                let n  = pixels[pos as usize].stats.n as f32;
-                let d  = ds/n;
-                if d > max_depth {
+            for pos in 0..image_width*image_height{ 
+                let d = pixels[pos as usize].stats.avg_depth;
+                if d > max_depth && !d.is_infinite() {
                     max_depth = d;
                 }
             }
             for pos in 0..image_width*image_height{
                 let aux = (pos*3) as usize;
-                let ds = pixels[pos as usize].stats.depth_sum; 
-                let n  = pixels[pos as usize].stats.n as f32;
-                let d  = ds/n;
-                let depth_0to1 = d/max_depth;
-                let c = normalize_color(&Color::new(depth_0to1,depth_0to1,depth_0to1));
-                sdlpixels[aux+0] = (c.x()*256.0) as u8;
-                sdlpixels[aux+1] = (c.y()*256.0) as u8;
-                sdlpixels[aux+2] = (c.z()*256.0) as u8;
+                let ds = pixels[pos as usize].stats.avg_depth; 
+                let depth_0to1 = ds/max_depth;
+                let is_inf = depth_0to1.is_infinite() as usize;
+                let depth_rb = [depth_0to1,0.][is_inf];
+                let depth_g  = [depth_0to1,1.][is_inf];
+                let c = normalize_color(&Color::new(depth_rb,depth_g,depth_rb)).to_u8x3();
+                sdlpixels[aux+0] = c.0;
+                sdlpixels[aux+1] = c.1;
+                sdlpixels[aux+2] = c.2;
             }
         }
         else if mode == MODE_SAMPLE_WEIGHTED_BLUR {

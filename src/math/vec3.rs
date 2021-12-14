@@ -65,6 +65,10 @@ impl Vec3{
         let eps = 1e-8;
         return (self.e[0].abs() < eps) && (self.e[1].abs() < eps) && (self.e[2].abs() < eps);
     }
+    #[inline]
+    pub fn to_u8x3(&self) -> (u8,u8,u8){
+        return ((self.e[0]*256.0) as u8,(self.e[1]*256.0) as u8,(self.e[2]*256.0) as u8);
+    }
 }
 
 //Random implementations
