@@ -281,34 +281,63 @@ fn apply_box_filter_ij_depth(pixels: &Vec<crate::render_thread::Pixel>,image_wid
 }
 
 #[inline]
-fn apply_box_filter_ij<const USE_DEPTH: bool>(pixels: &Vec<crate::render_thread::Pixel>,image_width: u32,sdlpixels: &mut Vec<u8>,
+fn apply_box_filter_ij_id(pixels: &Vec<crate::render_thread::Pixel>,image_width: u32,sdlpixels: &mut Vec<u8>,
     i: u32,j: u32,min_x: i32,max_x: i32,min_y: i32,max_y: i32){
-    if USE_DEPTH{
-        return apply_box_filter_ij_depth(pixels,image_width,sdlpixels,i,j,min_x,max_x,min_y,max_y);
+    let mut total_weight = 0.;
+    let mut color = Color::ZERO;
+    let id = pixels[(i+j*image_width) as usize].stats.obj_id;
+    for y in min_y..=(max_y as i32){
+        for x in min_x..=(max_x as i32){
+            let idx = (i as i32+x)+(j as i32+y)*image_width as i32;
+            let xy_id = pixels[idx as usize].stats.obj_id;
+            let w = (xy_id == id) as u32 as f32;
+            total_weight += w;
+            let c = pixels[idx as usize].stats.sum/(pixels[idx as usize].stats.n as f32);
+            color += w*c;
+        }
     }
-    else{
-        return apply_box_filter_ij_samples(pixels,image_width,sdlpixels,i,j,min_x,max_x,min_y,max_y);
-    }
+
+    let aux = i as usize + j as usize*image_width as usize;
+    let p = aux*3;
+    let c = normalize_color(&(color/total_weight)).to_u8x3();
+    sdlpixels[p+0] = c.0;
+    sdlpixels[p+1] = c.1;
+    sdlpixels[p+2] = c.2;
 }
 
-fn apply_box_filter<const USE_DEPTH: bool>(pixels: &Vec<crate::render_thread::Pixel>,image_height: u32,image_width: u32,sdlpixels: &mut Vec<u8>){
+#[inline]
+fn apply_box_filter_ij<const MODE: usize>(pixels: &Vec<crate::render_thread::Pixel>,image_width: u32,sdlpixels: &mut Vec<u8>,
+    i: u32,j: u32,min_x: i32,max_x: i32,min_y: i32,max_y: i32){
+    if MODE == 0{
+        return apply_box_filter_ij_samples(pixels,image_width,sdlpixels,i,j,min_x,max_x,min_y,max_y);
+    }
+    else if MODE == 1{
+        return apply_box_filter_ij_depth(pixels,image_width,sdlpixels,i,j,min_x,max_x,min_y,max_y);
+    }
+    else if MODE == 2{
+        return apply_box_filter_ij_id(pixels,image_width,sdlpixels,i,j,min_x,max_x,min_y,max_y);
+    }
+    return;
+}
+
+fn apply_box_filter<const MODE: usize>(pixels: &Vec<crate::render_thread::Pixel>,image_height: u32,image_width: u32,sdlpixels: &mut Vec<u8>){
     for j in 1..(image_height-1){
         for i in 1..(image_width-1){
             if j == 1{//Top-Bottom lines
-                apply_box_filter_ij::<USE_DEPTH>(pixels,image_width,sdlpixels,i,             0,-1,1, 0,1);
-                apply_box_filter_ij::<USE_DEPTH>(pixels,image_width,sdlpixels,i,image_height-1,-1,1,-1,0);
+                apply_box_filter_ij::<MODE>(pixels,image_width,sdlpixels,i,             0,-1,1, 0,1);
+                apply_box_filter_ij::<MODE>(pixels,image_width,sdlpixels,i,image_height-1,-1,1,-1,0);
             }
-            apply_box_filter_ij::<USE_DEPTH>(pixels,image_width,sdlpixels,i,j,-1,1,-1,1);
+            apply_box_filter_ij::<MODE>(pixels,image_width,sdlpixels,i,j,-1,1,-1,1);
         }
         //Left-Right lines
-        apply_box_filter_ij::<USE_DEPTH>(pixels,image_width,sdlpixels,            0,j, 0,1,-1,1);
-        apply_box_filter_ij::<USE_DEPTH>(pixels,image_width,sdlpixels,image_width-1,j,-1,0,-1,1);
+        apply_box_filter_ij::<MODE>(pixels,image_width,sdlpixels,            0,j, 0,1,-1,1);
+        apply_box_filter_ij::<MODE>(pixels,image_width,sdlpixels,image_width-1,j,-1,0,-1,1);
     }
     //Corners
-    apply_box_filter_ij::<USE_DEPTH>(pixels,image_width,sdlpixels,            0,             0, 0,1, 0,1);
-    apply_box_filter_ij::<USE_DEPTH>(pixels,image_width,sdlpixels,image_width-1,             0,-1,0, 0,1);
-    apply_box_filter_ij::<USE_DEPTH>(pixels,image_width,sdlpixels,            0,image_height-1, 0,1,-1,0);
-    apply_box_filter_ij::<USE_DEPTH>(pixels,image_width,sdlpixels,image_width-1,image_height-1,-1,0,-1,0);
+    apply_box_filter_ij::<MODE>(pixels,image_width,sdlpixels,            0,             0, 0,1, 0,1);
+    apply_box_filter_ij::<MODE>(pixels,image_width,sdlpixels,image_width-1,             0,-1,0, 0,1);
+    apply_box_filter_ij::<MODE>(pixels,image_width,sdlpixels,            0,image_height-1, 0,1,-1,0);
+    apply_box_filter_ij::<MODE>(pixels,image_width,sdlpixels,image_width-1,image_height-1,-1,0,-1,0);
 }
 
 fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,image_width: u32,image_height: u32){
@@ -332,7 +361,8 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
     const MODE_SHOW_DEPTH: u32           = 3;
     const MODE_DEPTH_WEIGHTED_BLUR: u32  = 4;
     const MODE_SHOW_IDS: u32             = 5;
-    const MODE_COUNT: u32 = 6;//Rust enums fucking suck
+    const MODE_ID_WEIGHTED_BLUR: u32     = 6;
+    const MODE_COUNT: u32 = 7;//Rust enums fucking suck
     let mut mode: u32 = MODE_NORMAL;
 
     let mut sdlpixels = vec!(0 as u8;(image_width*image_height*3) as usize);
@@ -386,10 +416,13 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
             }
         }
         else if mode == MODE_SAMPLE_WEIGHTED_BLUR {
-            apply_box_filter::<false>(pixels,image_height,image_width,&mut sdlpixels);
+            apply_box_filter::<0>(pixels,image_height,image_width,&mut sdlpixels);
         }
         else if mode == MODE_DEPTH_WEIGHTED_BLUR {
-            apply_box_filter::<true>(pixels,image_height,image_width,&mut sdlpixels);
+            apply_box_filter::<1>(pixels,image_height,image_width,&mut sdlpixels);
+        }
+        else if mode == MODE_ID_WEIGHTED_BLUR {
+            apply_box_filter::<2>(pixels,image_height,image_width,&mut sdlpixels);
         }
         else if mode == MODE_SHOW_IDS {
             for pos in 0..image_width*image_height{
@@ -449,6 +482,9 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
                 }
                 Event::KeyDown { keycode: Some(Keycode::Kp5), ..} => {
                     mode = 5;
+                }
+                Event::KeyDown { keycode: Some(Keycode::Kp6), ..} => {
+                    mode = 6;
                 }
                 _ => {}
             }
