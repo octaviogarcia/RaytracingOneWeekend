@@ -331,7 +331,8 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
     const MODE_SAMPLE_WEIGHTED_BLUR: u32 = 2;
     const MODE_SHOW_DEPTH: u32           = 3;
     const MODE_DEPTH_WEIGHTED_BLUR: u32  = 4;
-    const MODE_COUNT: u32 = 5;//Rust enums fucking suck
+    const MODE_SHOW_IDS: u32             = 5;
+    const MODE_COUNT: u32 = 6;//Rust enums fucking suck
     let mut mode: u32 = MODE_NORMAL;
 
     let mut sdlpixels = vec!(0 as u8;(image_width*image_height*3) as usize);
@@ -390,6 +391,34 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
         else if mode == MODE_DEPTH_WEIGHTED_BLUR {
             apply_box_filter::<true>(pixels,image_height,image_width,&mut sdlpixels);
         }
+        else if mode == MODE_SHOW_IDS {
+            for pos in 0..image_width*image_height{
+                let aux = (pos*3) as usize;
+                let obj_id = pixels[pos as usize].stats.obj_id;
+                let not_null = (obj_id != 0) as u64;
+                let mut id = obj_id*not_null;//Xorshift scramble just to get somewhat random color distribution
+                id ^= id << 13;
+                id ^= id >>  7;
+                id ^= id << 17;
+                id ^= id << 13;
+                id ^= id >>  7;
+                id ^= id << 17;
+                id ^= id << 13;
+                id ^= id >>  7;
+                id ^= id << 17;
+                let b1: u8 = ((id >>  0) & 0b11111111) as u8;
+                let b2: u8 = ((id >>  8) & 0b11111111) as u8;
+                let b3: u8 = ((id >> 16) & 0b11111111) as u8;
+                let b4: u8 = ((id >> 24) & 0b11111111) as u8;
+                let b5: u8 = ((id >> 32) & 0b11111111) as u8;
+                let b6: u8 = ((id >> 40) & 0b11111111) as u8;
+                let b7: u8 = ((id >> 48) & 0b11111111) as u8;
+                let b8: u8 = ((id >> 56) & 0b11111111) as u8;
+                sdlpixels[aux+0] = b1 ^ b8 ^ b4;
+                sdlpixels[aux+1] = b2 ^ b5 ^ b6;
+                sdlpixels[aux+2] = b3 ^ b7;
+            }
+        }
         //pitch = row in bytes. 1 byte per color -> 3*width
         let texture = sdl2::surface::Surface::from_data(sdlpixels.as_mut_slice(), image_width, image_height, image_width*3, sdl2::pixels::PixelFormatEnum::RGB24)
         .unwrap().as_texture(&texture_creator).unwrap();
@@ -417,6 +446,9 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
                 }
                 Event::KeyDown { keycode: Some(Keycode::Kp4), ..} => {
                     mode = 4;
+                }
+                Event::KeyDown { keycode: Some(Keycode::Kp5), ..} => {
+                    mode = 5;
                 }
                 _ => {}
             }

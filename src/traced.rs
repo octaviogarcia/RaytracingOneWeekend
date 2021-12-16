@@ -28,6 +28,7 @@ impl Sphere {
 
 pub trait Traced {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
+    fn get_id(&self) -> u64;
 }
 
 impl Traced for Sphere {
@@ -53,8 +54,9 @@ impl Traced for Sphere {
         let point = self.m_local_to_world.dot_p3(&local_point);
         let outward_normal = self.m_local_to_world.dot_v3(&local_point).unit();
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
-        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
+        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
+    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
 }
 
 #[derive(Copy, Clone)]
@@ -93,8 +95,9 @@ impl Traced for InfinitePlane {
         }
         let outward_normal = normal_against_direction(&self.normal,normal_dot_dir);
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
-        return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material});
+        return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
+    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
 }
 
 #[derive(Copy, Clone)]
@@ -176,7 +179,7 @@ impl <const BT: usize> Barycentric<BT> {
             return None;
         }
         let outward_normal = normal_against_direction(&self.uxv,normal_dot_dir);
-        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material});
+        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
 }
 
@@ -184,6 +187,7 @@ impl <const BT: usize> Traced for Barycentric<BT> {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         return self.hit_aux(r,t_min,t_max);
     }
+    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
 }
 
 pub type Parallelogram = Barycentric<0>;
@@ -257,6 +261,7 @@ impl Traced for Cube {
                                   *(1. as f32).copysign(new_r.at(smallest_t)[idx]);
         let point = self.m_local_to_world.dot_p3(&local_point);
         let outward_normal = self.m_local_to_world.dot_v3(&local_outward_normal);
-        return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material});
+        return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
+    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
 }

@@ -9,8 +9,8 @@ pub trait Marched {
     fn get_outward_normal(&self,p: &Point3) -> Vec3;
     fn material(&self) -> &Material;
     fn center(&self) -> &Point3;
+    fn get_id(&self) -> u64;
 }
-
 
 pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> UnitVec3{
     let eps = 0.0000001;
@@ -53,6 +53,7 @@ impl Marched for MarchedSphere {
     fn center(&self) -> &Point3{
         return &self.center;
     }
+    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
 }
 
 #[derive(Copy, Clone)]
@@ -76,6 +77,7 @@ impl Marched for MarchedBox {
     fn center(&self) -> &Point3{
         return &self.center;
     }
+    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
 }
 
 #[derive(Copy, Clone)]
@@ -100,4 +102,5 @@ impl Marched for MarchedTorus {
     fn center(&self) -> &Point3{
         return &self.center;
     }
+    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
 }

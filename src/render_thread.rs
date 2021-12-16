@@ -13,13 +13,14 @@ pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_vari
     pub color: (u8,u8,u8),
     pub bad_avgs: u32,
     pub avg_depth: f32,
+    pub obj_id: u64,
 }
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0,avg_depth: 0.}
+        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0,avg_depth: 0.,obj_id: 0}
     }
     #[inline]
-    pub fn add(&mut self,x: &Color,depth: f32) -> bool{
+    pub fn add(&mut self,x: &Color,depth: f32,obj_id: u64) -> bool{
         let old_color = self.color;
         self.sum   += x;
         self.n     += 1;
@@ -33,6 +34,7 @@ impl Stats{
         self.bad_avgs += bad_run as u32;
         self.bad_avgs *= bad_run as u32;
         self.avg_depth = ((self.n as f32-1.)*self.avg_depth+depth)/self.n as f32;
+        self.obj_id = obj_id;//Always store the first hit of the last sample
         return self.bad_avgs >= 5;
     }
 }
@@ -101,39 +103,43 @@ impl ThreadPixels{
 
 
 #[inline]
-fn handle_hit(hit_record: &mut Option<HitRecord>,curr_ray: &mut Ray,curr_color: &mut Color) -> f32{
+fn handle_hit(hit_record: &mut Option<HitRecord>,curr_ray: &mut Ray,curr_color: &mut Color) -> (f32,u64){
     let depth: f32;
+    let obj_id: u64;
     match hit_record {
         Some(hr) => {
             let rslt = hr.material.scatter(&curr_ray,&hr);
             *curr_color *= rslt.attenuation;
             *curr_ray = rslt.ray;
             depth = hr.t;
+            obj_id = hr.obj_id;
         },
         None => {
             let t: f32 = 0.5*(curr_ray.dir.y() + 1.0);//r.dir.y() + 1.0);
             let lerped_sky_color = lerp(t,Color::new(1.0,1.0,1.0),Color::new(0.5,0.7,1.0));
             *curr_color *= lerped_sky_color;
             depth = f32::INFINITY;
+            obj_id = 0;
         }
     }
-    return depth;
+    return (depth,obj_id);
 }
 
-fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32) -> (Color,f32){
+fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32) -> (Color,f32,u64){
     let mut curr_color = Color::new(1.,1.,1.);
     let mut curr_ray: Ray = *r;
     //Get the depth with the first hit
-    let depthf = handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
+    let (depthf,obj_id) = handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
     if depthf.is_infinite(){
-        return (curr_color,f32::INFINITY);
+        return (curr_color,f32::INFINITY,0);
     }
     for _i in 1..depth{
-        if handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color).is_infinite(){
-            return (curr_color,depthf);//Return the depth of the first hit!!!!
+        let h = handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
+        if h.0.is_infinite(){
+            return (curr_color,depthf,obj_id);//Return the depth & ID of the first hit!!!!
         }
     }
-    return (-Color::ZERO,depthf);//If we run out of depth return -black
+    return (-Color::ZERO,depthf,obj_id);//If we run out of depth return -black
 }
 
 pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f32,tmax: f32,
@@ -184,8 +190,8 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
             let u = (i_f+i_rand)/(image_width_f-1.);
             let v = (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,1.0-v);
-            let (pixel_color,depth) = ray_color(&ray,&world,max_depth,tmin,tmax);
-            let done = pixel.stats.add(&pixel_color,depth);
+            let (pixel_color,depth,obj_id) = ray_color(&ray,&world,max_depth,tmin,tmax);
+            let done = pixel.stats.add(&pixel_color,depth,obj_id);
             thread_pixels.add_run(idx,done);
             let log_samples = (done as u32)*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
             //Inform left over samples or 1

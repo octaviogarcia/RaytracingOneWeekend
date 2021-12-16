@@ -11,6 +11,7 @@ pub struct HitRecord {
     pub normal: UnitVec3,//Always outward from the surface
     pub material: Material,
     pub t: f32,
+    pub obj_id: u64,
 }
 
 use std::sync::Arc;
@@ -96,7 +97,7 @@ impl <'a> FrozenHittableList<'a>{
         let mut t = t_min;
         {//If we started stuck in a wall... unstuck ourselves
             const MIN_STEP_SIZE: f32 = HIT_SIZE/2.;
-            let (d,_,_,obj) = self.get_closest_distance_normal_material(&r.at(t));
+            let (d,_,_,obj,_) = self.get_closest_distance_normal_material(&r.at(t));
             let mut aux = d;
             if obj.is_none() { return rec; }
             let o = obj.unwrap();//Maybe its faster to match the Option than unwrap()... I'm not sure
@@ -110,13 +111,14 @@ impl <'a> FrozenHittableList<'a>{
         while t < t_max && t < closest_so_far && max_march_iter > 0 {
             max_march_iter-=1;
             let p = r.at(t);
-            let (d,outward_normal,material,_) = self.get_closest_distance_normal_material(&p);
+            let (d,outward_normal,material,_,obj_id) = self.get_closest_distance_normal_material(&p);
 
             //Should never happen the only raymarched object gets deleted mid transition between unstucking and raymarching
             if material.is_none() { return rec; }
 
             if  d < HIT_SIZE {//We hit something
-                rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: material.unwrap()});
+                //let obj_id: u64 = std::ptr::addr_of!(obj) as u64;
+                rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: material.unwrap(),obj_id});
                 break;
             }
             else { //Move forward
@@ -126,18 +128,20 @@ impl <'a> FrozenHittableList<'a>{
         return rec; 
     }
 
-    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f32,Vec3,Option<Material>,Option<Arc<(dyn Marched + Send + Sync)>>){
+    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f32,Vec3,Option<Material>,Option<Arc<(dyn Marched + Send + Sync)>>,u64){
         let mut max_dis    = INF;
         let mut normal = Vec3::ZERO;
         let mut material = None;
         let mut found_obj: Option<Arc<(dyn Marched + Send + Sync)>> = None;
+        let mut id: u64 = 0;
         $(for obj in &self.hl.$marched_ident{
             let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
             if d < max_dis {
                 max_dis = d;
                 normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
                 material = Some(obj.material);
-                found_obj = Some(Arc::new(*obj));
+                found_obj = Some(Arc::new(*obj));//@SPEED This is a clone...
+                id = obj.get_id();
             }
         })*
         for obj in &self.hl.marched_objects {
@@ -147,9 +151,10 @@ impl <'a> FrozenHittableList<'a>{
                 normal = obj.get_outward_normal(p);//Slow vtable call
                 material = Some(*obj.material());//Slow vtable call
                 found_obj = Some(obj.clone());
+                id = obj.get_id();
             }
         }
-        return (max_dis,normal,material,found_obj);
+        return (max_dis,normal,material,found_obj,id);
     }
 }
  
