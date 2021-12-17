@@ -4,7 +4,7 @@ use crate::hits::*;
 use crate::camera::*;
 use crate::ray::*;
 use std::sync::atomic::{AtomicU64, Ordering};
-use crate::utils::{lerp,MyRandom,normalize_color};
+use crate::utils::{lerp,MyRandom,normalize_color,BloomFilter};
 
 #[derive(Copy,Clone)]
 pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
@@ -13,11 +13,11 @@ pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_vari
     pub color: (u8,u8,u8),
     pub bad_avgs: u32,
     pub avg_depth: f32,
-    pub obj_id: u64,//@TODO: Use a bloom filter?
+    pub bloom_filter: BloomFilter,
 }
 impl Stats{
     pub fn new() -> Self {
-        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0,avg_depth: 0.,obj_id: 0}
+        Self{sum:Color::ZERO,n:0,color:(0,0,0),bad_avgs: 0,avg_depth: 0.,bloom_filter: BloomFilter::new()}
     }
     #[inline]
     pub fn add(&mut self,x: &Color,depth: f32,obj_id: u64) -> bool{
@@ -34,7 +34,7 @@ impl Stats{
         self.bad_avgs += bad_run as u32;
         self.bad_avgs *= bad_run as u32;
         self.avg_depth = ((self.n as f32-1.)*self.avg_depth+depth)/self.n as f32;
-        self.obj_id = obj_id;//Always store the first hit of the last sample
+        self.bloom_filter.set(obj_id);
         return self.bad_avgs >= 5;
     }
 }

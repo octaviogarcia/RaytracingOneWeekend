@@ -285,12 +285,11 @@ fn apply_box_filter_ij_id(pixels: &Vec<crate::render_thread::Pixel>,image_width:
     i: u32,j: u32,min_x: i32,max_x: i32,min_y: i32,max_y: i32){
     let mut total_weight = 0.;
     let mut color = Color::ZERO;
-    let id = pixels[(i+j*image_width) as usize].stats.obj_id;
+    let id = pixels[(i+j*image_width) as usize].stats.bloom_filter.state;
     for y in min_y..=(max_y as i32){
         for x in min_x..=(max_x as i32){
             let idx = (i as i32+x)+(j as i32+y)*image_width as i32;
-            let xy_id = pixels[idx as usize].stats.obj_id;
-            let w = (xy_id == id) as u32 as f32;
+            let w = pixels[idx as usize].stats.bloom_filter.is_set(id) as u32 as f32;
             total_weight += w;
             let c = pixels[idx as usize].stats.sum/(pixels[idx as usize].stats.n as f32);
             color += w*c;
@@ -427,29 +426,10 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
         else if mode == MODE_SHOW_IDS {
             for pos in 0..image_width*image_height{
                 let aux = (pos*3) as usize;
-                let obj_id = pixels[pos as usize].stats.obj_id;
-                let not_null = (obj_id != 0) as u64;
-                let mut id = obj_id*not_null;//Xorshift scramble just to get somewhat random color distribution
-                id ^= id << 13;
-                id ^= id >>  7;
-                id ^= id << 17;
-                id ^= id << 13;
-                id ^= id >>  7;
-                id ^= id << 17;
-                id ^= id << 13;
-                id ^= id >>  7;
-                id ^= id << 17;
-                let b1: u8 = ((id >>  0) & 0b11111111) as u8;
-                let b2: u8 = ((id >>  8) & 0b11111111) as u8;
-                let b3: u8 = ((id >> 16) & 0b11111111) as u8;
-                let b4: u8 = ((id >> 24) & 0b11111111) as u8;
-                let b5: u8 = ((id >> 32) & 0b11111111) as u8;
-                let b6: u8 = ((id >> 40) & 0b11111111) as u8;
-                let b7: u8 = ((id >> 48) & 0b11111111) as u8;
-                let b8: u8 = ((id >> 56) & 0b11111111) as u8;
-                sdlpixels[aux+0] = b1 ^ b8 ^ b4;
-                sdlpixels[aux+1] = b2 ^ b5 ^ b6;
-                sdlpixels[aux+2] = b3 ^ b7;
+                let c = u64_to_color(hash_u64(pixels[pos as usize].stats.bloom_filter.state));
+                sdlpixels[aux+0] = c.0;
+                sdlpixels[aux+1] = c.1;
+                sdlpixels[aux+2] = c.2;
             }
         }
         //pitch = row in bytes. 1 byte per color -> 3*width

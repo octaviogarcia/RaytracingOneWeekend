@@ -77,3 +77,62 @@ pub fn round_n(f: f64,n: u32) -> f64 {
     }
     return (f*mul).round()/mul;
 }
+
+//Used to shuffle the bits around to distance close in memory objects (i.e. in an array)
+#[inline]//Xorshift scramble
+pub fn hash_u64(obj_id: u64) -> u64 {//maps 0 to 0
+    let mut id = obj_id;
+    id ^= id << 13;
+    id ^= id >>  7;
+    id ^= id << 17;
+    id ^= id << 13;
+    id ^= id >>  7;
+    id ^= id << 17;
+    id ^= id << 13;
+    id ^= id >>  7;
+    id ^= id << 17;
+    return id;
+}
+
+#[inline]
+pub fn u64_to_color(id: u64) -> (u8,u8,u8) {
+    let b1: u8 = ((id >>  0) & 0b11111111) as u8;
+    let b2: u8 = ((id >>  8) & 0b11111111) as u8;
+    let b3: u8 = ((id >> 16) & 0b11111111) as u8;
+    let b4: u8 = ((id >> 24) & 0b11111111) as u8;
+    let b5: u8 = ((id >> 32) & 0b11111111) as u8;
+    let b6: u8 = ((id >> 40) & 0b11111111) as u8;
+    let b7: u8 = ((id >> 48) & 0b11111111) as u8;
+    let b8: u8 = ((id >> 56) & 0b11111111) as u8;
+    return (b1 ^ b8 ^ b4,b2 ^ b5 ^ b6,b3 ^ b7);
+}
+
+#[derive(Copy,Clone)]
+pub struct BloomFilter{
+    pub state: u64,
+}
+
+impl BloomFilter {
+    pub fn new() -> Self{ Self{state: 0} }
+    pub fn set(&mut self,id: u64){
+        self.state |= 1 << Self::u64_to_idx(id);
+    }
+    pub fn is_set(&self,id: u64) -> bool{
+        let idx = Self::u64_to_idx(id);
+        return (self.state & (1 << idx)) != 0;
+    }
+    pub fn only_set(&self,id: u64) -> bool{
+        //Is set and the state is a power of 2
+        return self.is_set(id) && (self.state & (self.state - 1)) == 0;
+    }
+    fn u64_to_idx(id: u64) -> u64 {//bit0 is reserved for 0
+        let mut idx = Self::u64_to_idx_2(id);
+        while (id != 0) && (idx == 0){//When the id is not 0 and we get 0, rehash
+            idx = Self::u64_to_idx_2(idx+456985897);
+        }
+        return idx;
+    }
+    fn u64_to_idx_2(id: u64) -> u64{//Index in range [0,63]
+        return hash_u64(id) % 64;
+    }
+}
