@@ -70,10 +70,14 @@ pub struct FrozenHittableList<'a>{
     hl: &'a HittableList,//@TODO: implement some sort of KD tree or octotree
 }
 
+
+const HIT_SIZE: f32 = 0.001;
+
 impl <'a> FrozenHittableList<'a>{
     pub fn new(hl: &'a HittableList,_cam: &Camera) -> Self{ Self{hl: hl} }
     #[allow(dead_code)]
     pub fn unfreeze(&self) -> &HittableList { self.hl }
+
     pub fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         //Ray tracing section
         let mut closest_so_far = t_max;
@@ -93,68 +97,80 @@ impl <'a> FrozenHittableList<'a>{
         }
 
         //Ray marching section
-        const HIT_SIZE: f32 = 0.001;
-        let mut t = t_min;
-        {//If we started stuck in a wall... unstuck ourselves
-            const MIN_STEP_SIZE: f32 = HIT_SIZE/2.;
-            let (d,_,_,obj,_) = self.get_closest_distance_normal_material(&r.at(t));
-            let mut aux = d;
-            if obj.is_none() { return rec; }
-            let o = obj.unwrap();//Maybe its faster to match the Option than unwrap()... I'm not sure
-            while aux < HIT_SIZE {
-                t += MIN_STEP_SIZE;
-                aux = o.sdf(&r.at(t)).abs();
-            }
+        let mut t = self.unstuck(t_min,r);//If we started stuck in a object... unstuck ourselves
+        if t.is_infinite() {//No marched objects in the scene. return raycasted result
+            return rec;
         }
-
         let mut max_march_iter = 1024;
         while t < t_max && t < closest_so_far && max_march_iter > 0 {
             max_march_iter-=1;
-            let p = r.at(t);
-            let (d,outward_normal,material,_,obj_id) = self.get_closest_distance_normal_material(&p);
+            let point = r.at(t);
+            let mut distance = INF;
+            let mut normal   = Vec3::ZERO;
+            let mut id       = 0;
+            let mut material: Option<Material> = None;
+            $(for obj in &self.hl.$marched_ident{
+                let d = obj.sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
+                if d < distance {
+                    distance = d;
+                    normal = obj.get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
+                    material = Some(obj.material);
+                    id = obj.get_id();
+                }
+            })*
+            for obj in &self.hl.marched_objects {
+                let d = obj.sdf(&point).abs();
+                if d < distance {
+                    distance = d;
+                    normal = obj.get_outward_normal(&point);
+                    material = Some(*obj.material());
+                    id = obj.get_id();
+                }
+            }
 
             //Should never happen the only raymarched object gets deleted mid transition between unstucking and raymarching
             if material.is_none() { return rec; }
 
-            if  d < HIT_SIZE {//We hit something
-                //let obj_id: u64 = std::ptr::addr_of!(obj) as u64;
-                rec = Some(HitRecord{t: t,point: p,normal: outward_normal, material: material.unwrap(),obj_id});
+            if distance < HIT_SIZE {//We hit something
+                rec = Some(HitRecord{t: t,point: point,normal: normal, material: material.unwrap(),obj_id: id});
                 break;
             }
             else { //Move forward
-                t += d;//This only works if our direction in our Ray is unit length!!!
+                t += distance;//This only works if our direction in our Ray is unit length!!!
             }
         }
         return rec; 
     }
 
-    pub fn get_closest_distance_normal_material(&self,p: &Point3) -> (f32,Vec3,Option<Material>,Option<Arc<(dyn Marched + Send + Sync)>>,u64){
-        let mut max_dis    = INF;
-        let mut normal = Vec3::ZERO;
-        let mut material = None;
-        let mut found_obj: Option<Arc<(dyn Marched + Send + Sync)>> = None;
-        let mut id: u64 = 0;
+    pub fn unstuck(&self,t: f32,r: &Ray) -> f32{
+        const MIN_STEP_SIZE: f32 = HIT_SIZE/2.;
+        let mut new_t = t;
+        let mut d = f32::INFINITY;
+        let p = r.at(t);
+        let mut marched: Option<*const (dyn Marched + Send + Sync)> = None;
+
         $(for obj in &self.hl.$marched_ident{
-            let d = obj.sdf(p).abs();//Not an actual vtable call, just a normal fast function call
-            if d < max_dis {
-                max_dis = d;
-                normal = obj.get_outward_normal(p);//Not an actual vtable call, just a normal fast function call
-                material = Some(obj.material);
-                found_obj = Some(Arc::new(*obj));//@SPEED This is a clone...
-                id = obj.get_id();
+            let nd = obj.sdf(&p).abs();//Not an actual vtable call, just a normal fast function call
+            if nd < d {
+                d = nd;
+                marched = Some(obj as *const (dyn Marched + Send + Sync));
             }
         })*
         for obj in &self.hl.marched_objects {
-            let d = obj.sdf(p).abs();
-            if d < max_dis {
-                max_dis = d;
-                normal = obj.get_outward_normal(p);//Slow vtable call
-                material = Some(*obj.material());//Slow vtable call
-                found_obj = Some(obj.clone());
-                id = obj.get_id();
+            let nd = obj.sdf(&p).abs();
+            if nd < d {
+                d = nd;
+                marched = Some(Arc::as_ptr(obj));
             }
         }
-        return (max_dis,normal,material,found_obj,id);
+
+        let mut aux = d;
+        if marched.is_none() { return f32::INFINITY; }//No marched objects on the Scene... return what we already
+        while aux < HIT_SIZE {
+            new_t += MIN_STEP_SIZE;
+            aux = unsafe{marched.unwrap().as_ref()}.unwrap().sdf(&r.at(new_t)).abs();
+        }
+        return new_t;
     }
 }
  

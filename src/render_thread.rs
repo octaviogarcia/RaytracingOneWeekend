@@ -13,7 +13,7 @@ pub struct Stats{//https://en.wikipedia.org/wiki/Algorithms_for_calculating_vari
     pub color: (u8,u8,u8),
     pub bad_avgs: u32,
     pub avg_depth: f32,
-    pub obj_id: u64,
+    pub obj_id: u64,//@TODO: Use a bloom filter?
 }
 impl Stats{
     pub fn new() -> Self {
