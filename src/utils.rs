@@ -78,16 +78,46 @@ pub fn round_n(f: f64,n: u32) -> f64 {
     return (f*mul).round()/mul;
 }
 
-//Used to shuffle the bits around to distance close in memory objects (i.e. in an array)
+#[inline]
+pub fn hash1_u64(obj_id: u64) -> u64 {
+    return (obj_id*456894789+348764781)%17287318477382145149;
+}
+#[inline]
+pub fn hash2_u64(obj_id: u64) -> u64 {
+    return (obj_id*56456+2345)%10520185020478678957;
+}
+#[inline]
+pub fn hash3_u64(obj_id: u64) -> u64 {
+    return (obj_id*12337+7878)%6100366985798845493;
+}
+#[inline]
+pub fn hash4_u64(obj_id: u64) -> u64 {
+    return (obj_id*7438554325+2554)%2581451885731034521;
+}
+#[inline]
+pub fn hash5_u64(obj_id: u64) -> u64 {
+    return (obj_id*12345+123123044)%2015400956511055807;
+}
+#[inline]
+pub fn hash6_u64(obj_id: u64) -> u64 {
+    return (obj_id*6373412378+12452)%8800267423223100703;
+}
+#[inline]
+pub fn hash7_u64(obj_id: u64) -> u64 {
+    return (obj_id*3453453+7874856378)%7039701875810786467;
+}
+#[inline]
+pub fn hash8_u64(obj_id: u64) -> u64 {
+    return (obj_id*999465+143)%3008457310659543551;
+}
+#[inline]
+pub fn hash9_u64(obj_id: u64) -> u64 {
+    return (obj_id*14444+111345)%5935720376112203207;
+}
+
 #[inline]//Xorshift scramble
-pub fn hash_u64(obj_id: u64) -> u64 {//maps 0 to 0
+pub fn scramble(obj_id: u64) -> u64 {//maps 0 to 0
     let mut id = obj_id;
-    id ^= id << 13;
-    id ^= id >>  7;
-    id ^= id << 17;
-    id ^= id << 13;
-    id ^= id >>  7;
-    id ^= id << 17;
     id ^= id << 13;
     id ^= id >>  7;
     id ^= id << 17;
@@ -115,24 +145,29 @@ pub struct BloomFilter{
 impl BloomFilter {
     pub fn new() -> Self{ Self{state: 0} }
     pub fn set(&mut self,id: u64){
-        self.state |= 1 << Self::u64_to_idx(id);
+        self.state |= Self::get_hash(id);
     }
-    pub fn is_set(&self,id: u64) -> bool{
-        let idx = Self::u64_to_idx(id);
-        return (self.state & (1 << idx)) != 0;
+    //Returns 0 if bits aren't set, 1 if bits are set but so are others, 2 if bits are set and it's the only one
+    #[allow(dead_code)]
+    pub fn is_set(&self,id: u64) -> u32{
+        let h = Self::get_hash(id);
+        let set      = (self.state & h) == h;
+        let only_set = self.state == h;
+        return set as u32 + only_set as u32;
     }
-    pub fn only_set(&self,id: u64) -> bool{
-        //Is set and the state is a power of 2
-        return self.is_set(id) && (self.state & (self.state - 1)) == 0;
-    }
-    fn u64_to_idx(id: u64) -> u64 {//bit0 is reserved for 0
-        let mut idx = Self::u64_to_idx_2(id);
-        while (id != 0) && (idx == 0){//When the id is not 0 and we get 0, rehash
-            idx = Self::u64_to_idx_2(idx+456985897);
-        }
-        return idx;
-    }
-    fn u64_to_idx_2(id: u64) -> u64{//Index in range [0,63]
-        return hash_u64(id) % 64;
+    #[inline]
+    fn get_hash(id: u64) -> u64{
+        let mut ret = 0;
+        let bit = (id != 0) as u64;//If id == 0, doesnt set anything
+        ret |= bit << (hash1_u64(id) % 64);
+        ret |= bit << (hash2_u64(id) % 64);
+        ret |= bit << (hash3_u64(id) % 64);
+        ret |= bit << (hash4_u64(id) % 64);
+        ret |= bit << (hash5_u64(id) % 64);
+        ret |= bit << (hash6_u64(id) % 64);
+        ret |= bit << (hash7_u64(id) % 64);
+        ret |= bit << (hash8_u64(id) % 64);
+        ret |= bit << (hash9_u64(id) % 64);
+        return ret;
     }
 }

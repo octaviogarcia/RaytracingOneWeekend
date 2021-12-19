@@ -285,11 +285,11 @@ fn apply_box_filter_ij_id(pixels: &Vec<crate::render_thread::Pixel>,image_width:
     i: u32,j: u32,min_x: i32,max_x: i32,min_y: i32,max_y: i32){
     let mut total_weight = 0.;
     let mut color = Color::ZERO;
-    let id = pixels[(i+j*image_width) as usize].stats.bloom_filter.state;
+    let state = pixels[(i+j*image_width) as usize].stats.bloom_filter.state;
     for y in min_y..=(max_y as i32){
         for x in min_x..=(max_x as i32){
             let idx = (i as i32+x)+(j as i32+y)*image_width as i32;
-            let w = pixels[idx as usize].stats.bloom_filter.is_set(id) as u32 as f32;
+            let w = (pixels[idx as usize].stats.bloom_filter.state == state) as u32 as f32;
             total_weight += w;
             let c = pixels[idx as usize].stats.sum/(pixels[idx as usize].stats.n as f32);
             color += w*c;
@@ -426,7 +426,7 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
         else if mode == MODE_SHOW_IDS {
             for pos in 0..image_width*image_height{
                 let aux = (pos*3) as usize;
-                let c = u64_to_color(hash_u64(pixels[pos as usize].stats.bloom_filter.state));
+                let c = u64_to_color(scramble(pixels[pos as usize].stats.bloom_filter.state));
                 sdlpixels[aux+0] = c.0;
                 sdlpixels[aux+1] = c.1;
                 sdlpixels[aux+2] = c.2;
