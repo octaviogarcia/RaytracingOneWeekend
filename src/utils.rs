@@ -79,49 +79,16 @@ pub fn round_n(f: f64,n: u32) -> f64 {
 }
 
 #[inline]
-pub fn hash1_u64(obj_id: u64) -> u64 {
-    return (obj_id*456894789+348764781)%17287318477382145149;
-}
-#[inline]
-pub fn hash2_u64(obj_id: u64) -> u64 {
-    return (obj_id*56456+2345)%10520185020478678957;
-}
-#[inline]
-pub fn hash3_u64(obj_id: u64) -> u64 {
-    return (obj_id*12337+7878)%6100366985798845493;
-}
-#[inline]
-pub fn hash4_u64(obj_id: u64) -> u64 {
-    return (obj_id*7438554325+2554)%2581451885731034521;
-}
-#[inline]
-pub fn hash5_u64(obj_id: u64) -> u64 {
-    return (obj_id*12345+123123044)%2015400956511055807;
-}
-#[inline]
-pub fn hash6_u64(obj_id: u64) -> u64 {
-    return (obj_id*6373412378+12452)%8800267423223100703;
-}
-#[inline]
-pub fn hash7_u64(obj_id: u64) -> u64 {
-    return (obj_id*3453453+7874856378)%7039701875810786467;
-}
-#[inline]
-pub fn hash8_u64(obj_id: u64) -> u64 {
-    return (obj_id*999465+143)%3008457310659543551;
-}
-#[inline]
-pub fn hash9_u64(obj_id: u64) -> u64 {
-    return (obj_id*14444+111345)%5935720376112203207;
-}
-
-#[inline]//Xorshift scramble
 pub fn scramble(obj_id: u64) -> u64 {//maps 0 to 0
-    let mut id = obj_id;
-    id ^= id << 13;
-    id ^= id >>  7;
-    id ^= id << 17;
-    return id;
+    let mut id1 = obj_id & 0xFFFFFFFF;//Xorshift
+    id1 ^= id1 << 13;
+    id1 ^= id1 >>  7;
+    id1 ^= id1 << 17;
+    let mut id2 = obj_id >> 32;
+    id2 ^= id2 << 13;
+    id2 ^= id2 >> 17;
+    id2 ^= id2 <<  5;
+    return (id2 << 32)^id1^(id1*id2);
 }
 
 #[inline]
@@ -159,15 +126,15 @@ impl BloomFilter {
     fn get_hash(id: u64) -> u64{
         let mut ret = 0;
         let bit = (id != 0) as u64;//If id == 0, doesnt set anything
-        ret |= bit << (hash1_u64(id) % 64);
-        ret |= bit << (hash2_u64(id) % 64);
-        ret |= bit << (hash3_u64(id) % 64);
-        ret |= bit << (hash4_u64(id) % 64);
-        ret |= bit << (hash5_u64(id) % 64);
-        ret |= bit << (hash6_u64(id) % 64);
-        ret |= bit << (hash7_u64(id) % 64);
-        ret |= bit << (hash8_u64(id) % 64);
-        ret |= bit << (hash9_u64(id) % 64);
+        ret |= bit << (scramble((id* 456894789+  348764781)%17287318477382145149) % 64);
+        ret |= bit << (scramble((id*     56456+       2345)%10520185020478678957) % 64);
+        ret |= bit << (scramble((id*     12337+       7878)% 6100366985798845493) % 64);
+        ret |= bit << (scramble((id*7438554325+       2554)% 2581451885731034521) % 64);
+        ret |= bit << (scramble((id*      12345+ 123123044)% 2015400956511055807) % 64);
+        ret |= bit << (scramble((id* 6373412378+     12452)% 8800267423223100703) % 64);
+        ret |= bit << (scramble((id*    3453453+7874856378)% 7039701875810786467) % 64);
+        ret |= bit << (scramble((id*     999465+       143)% 3008457310659543551) % 64);
+        ret |= bit << (scramble((id*      14444+    111345)% 5935720376112203207) % 64);
         return ret;
     }
 }
