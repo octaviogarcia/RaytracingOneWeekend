@@ -441,8 +441,9 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
             }
         }
         //pitch = row in bytes. 1 byte per color -> 3*width
-        let texture = sdl2::surface::Surface::from_data(sdlpixels.as_mut_slice(), image_width, image_height, image_width*3, sdl2::pixels::PixelFormatEnum::RGB24)
-        .unwrap().as_texture(&texture_creator).unwrap();
+        let surface = sdl2::surface::Surface::from_data(sdlpixels.as_mut_slice(), image_width, image_height, image_width*3, sdl2::pixels::PixelFormatEnum::RGB24)
+        .unwrap();
+        let texture = surface.as_texture(&texture_creator).unwrap();
         canvas.clear();
         for event in event_pump.poll_iter() {
             match event {
@@ -473,6 +474,10 @@ fn draw_to_sdl(pixels_box: render_thread::PixelsBox,_samples_per_pixel: u32,imag
                 }
                 Event::KeyDown { keycode: Some(Keycode::Kp6), ..} => {
                     mode = 6;
+                }
+                Event::KeyDown { keycode: Some(Keycode::F12), ..} => {
+                    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap();
+                    surface.save_bmp(timestamp.as_secs().to_string() + ".bmp").unwrap();
                 }
                 _ => {}
             }
