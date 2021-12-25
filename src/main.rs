@@ -232,7 +232,9 @@ fn apply_box_filter_ij_samples(pixels: &Vec<crate::render_thread::Pixel>,image_w
             let idx = (i as i32+x)+(j as i32+y)*image_width as i32;
             let n = pixels[idx as usize].stats.n as f32;
             total_weight += n;
-            color += pixels[idx as usize].stats.sum;
+            let is_diagonal = (x != 0 && y != 0) as u32 as f32;
+            let diag_w = pixels[idx as usize].stats.sum*(1. - (1. - SQRT2_INV)*is_diagonal);
+            color += diag_w;
         }
     }
     let aux = i as usize + j as usize*image_width as usize;
@@ -266,9 +268,11 @@ fn apply_box_filter_ij_depth(pixels: &Vec<crate::render_thread::Pixel>,image_wid
             //let nf = pixels[idx as usize].stats.n as f32;
             //let w = nf.log(2.)/(1. + ((d-di).abs()/di));
             let w = 1./(1. + (d-di).abs());// /di
-            total_weight += w;
+            let is_diagonal = (x != 0 && y != 0) as u32 as f32;
+            let diag_w = w*(1. - (1. - SQRT2_INV)*is_diagonal);
+            total_weight += diag_w;
             let c = pixels[idx as usize].stats.sum/(pixels[idx as usize].stats.n as f32);
-            color += w*c;
+            color += diag_w*c;
         }
     }
 
@@ -289,10 +293,14 @@ fn apply_box_filter_ij_id(pixels: &Vec<crate::render_thread::Pixel>,image_width:
     for y in min_y..=(max_y as i32){
         for x in min_x..=(max_x as i32){
             let idx = (i as i32+x)+(j as i32+y)*image_width as i32;
-            let w = (pixels[idx as usize].stats.bloom_filter.state == state) as u32 as f32;
-            total_weight += w;
+            let same_value = (pixels[idx as usize].stats.bloom_filter.state == state) as u32 as f32;
+            let partial_value = ((pixels[idx as usize].stats.bloom_filter.state & state) == state) as u32 as f32;
+            let w = same_value + partial_value;
+            let is_diagonal = (x != 0 && y != 0) as u32 as f32;
+            let diag_w = w*(1. - (1. - SQRT2_INV)*is_diagonal);
+            total_weight += diag_w;
             let c = pixels[idx as usize].stats.sum/(pixels[idx as usize].stats.n as f32);
-            color += w*c;
+            color +=diag_w*c;
         }
     }
 

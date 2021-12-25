@@ -63,8 +63,9 @@ impl MyRandom for f32{
     fn rand_range(min: f32,max: f32) -> f32{ Self::rand()*(max-min) + min }
 }
 
-pub const PI:  f32 = 3.1415926535897932385;
-pub const INF: f32 = f32::INFINITY;
+pub const PI:  f32       = 3.1415926535897932385;
+pub const INF: f32       = f32::INFINITY;
+pub const SQRT2_INV: f32 = 0.7071067811865475244;
 
 pub fn degrees_to_radians(degrees: f32) -> f32{
     return degrees * PI / 180.0;
