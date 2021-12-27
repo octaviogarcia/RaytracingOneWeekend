@@ -15,7 +15,9 @@ use super::vec3::Vec3;
 impl Vec4{
     pub const ZERO : Self = Self{ e: [0.,0.,0.,0.]};
     pub fn new(x: f32,y: f32,z: f32,w: f32) -> Self { Self{e: [x,y,z,w]} }
-    pub fn new_v3(v: &Vec3,w: f32) -> Self { Self {e: [v.x(),v.y(),v.z(),w]} }
+    pub fn new_v3_w(v: &Vec3,w: f32) -> Self { Self {e: [v.x(),v.y(),v.z(),w]} }
+    pub fn new_v3(v: &Vec3) -> Self          { Self {e: [v.x(),v.y(),v.z(),0.]} }
+    pub fn new_p3(v: &Vec3) -> Self          { Self {e: [v.x(),v.y(),v.z(),1.]} }
     pub fn new_unit(x: f32,y: f32,z: f32,w: f32) -> Self { Self{e: [x,y,z,w]}.unit() }
 
     pub fn x(&self) -> f32{ self.e[0] }

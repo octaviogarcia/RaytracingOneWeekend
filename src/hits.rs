@@ -70,26 +70,45 @@ pub struct FrozenHittableList<'a>{
     hl: &'a HittableList,//@TODO: implement some sort of KD tree or octotree
 }
 
-
 const HIT_SIZE: f32 = 0.001;
 
 impl <'a> FrozenHittableList<'a>{
-    pub fn new(hl: &'a HittableList,_cam: &Camera) -> Self{ Self{hl: hl} }
+    pub fn new(hl: &'a HittableList,cam: &Camera) -> Self{
+        let viewmat_inv = cam.viewmatrix().fast_homogenous_inverse();
+        $(for obj in &hl.$traced_ident{
+            obj.build_bounding_box(&viewmat_inv);
+        })*
+        for obj in &hl.traced_objects{
+            obj.build_bounding_box(&viewmat_inv);
+        }
+        $(for obj in &hl.$marched_ident{
+            obj.build_bounding_box(&viewmat_inv);
+        })*
+        for obj in &hl.marched_objects {
+            obj.build_bounding_box(&viewmat_inv);
+        }
+        Self{hl: hl} 
+    }
     #[allow(dead_code)]
     pub fn unfreeze(&self) -> &HittableList { self.hl }
 
-    pub fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
+    pub fn hit(&self,first_hit: bool,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
         $(for obj in &self.hl.$traced_ident{
+            //Short circuit when not the first_hit, avoid calling hit_bounding_box
+            let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
+            if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
                 rec = Some(hr);
             }
         })*
         for obj in &self.hl.traced_objects{
+            let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
+            if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
                 rec = Some(hr);
@@ -110,6 +129,8 @@ impl <'a> FrozenHittableList<'a>{
             let mut id       = 0;
             let mut material: Option<Material> = None;
             $(for obj in &self.hl.$marched_ident{
+                let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
+                if !hit_bb { continue; }
                 let d = obj.sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
                 if d < distance {
                     distance = d;
@@ -119,6 +140,8 @@ impl <'a> FrozenHittableList<'a>{
                 }
             })*
             for obj in &self.hl.marched_objects {
+                let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
+                if !hit_bb { continue; }
                 let d = obj.sdf(&point).abs();
                 if d < distance {
                     distance = d;

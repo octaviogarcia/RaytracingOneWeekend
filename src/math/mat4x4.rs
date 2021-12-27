@@ -36,9 +36,9 @@ impl Mat4x4 {
                  Vec4::new(v0.w(),v1.w(),v2.w(),v3.w())]}
     }
     pub fn new_m3x3(m: &Mat3x3) -> Self{
-        Self{e: [Vec4::new_v3(&m.e[0],0.),
-                 Vec4::new_v3(&m.e[1],0.),
-                 Vec4::new_v3(&m.e[2],0.),
+        Self{e: [Vec4::new_v3(&m.e[0]),
+                 Vec4::new_v3(&m.e[1]),
+                 Vec4::new_v3(&m.e[2]),
                  Vec4::new(0.,0.,0.,1.)]}
     }
     #[allow(dead_code)]
@@ -47,17 +47,17 @@ impl Mat4x4 {
     }
     #[allow(dead_code)]
     pub fn dot_p3(&self,v: &Point3) -> Point3{
-        let v4 = Vec4::new_v3(v,1.);
+        let v4 = Vec4::new_p3(v);
         Point3::new(self.e[0].dot(v4),self.e[1].dot(v4),self.e[2].dot(v4))
     }
     #[allow(dead_code)]
-    pub fn dot_v3(&self,v: &Point3) -> Point3{
-        let v4 = Vec4::new_v3(v,0.);
+    pub fn dot_v3(&self,v: &Vec3) -> Vec3{
+        let v4 = Vec4::new_v3(v);
         Vec3::new(self.e[0].dot(v4),self.e[1].dot(v4),self.e[2].dot(v4))
     }
     #[allow(dead_code)]
     pub fn fast_homogenous_inverse(&self) -> Self{//https://stackoverflow.com/questions/155670/invert-4x4-matrix-numerical-most-stable-solution-needed
-        //M = TS -> M^-1 = (TS)^-1 = S^-1 T^1
+        //M = TS -> M^-1 = (TS)^-1 = S^-1 T^-1
         let s_inv = Self::new_m3x3(&Mat3x3::new_3vec(&self.e[0].xyz(),&self.e[1].xyz(),&self.e[2].xyz()).inverse());
         let t_inv = Self::new_translate(&-self.at_col(3).xyz());
         return s_inv.dot_mat(&t_inv);

@@ -34,25 +34,6 @@ pub fn normalize_color(color: &Color) -> Color{
     return Color::new(r,g,b);
 }
 
-/*
-pub fn denormalize_color(color: &Color) -> Color{
-    let r = color.x()*color.x();
-    let g = color.y()*color.y();
-    let b = color.z()*color.z();
-    return Color::new(r,g,b);
-}
-#[allow(dead_code)]
-pub fn write_ppm(colors: &Vec<Color>,samples_per_pixel: u32,image_width: u32,image_height: u32){
-    let mut colors_str: String = "".to_owned();
-    for c in colors{
-        let cn = normalize_color(*c,samples_per_pixel);
-        let c_str: String = format!("{} {} {}\n",256.*cn.x(),256.*cn.y(),256.*cn.z()).to_owned();
-        colors_str.push_str(&c_str);
-    }
-    println!("P3\n{} {}\n255",image_width,image_height);
-    print!("{}",colors_str);
-}*/
-
 use rand::Rng;
 pub trait MyRandom{
     fn rand() -> Self;

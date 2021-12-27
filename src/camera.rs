@@ -1,4 +1,6 @@
 use crate::math::vec3::*;
+use crate::math::vec4::*;
+use crate::math::mat4x4::*;
 use crate::ray::*;
 use crate::utils::degrees_to_radians;
 
@@ -51,5 +53,13 @@ impl Camera{
         let offset = self.u_of_plane*rand_in_lens.x() + self.v_of_plane*rand_in_lens.y();
         let direction = self.lower_left_corner + u*self.horizontal + v*self.vertical - self.origin;
         return Ray::new(&(self.origin+offset),&(direction-offset).unit());
+    }
+    pub fn viewmatrix(&self) -> Mat4x4 {
+        //Syntax doesnt help much but this is actually 
+        //[u v w origin]
+        //[0 0 0      1]
+        return Mat4x4::new_4vec_vert(
+            &Vec4::new_v3(&self.u_of_plane),&Vec4::new_v3(&self.v_of_plane),&Vec4::new_v3(&self.w_of_plane),&Vec4::new_p3(&self.origin)
+        );
     }
 }

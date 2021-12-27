@@ -129,12 +129,12 @@ fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32)
     let mut curr_color = Color::new(1.,1.,1.);
     let mut curr_ray: Ray = *r;
     //Get the depth with the first hit
-    let (depthf,obj_id) = handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
+    let (depthf,obj_id) = handle_hit(&mut world.hit(true,&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
     if depthf.is_infinite(){
         return (curr_color,f32::INFINITY,0);
     }
     for _i in 1..depth{
-        let h = handle_hit(&mut world.hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
+        let h = handle_hit(&mut world.hit(false,&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
         if h.0.is_infinite(){
             return (curr_color,depthf,obj_id);//Return the depth & ID of the first hit!!!!
         }

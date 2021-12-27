@@ -3,6 +3,7 @@ use crate::math::vec3::{Vec3,UnitVec3,Point3};
 use crate::utils::{min,max};
 use crate::ray::Ray;
 use crate::materials::Material;
+use crate::math::mat4x4::Mat4x4;
 
 pub trait Marched {
     fn sdf(&self,p: &Point3) -> f32;
@@ -10,6 +11,8 @@ pub trait Marched {
     fn material(&self) -> &Material;
     fn center(&self) -> &Point3;
     fn get_id(&self) -> u64;
+    fn build_bounding_box(&self,look_at_inv: &Mat4x4) -> ();
+    fn hit_bounding_box(&self,r: &Ray,t_min: f32,t_max: f32) -> bool;
 }
 
 pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> UnitVec3{
@@ -54,6 +57,8 @@ impl Marched for MarchedSphere {
         return &self.center;
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool { true }
 }
 
 #[derive(Copy, Clone)]
@@ -78,6 +83,8 @@ impl Marched for MarchedBox {
         return &self.center;
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool { true }
 }
 
 #[derive(Copy, Clone)]
@@ -103,4 +110,6 @@ impl Marched for MarchedTorus {
         return &self.center;
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool { true }
 }

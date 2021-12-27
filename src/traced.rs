@@ -29,6 +29,8 @@ impl Sphere {
 pub trait Traced {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
     fn get_id(&self) -> u64;
+    fn build_bounding_box(&self,look_at_inv: &Mat4x4) -> ();
+    fn hit_bounding_box(&self,r: &Ray,t_min: f32,t_max: f32) -> bool;
 }
 
 impl Traced for Sphere {
@@ -57,6 +59,8 @@ impl Traced for Sphere {
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }
 
 #[derive(Copy, Clone)]
@@ -98,6 +102,8 @@ impl Traced for InfinitePlane {
         return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }
 
 #[derive(Copy, Clone)]
@@ -188,6 +194,8 @@ impl <const BT: usize> Traced for Barycentric<BT> {
         return self.hit_aux(r,t_min,t_max);
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }
 
 pub type Parallelogram = Barycentric<0>;
@@ -264,4 +272,6 @@ impl Traced for Cube {
         return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }
