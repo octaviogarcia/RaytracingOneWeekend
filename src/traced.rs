@@ -83,7 +83,25 @@ impl Traced for Sphere {
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,_look_at_inv: &Mat4x4) -> () {
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> () {
+        let local_top_right    = &Point3::new( 0.5, 0.5,0.);
+        let local_top_left     = &Point3::new(-0.5, 0.5,0.);
+        let local_bottom_left  = &Point3::new(-0.5,-0.5,0.);
+        let local_bottom_right = &Point3::new( 0.5,-0.5,0.);
+        //Since it could rotate, they are not guaranteed to keep being top-bottom/left-right
+        let world1 = self.m_local_to_world.dot_p3(&local_top_right);
+        let world2 = self.m_local_to_world.dot_p3(&local_top_left);
+        let world3 = self.m_local_to_world.dot_p3(&local_bottom_left);
+        let world4 = self.m_local_to_world.dot_p3(&local_bottom_right);
+        let cam1 = m_world_to_camera.dot_p3(&world1);
+        let cam2 = m_world_to_camera.dot_p3(&world2);
+        let cam3 = m_world_to_camera.dot_p3(&world3);
+        let cam4 = m_world_to_camera.dot_p3(&world4);
+        let minx = cam1.x().min(cam2.x().min(cam3.x().min(cam4.x())));
+        let maxx = cam1.x().max(cam2.x().max(cam3.x().max(cam4.x())));
+        let miny = cam1.y().min(cam2.y().min(cam3.y().min(cam4.y())));
+        let maxy = cam1.y().max(cam2.y().max(cam3.y().max(cam4.y())));
+        self.bounding_box = BoundingBox::new(minx,miny,maxx,maxy);//@BUG: Not working, I think the camera matrix is wrong
         self.bounding_box = BoundingBox::draw_always();
     }
     fn hit_bounding_box(&self,r: &Ray,_t_min: f32,_t_max: f32) -> bool{ 
