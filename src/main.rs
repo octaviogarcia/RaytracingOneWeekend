@@ -231,10 +231,10 @@ fn apply_box_filter_ij_samples(pixels: &Vec<crate::render_thread::Pixel>,image_w
         for x in min_x..=(max_x as i32){
             let idx = (i as i32+x)+(j as i32+y)*image_width as i32;
             let n = pixels[idx as usize].stats.n as f32;
-            total_weight += n;
             let is_diagonal = (x != 0 && y != 0) as u32 as f32;
-            let diag_w = pixels[idx as usize].stats.sum*(1. - (1. - SQRT2_INV)*is_diagonal);
-            color += diag_w;
+            let diag_w = 1. - (1. - SQRT2_INV)*is_diagonal;
+            total_weight += n*diag_w;
+            color += pixels[idx as usize].stats.sum*diag_w;
         }
     }
     let aux = i as usize + j as usize*image_width as usize;
