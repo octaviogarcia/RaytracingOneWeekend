@@ -19,12 +19,21 @@ use std::sync::Arc;
 macro_rules! hittable_list {
 ($($traced_ident:ident ; $traced:ty),* | $($marched_ident:ident ; $marched:ty),*) => {
 
+#[derive(Clone)]
 pub struct HittableList{
-    pub traced_objects: Vec<Arc<dyn Traced + Send + Sync>>,
-    pub marched_objects: Vec<Arc<dyn Marched + Send + Sync>>,
+    traced_objects: Vec<Arc<dyn Traced + Send + Sync>>,
+    marched_objects: Vec<Arc<dyn Marched + Send + Sync>>,
     $($traced_ident: Vec<$traced>,)*
     $($marched_ident: Vec<$marched>,)*
 }
+
+pub struct FrozenHittableList{
+    traced_objects: Vec<Arc<dyn Traced + Send + Sync>>,
+    marched_objects: Vec<Arc<dyn Marched + Send + Sync>>,
+    $($traced_ident: Vec<$traced>,)*
+    $($marched_ident: Vec<$marched>,)*
+}
+
 impl HittableList {
     pub fn new() -> Self{
         return HittableList{
@@ -41,7 +50,7 @@ impl HittableList {
         $(self.$traced_ident.clear();)*
         $(self.$marched_ident.clear();)*
     }
-    pub fn freeze(&self,cam: &Camera) -> FrozenHittableList{
+    pub fn freeze(&mut self,cam: &Camera) -> FrozenHittableList{
         return FrozenHittableList::new(self,cam);
     }
 }
@@ -66,38 +75,39 @@ $(impl std::ops::AddAssign<&$marched> for HittableList{
     }
 })*
 
-pub struct FrozenHittableList<'a>{
-    hl: &'a HittableList,//@TODO: implement some sort of KD tree or octotree
-}
 
 const HIT_SIZE: f32 = 0.001;
 
-impl <'a> FrozenHittableList<'a>{
-    pub fn new(hl: &'a HittableList,cam: &Camera) -> Self{
+impl FrozenHittableList{
+    pub fn new(hl: &mut HittableList,cam: &Camera) -> Self{
+        let mut ret = Self{
+            traced_objects: hl.traced_objects.clone(),
+            marched_objects: hl.marched_objects.clone(),
+            $($traced_ident: hl.$traced_ident.clone(),)*
+            $($marched_ident: hl.$marched_ident.clone(),)*
+        }; 
         let viewmat_inv = cam.viewmatrix().fast_homogenous_inverse();
-        $(for obj in &hl.$traced_ident{
+        $(for obj in &mut ret.$traced_ident{
             obj.build_bounding_box(&viewmat_inv);
         })*
-        for obj in &hl.traced_objects{
-            obj.build_bounding_box(&viewmat_inv);
+        for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
+           Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
         }
-        $(for obj in &hl.$marched_ident{
+        $(for obj in &mut ret.$marched_ident{
             obj.build_bounding_box(&viewmat_inv);
         })*
-        for obj in &hl.marched_objects {
-            obj.build_bounding_box(&viewmat_inv);
+        for obj in &mut ret.marched_objects {
+            Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
         }
-        Self{hl: hl} 
+        return ret;
     }
-    #[allow(dead_code)]
-    pub fn unfreeze(&self) -> &HittableList { self.hl }
 
     pub fn hit(&self,first_hit: bool,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
-        $(for obj in &self.hl.$traced_ident{
+        $(for obj in &self.$traced_ident{
             //Short circuit when not the first_hit, avoid calling hit_bounding_box
             let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
             if !hit_bb { continue; }
@@ -106,7 +116,7 @@ impl <'a> FrozenHittableList<'a>{
                 rec = Some(hr);
             }
         })*
-        for obj in &self.hl.traced_objects{
+        for obj in &self.traced_objects{
             let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
             if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
@@ -128,7 +138,7 @@ impl <'a> FrozenHittableList<'a>{
             let mut normal   = Vec3::ZERO;
             let mut id       = 0;
             let mut material: Option<Material> = None;
-            $(for obj in &self.hl.$marched_ident{
+            $(for obj in &self.$marched_ident{
                 let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
                 if !hit_bb { continue; }
                 let d = obj.sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
@@ -139,7 +149,7 @@ impl <'a> FrozenHittableList<'a>{
                     id = obj.get_id();
                 }
             })*
-            for obj in &self.hl.marched_objects {
+            for obj in &self.marched_objects {
                 let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
                 if !hit_bb { continue; }
                 let d = obj.sdf(&point).abs();
@@ -172,14 +182,14 @@ impl <'a> FrozenHittableList<'a>{
         let p = r.at(t);
         let mut marched: Option<*const (dyn Marched + Send + Sync)> = None;
 
-        $(for obj in &self.hl.$marched_ident{
+        $(for obj in &self.$marched_ident{
             let nd = obj.sdf(&p).abs();//Not an actual vtable call, just a normal fast function call
             if nd < d {
                 d = nd;
                 marched = Some(obj as *const (dyn Marched + Send + Sync));
             }
         })*
-        for obj in &self.hl.marched_objects {
+        for obj in &self.marched_objects {
             let nd = obj.sdf(&p).abs();
             if nd < d {
                 d = nd;

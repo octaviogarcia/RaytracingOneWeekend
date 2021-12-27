@@ -140,8 +140,7 @@ fn main() {
 
     let samples_per_pixel: u32 = 200;
     let max_depth: u32 = 50;
-    let world = random_scene();
-
+    let mut world = random_scene();
     let samples_atomic = AtomicU64::new(0);
     let arc_samples_atomic = Arc::new(samples_atomic);
     
@@ -192,7 +191,7 @@ fn main() {
     //for some reason the bottom statement messes ups the len() of pixels in each thread if I do new()
     let mut handlers: Vec<thread::JoinHandle<()>> = Vec::with_capacity(num_threads as usize);
     let arc_camera = Arc::new(camera);
-    let arc_world = Arc::new(world);
+    let arc_world = Arc::new(world.freeze(&camera));
     eprintln!("Running {} threads",num_threads);
     for i in 0..num_threads {
         let cam = arc_camera.clone();
@@ -202,7 +201,7 @@ fn main() {
         let tmin = 0.001;
         let tmax = 100.0;//@TODO: You could find these from bounding boxes from the scene
         let draw_thread = move || {
-            return render_thread::render(&cam,&wrld.freeze(&cam),max_depth,tmin,tmax,
+            return render_thread::render(&cam,&wrld,max_depth,tmin,tmax,
                 samples_per_pixel,image_width,image_height,
                 pixels_box,
                 i,&assgn_th,&smpls_atom);
@@ -210,14 +209,6 @@ fn main() {
         handlers.push(thread::spawn(draw_thread));
     }
     draw_to_sdl(pixels_box.clone(),samples_per_pixel,image_width,image_height);
-    /*
-    {
-        for h in handlers{
-            h.join().unwrap();
-        }
-        arc_pixels_atomic.clone().store(image_size,Ordering::Relaxed);
-        write_ppm(&colors,samples_per_pixel,image_width,image_height);
-    }*/
 }
 
 

@@ -8,28 +8,52 @@ use crate::ray::Ray;
 use crate::hits::HitRecord;
 use crate::materials::Material;
 
+#[derive(Copy,Clone)]
+struct BoundingBox {
+    pub bottomleft_x: f32,
+    pub bottomleft_y: f32,
+    pub topright_x: f32,
+    pub topright_y: f32,
+}
+
+impl BoundingBox {
+    //pub fn empty() -> Self { Self::new(0.,0.,0.,0.) }
+    pub fn draw_always() -> Self { Self::new(-INF,-INF,INF,INF) }
+    pub fn new(bottomleft_x: f32,bottomleft_y: f32,topright_x: f32,topright_y: f32) -> Self { 
+        Self{bottomleft_x: bottomleft_x,bottomleft_y: bottomleft_y,
+               topright_x:   topright_x,  topright_y:   topright_y} 
+    }
+    pub fn hit(&self,x: f32,y: f32) -> bool {
+        return self.bottomleft_x <= x && x <= self.topright_x 
+          &&   self.bottomleft_y <= y && y <= self.topright_y; 
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Sphere {
     pub m_local_to_world: Mat4x4,
     pub m_word_to_local: Mat4x4,
-    pub material: Material
+    pub material: Material,
+    bounding_box: BoundingBox,
 }
 
 impl Sphere {
     pub fn new(m_local_to_world: &Mat4x4,mat: &Material) -> Self{
-        Sphere{m_local_to_world: *m_local_to_world,m_word_to_local: m_local_to_world.fast_homogenous_inverse(),material: *mat}
+        Sphere{m_local_to_world: *m_local_to_world,m_word_to_local: m_local_to_world.fast_homogenous_inverse(),material: *mat
+              ,bounding_box: BoundingBox::draw_always()}
     }
     pub fn new_with_radius(o: &Point3,r: f32,mat: &Material) -> Self {
         let m = Mat4x4::new_translate(&o)
         .dot_mat(&Mat4x4::new_scale(&Vec3::new(r,r,r)));
-        Sphere{m_local_to_world: m,m_word_to_local: m.fast_homogenous_inverse(),material: *mat}
+        Sphere{m_local_to_world: m,m_word_to_local: m.fast_homogenous_inverse(),material: *mat
+              ,bounding_box: BoundingBox::draw_always()}
     }
 }
 
 pub trait Traced {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
     fn get_id(&self) -> u64;
-    fn build_bounding_box(&self,look_at_inv: &Mat4x4) -> ();
+    fn build_bounding_box(&mut self,look_at_inv: &Mat4x4) -> ();
     fn hit_bounding_box(&self,r: &Ray,t_min: f32,t_max: f32) -> bool;
 }
 
@@ -59,8 +83,12 @@ impl Traced for Sphere {
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
-    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
+    fn build_bounding_box(&mut self,_look_at_inv: &Mat4x4) -> () {
+        self.bounding_box = BoundingBox::draw_always();
+    }
+    fn hit_bounding_box(&self,r: &Ray,_t_min: f32,_t_max: f32) -> bool{ 
+        self.bounding_box.hit(r.orig.x(),r.orig.y()) 
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -102,7 +130,7 @@ impl Traced for InfinitePlane {
         return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn build_bounding_box(&mut self,_look_at_inv: &Mat4x4) -> () {}
     fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }
 
@@ -194,7 +222,7 @@ impl <const BT: usize> Traced for Barycentric<BT> {
         return self.hit_aux(r,t_min,t_max);
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn build_bounding_box(&mut self,_look_at_inv: &Mat4x4) -> () {}
     fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }
 
@@ -272,6 +300,6 @@ impl Traced for Cube {
         return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&self,_look_at_inv: &Mat4x4) -> () {}
+    fn build_bounding_box(&mut self,_look_at_inv: &Mat4x4) -> () {}
     fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }
