@@ -84,25 +84,28 @@ impl Traced for Sphere {
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
     fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> () {
-        let local_top_right    = &Point3::new( 0.5, 0.5,0.);
-        let local_top_left     = &Point3::new(-0.5, 0.5,0.);
-        let local_bottom_left  = &Point3::new(-0.5,-0.5,0.);
-        let local_bottom_right = &Point3::new( 0.5,-0.5,0.);
+        let m_local_to_camera = m_world_to_camera.dot_mat(&self.m_local_to_world);
         //Since it could rotate, they are not guaranteed to keep being top-bottom/left-right
-        let world1 = self.m_local_to_world.dot_p3(&local_top_right);
-        let world2 = self.m_local_to_world.dot_p3(&local_top_left);
-        let world3 = self.m_local_to_world.dot_p3(&local_bottom_left);
-        let world4 = self.m_local_to_world.dot_p3(&local_bottom_right);
-        let cam1 = m_world_to_camera.dot_p3(&world1);
-        let cam2 = m_world_to_camera.dot_p3(&world2);
-        let cam3 = m_world_to_camera.dot_p3(&world3);
-        let cam4 = m_world_to_camera.dot_p3(&world4);
-        let minx = cam1.x().min(cam2.x().min(cam3.x().min(cam4.x())));
-        let maxx = cam1.x().max(cam2.x().max(cam3.x().max(cam4.x())));
-        let miny = cam1.y().min(cam2.y().min(cam3.y().min(cam4.y())));
-        let maxy = cam1.y().max(cam2.y().max(cam3.y().max(cam4.y())));
-        self.bounding_box = BoundingBox::new(minx,miny,maxx,maxy);//@BUG: Not working, I think the camera matrix is wrong
-        self.bounding_box = BoundingBox::draw_always();
+        let cam1 = m_local_to_camera.dot_p3(&Point3::new( 1., 1.,-1.));
+        let cam2 = m_local_to_camera.dot_p3(&Point3::new(-1., 1.,-1.));
+        let cam3 = m_local_to_camera.dot_p3(&Point3::new(-1.,-1.,-1.));
+        let cam4 = m_local_to_camera.dot_p3(&Point3::new( 1.,-1.,-1.));
+        let cam5 = m_local_to_camera.dot_p3(&Point3::new( 1., 1., 1.));
+        let cam6 = m_local_to_camera.dot_p3(&Point3::new(-1., 1., 1.));
+        let cam7 = m_local_to_camera.dot_p3(&Point3::new(-1.,-1., 1.));
+        let cam8 = m_local_to_camera.dot_p3(&Point3::new( 1.,-1., 1.));
+        let p1 = cam1/cam1.z();
+        let p2 = cam2/cam2.z();
+        let p3 = cam3/cam3.z();
+        let p4 = cam4/cam4.z();
+        let p5 = cam5/cam5.z();
+        let p6 = cam6/cam6.z();
+        let p7 = cam7/cam7.z();
+        let p8 = cam8/cam8.z();
+        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
+        let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
+        self.bounding_box = BoundingBox::new(minp.x(),minp.y(),maxp.x(),maxp.y());//@BUG: Not working, I think the camera matrix is wrong
+        //self.bounding_box = BoundingBox::draw_always();
     }
     fn hit_bounding_box(&self,r: &Ray,_t_min: f32,_t_max: f32) -> bool{ 
         self.bounding_box.hit(r.orig.x(),r.orig.y()) 
