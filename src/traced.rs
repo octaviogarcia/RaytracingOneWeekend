@@ -105,7 +105,7 @@ impl Traced for Sphere {
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
         self.bounding_box = BoundingBox::new(minp.x(),minp.y(),maxp.x(),maxp.y());//@BUG: Not working, I think the camera matrix is wrong
-        //self.bounding_box = BoundingBox::draw_always();
+        self.bounding_box = BoundingBox::draw_always();
     }
     fn hit_bounding_box(&self,r: &Ray,_t_min: f32,_t_max: f32) -> bool{ 
         self.bounding_box.hit(r.orig.x(),r.orig.y()) 

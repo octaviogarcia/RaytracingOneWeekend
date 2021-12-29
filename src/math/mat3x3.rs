@@ -20,7 +20,7 @@ impl Mat3x3 {
         return Self{e: [*v0,*v1,*v2]};
     }
     pub fn new_3vec_vert(v0: &Vec3,v1: &Vec3,v2: &Vec3) -> Self{
-        return Self{e: [Vec3::new(v0.x(),v1.y(),v2.x()),
+        return Self{e: [Vec3::new(v0.x(),v1.x(),v2.x()),
                         Vec3::new(v0.y(),v1.y(),v2.y()),
                         Vec3::new(v0.z(),v1.z(),v2.z())]};
     }

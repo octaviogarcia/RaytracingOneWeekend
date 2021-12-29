@@ -30,7 +30,7 @@ impl Mat4x4 {
     }
     #[allow(dead_code)]
     pub fn new_4vec_vert(v0: &Vec4,v1: &Vec4,v2: &Vec4,v3: &Vec4) -> Self{
-        Self{e: [Vec4::new(v0.x(),v1.y(),v2.x(),v3.x()),
+        Self{e: [Vec4::new(v0.x(),v1.x(),v2.x(),v3.x()),
                  Vec4::new(v0.y(),v1.y(),v2.y(),v3.y()),
                  Vec4::new(v0.z(),v1.z(),v2.z(),v3.z()),
                  Vec4::new(v0.w(),v1.w(),v2.w(),v3.w())]}

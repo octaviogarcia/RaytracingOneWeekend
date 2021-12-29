@@ -58,7 +58,7 @@ impl Camera{
         //Syntax doesnt help much but this is actually 
         //[u v w origin]
         //[0 0 0      1]
-        return Mat4x4::new_4vec(
+        return Mat4x4::new_4vec_vert(
             //&Vec4::new_v3(&self.u_of_plane), &Vec4::new_v3(&self.v_of_plane),&Vec4::new_v3(&self.w_of_plane),&Vec4::new_p3(&self.origin)
             &Vec4::new_v3(&self.horizontal), &Vec4::new_v3(&self.vertical),&Vec4::new_v3(&self.w_of_plane),&Vec4::new_p3(&self.origin)
         );

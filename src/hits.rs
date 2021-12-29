@@ -86,7 +86,8 @@ impl FrozenHittableList{
             $($traced_ident: hl.$traced_ident.clone(),)*
             $($marched_ident: hl.$marched_ident.clone(),)*
         }; 
-        let viewmat_inv = cam.viewmatrix().fast_homogenous_inverse();
+        let viewmat = cam.viewmatrix();
+        let viewmat_inv = viewmat.fast_homogenous_inverse();
         $(for obj in &mut ret.$traced_ident{
             obj.build_bounding_box(&viewmat_inv);
         })*

@@ -106,6 +106,13 @@ fn random_scene() -> HittableList{
     return world;
 }
 
+fn basic_scene() -> HittableList{
+    let mut world = HittableList::new();
+    let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
+    world+=&Sphere::new_with_radius(&Point3::new(0., 0.,0.),1.,&mat_ground);
+    return world;
+}
+
 fn print_progress(progress: f64) -> (){
     let progress100 = round_n(100.0*progress,2);
     let frac = progress100 % 1.;
@@ -129,9 +136,7 @@ fn main() {
     let camera: Camera;
     {
         let lookfrom = Point3::new(13.,2.,3.);
-        //let lookfrom = Point3::new(13.,1.,0.);
         let lookat   = Point3::new(0.,0.,0.);
-        //let lookat   = Point3::new(0.,1.,0.);
         let vup      =   Vec3::new(0.,1.,0.);
         let aperture = 0.1;
         let dist_to_focus = 10.;
