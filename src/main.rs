@@ -109,7 +109,7 @@ fn random_scene() -> HittableList{
 fn basic_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
-    world+=&Sphere::new_with_radius(&Point3::new(0., 0.,0.),1.,&mat_ground);
+    world+=&Sphere::new_with_radius(&Point3::new(0., 0.,-2.),1.,&mat_ground);
     return world;
 }
 
@@ -126,8 +126,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 fn main() {
     //IMAGE
-    let aspect_ratio: f32 = 3.0 / 2.0;
-    let image_width:    u32 = 1000;
+    let aspect_ratio: f32 = 2.0 / 2.0;
+    let image_width:    u32 = 500;
     let image_width_f:  f32 = image_width as f32;
     let image_height_f: f32 = image_width_f/ aspect_ratio;
     let image_height:   u32 = image_height_f as u32;
@@ -135,17 +135,12 @@ fn main() {
 
     let camera: Camera;
     {
-        let lookfrom = Point3::new(13.,2.,3.);
-        let lookat   = Point3::new(0.,0.,0.);
-        let vup      =   Vec3::new(0.,1.,0.);
-        let aperture = 0.1;
-        let dist_to_focus = 10.;
-        camera = Camera::new(lookfrom,lookat,vup,20.,aspect_ratio,aperture,dist_to_focus);
+        camera = Camera::world_camera(90.,aspect_ratio);
     }
 
     let samples_per_pixel: u32 = 200;
     let max_depth: u32 = 50;
-    let mut world = random_scene();
+    let mut world = basic_scene();//random_scene();
     let samples_atomic = AtomicU64::new(0);
     let arc_samples_atomic = Arc::new(samples_atomic);
     

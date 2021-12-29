@@ -3,12 +3,12 @@
 use crate::math::vec3::{Vec3,UnitVec3,Point3};
 use crate::math::mat3x3::{Mat3x3};
 use crate::math::mat4x4::{Mat4x4};
-use crate::utils::{INF,max,min};
+use crate::utils::{INF};
 use crate::ray::Ray;
 use crate::hits::HitRecord;
 use crate::materials::Material;
 
-#[derive(Copy,Clone)]
+#[derive(Copy,Clone,Debug)]
 struct BoundingBox {
     pub bottomleft_x: f32,
     pub bottomleft_y: f32,
@@ -53,7 +53,7 @@ impl Sphere {
 pub trait Traced {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
     fn get_id(&self) -> u64;
-    fn build_bounding_box(&mut self,look_at_inv: &Mat4x4) -> ();
+    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> ();
     fn hit_bounding_box(&self,r: &Ray,t_min: f32,t_max: f32) -> bool;
 }
 
@@ -83,7 +83,7 @@ impl Traced for Sphere {
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> () {
+    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> () {
         let m_local_to_camera = m_world_to_camera.dot_mat(&self.m_local_to_world);
         //Since it could rotate, they are not guaranteed to keep being top-bottom/left-right
         let cam1 = m_local_to_camera.dot_p3(&Point3::new( 1., 1.,-1.));
@@ -94,18 +94,19 @@ impl Traced for Sphere {
         let cam6 = m_local_to_camera.dot_p3(&Point3::new(-1., 1., 1.));
         let cam7 = m_local_to_camera.dot_p3(&Point3::new(-1.,-1., 1.));
         let cam8 = m_local_to_camera.dot_p3(&Point3::new( 1.,-1., 1.));
-        let p1 = cam1/cam1.z();
-        let p2 = cam2/cam2.z();
-        let p3 = cam3/cam3.z();
-        let p4 = cam4/cam4.z();
-        let p5 = cam5/cam5.z();
-        let p6 = cam6/cam6.z();
-        let p7 = cam7/cam7.z();
-        let p8 = cam8/cam8.z();
+        let p1 = -cam1/cam1.z();
+        let p2 = -cam2/cam2.z();
+        let p3 = -cam3/cam3.z();
+        let p4 = -cam4/cam4.z();
+        let p5 = -cam5/cam5.z();
+        let p6 = -cam6/cam6.z();
+        let p7 = -cam7/cam7.z();
+        let p8 = -cam8/cam8.z();
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
         self.bounding_box = BoundingBox::new(minp.x(),minp.y(),maxp.x(),maxp.y());//@BUG: Not working, I think the camera matrix is wrong
-        self.bounding_box = BoundingBox::draw_always();
+        println!("{:?}",self.bounding_box);
+        //self.bounding_box = BoundingBox::draw_always();
     }
     fn hit_bounding_box(&self,r: &Ray,_t_min: f32,_t_max: f32) -> bool{ 
         self.bounding_box.hit(r.orig.x(),r.orig.y()) 
@@ -151,7 +152,7 @@ impl Traced for InfinitePlane {
         return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,_look_at_inv: &Mat4x4) -> () {}
+    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> () {}
     fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }
 
@@ -243,7 +244,7 @@ impl <const BT: usize> Traced for Barycentric<BT> {
         return self.hit_aux(r,t_min,t_max);
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,_look_at_inv: &Mat4x4) -> () {}
+    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> () {}
     fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }
 
@@ -298,10 +299,10 @@ impl Traced for Cube {
             let t2 = (-0.5 - new_r.orig[i])/new_r.dir[i];
             let t: f32;
             if t1 >= 0. && t2 >= 0.{
-                t = min(t1,t2);
+                t = t1.min(t2);
             }
             else {
-                t = max(t1,t2);
+                t = t1.max(t2);
             }
             if t > smallest_t || t > t_max || t < t_min {continue;}//We should check t < 0. but we already do that with t < t_min...
             let f = new_r.at(t).abs().max_val();
@@ -321,6 +322,6 @@ impl Traced for Cube {
         return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,_look_at_inv: &Mat4x4) -> () {}
+    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> () {}
     fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
 }

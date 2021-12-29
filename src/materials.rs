@@ -1,7 +1,6 @@
 use crate::ray::Ray;
 use crate::math::vec3::*;
 use crate::hits::HitRecord;
-use crate::utils::min;
 use crate::utils::MyRandom;
 
 pub struct MaterialScatterResult {
@@ -80,7 +79,7 @@ impl Material{
             normal = -hr.normal;
         }
 
-        let cos_theta = min((-dir_unit).dot(normal),1.0);
+        let cos_theta = (-dir_unit).dot(normal).min(1.0);
         let sin_theta = (1.0 - cos_theta*cos_theta).sqrt();
         let cannot_refract = (refraction_ratio * sin_theta) > 1.0;
         let reflect_by_reflectante = reflectance(cos_theta, refraction_ratio) > f32::rand();
@@ -101,7 +100,7 @@ fn reflect(v: &Vec3,n: &Vec3) -> Vec3{
 }
 
 fn refract(uv: &Vec3,n: &Vec3,etai_over_etat: f32) -> Vec3 {
-    let cos_theta = min((-*uv).dot(*n),1.0);
+    let cos_theta = (-*uv).dot(*n).min(1.0);
     let r_out_perp = etai_over_etat * ((*uv) + cos_theta*(*n));
     let aux = -(1.0 - r_out_perp.length_squared()).abs().sqrt();
     let r_out_parallel = aux*(*n);

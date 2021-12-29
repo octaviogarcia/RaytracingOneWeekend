@@ -1,6 +1,5 @@
 
 use crate::math::vec3::{Vec3,UnitVec3,Point3};
-use crate::utils::{min,max};
 use crate::ray::Ray;
 use crate::materials::Material;
 use crate::math::mat4x4::Mat4x4;
@@ -71,7 +70,7 @@ pub struct MarchedBox {
 impl Marched for MarchedBox {
     fn sdf(&self,p: &Point3) -> f32 {
         let q = (&(*p-self.center)).abs() - self.sizes;
-        return q.max(&Vec3::ZERO).length() + min(max(q.x(),max(q.y(),q.z())),0.);
+        return q.max(&Vec3::ZERO).length() + q.x().max(q.y().max(q.z())).min(0.);
     }
     fn get_outward_normal(&self,p: &Point3) -> Vec3 {
         return get_outward_numeric_normal(self,p);

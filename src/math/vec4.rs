@@ -9,7 +9,6 @@ impl std::fmt::Display for Vec4 {
     }
 }
 
-use crate::utils::{max,min};
 use super::vec3::Vec3;
 
 impl Vec4{
@@ -47,10 +46,10 @@ impl Vec4{
         Vec4::new(self.x().abs(),self.y().abs(),self.z().abs(),self.w().abs())
     }
     pub fn max(&self,v: &Vec4) -> Self {
-        Vec4::new(max(self.x(),v.x()),max(self.y(),v.y()),max(self.z(),v.z()),max(self.w(),v.w()))
+        Vec4::new(self.x().max(v.x()),self.y().max(v.y()),self.z().max(v.z()),self.w().max(v.w()))
     }
     pub fn min(&self,v: &Vec4) -> Self {
-        Vec4::new(min(self.x(),v.x()),min(self.y(),v.y()),min(self.z(),v.z()),min(self.w(),v.w()))
+        Vec4::new(self.x().min(v.x()),self.y().min(v.y()),self.z().min(v.z()),self.w().min(v.w()))
     }
     pub fn xyz(&self) -> Vec3{
         Vec3::new(self.x(),self.y(),self.z())

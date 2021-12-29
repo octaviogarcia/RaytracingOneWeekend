@@ -16,7 +16,6 @@ pub type UnitVec3 = Vec3; //Type alias just to document unit vectors
 
 use crate::utils;
 use utils::MyRandom;
-use utils::{max,min,abs};
 
 impl Vec3{
     pub const ZERO : Self = Self{ e: [0.,0.,0.]};
@@ -40,16 +39,16 @@ impl Vec3{
         *self / self.length()
     }
     pub fn abs(&self) -> Self {
-        Vec3::new(abs(self.x()),abs(self.y()),abs(self.z()))
+        Vec3::new(self.x().abs(),self.y().abs(),self.z().abs())
     }
     pub fn max_val(&self) -> f32{
-        max(self.x(),max(self.y(),self.z()))
+        self.x().max(self.y().max(self.z()))
     }
     pub fn max(&self,v: &Vec3) -> Self {
-        Vec3::new(max(self.x(),v.x()),max(self.y(),v.y()),max(self.z(),v.z()))
+        Vec3::new(self.x().max(v.x()),self.y().max(v.y()),self.z().max(v.z()))
     }
     pub fn min(&self,v: &Vec3) -> Self {
-        Vec3::new(min(self.x(),v.x()),min(self.y(),v.y()),min(self.z(),v.z()))
+        Vec3::new(self.x().min(v.x()),self.y().min(v.y()),self.z().min(v.z()))
     }
     pub fn sqrt(&self) -> Self{
         Vec3::new(self.x().sqrt(),self.y().sqrt(),self.z().sqrt())

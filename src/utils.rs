@@ -1,26 +1,8 @@
 use crate::math::vec3;
 use vec3::Color;
 
-pub fn min(x: f32,y: f32) -> f32{
-    if x<y{
-        return x;
-    }
-    return y;
-}
-pub fn max(x: f32,y: f32) -> f32{
-    if x<y{
-        return y;
-    }
-    return x;
-}
-pub fn abs(x: f32) -> f32{
-    let sign = x > 0.;
-    let map = [-1.,1.];
-    return x*map[sign as usize];
-}
-
 pub fn clamp(x: f32,fmin: f32,fmax: f32) -> f32{
-    return min(max(x,fmin),fmax);
+    return x.max(fmin).min(fmax);
 }
 
 //t = 0 -> c1, t = 1 -> c2
