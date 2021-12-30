@@ -31,6 +31,7 @@ use sdl2::keyboard::Keycode;
 use std::time::Duration;
 use crate::math::mat4x4::Mat4x4;
 
+#[allow(dead_code)]
 fn random_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
@@ -106,6 +107,7 @@ fn random_scene() -> HittableList{
     return world;
 }
 
+#[allow(dead_code)]
 fn basic_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
@@ -136,11 +138,18 @@ fn main() {
     let camera: Camera;
     {
         camera = Camera::world_camera(90.,aspect_ratio);
+        /*let lookfrom = Point3::new(13.,2.,3.);
+        let lookat   = Point3::new(0.,0.,0.);
+        let vup      =   Vec3::new(0.,1.,0.);
+        let vfov = 20.;
+        let aperture = 0.1;
+        let dist_to_focus = 10.;
+        camera = Camera::new(lookfrom,lookat,vup,vfov,aspect_ratio,aperture,dist_to_focus);*/
     }
 
     let samples_per_pixel: u32 = 200;
     let max_depth: u32 = 50;
-    let mut world = basic_scene();//random_scene();
+    let mut world = basic_scene();
     let samples_atomic = AtomicU64::new(0);
     let arc_samples_atomic = Arc::new(samples_atomic);
     
