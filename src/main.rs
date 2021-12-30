@@ -126,7 +126,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 fn main() {
     //IMAGE
-    let aspect_ratio: f32 = 2.0 / 2.0;
+    let aspect_ratio: f32 = 3.0 / 2.0;
     let image_width:    u32 = 500;
     let image_width_f:  f32 = image_width as f32;
     let image_height_f: f32 = image_width_f/ aspect_ratio;
