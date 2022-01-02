@@ -125,13 +125,13 @@ impl Traced for Sphere {
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
         self.bounding_box = BoundingBox::new(
-            minp.x(),
-            minp.y(),
-            maxp.x(),
-            maxp.y(),
+            (minp.x()+1.)/2.,
+            (minp.y()+1.)/2.,
+            (maxp.x()+1.)/2.,
+            (maxp.y()+1.)/2.,
         );//@BUG: Not working, I think the camera matrix is wrong
         println!("{:?}",self.bounding_box);
-        //self.bounding_box = BoundingBox::draw_always();
+        self.bounding_box = BoundingBox::draw_always();
     }
     fn hit_bounding_box(&self,x:f32,y:f32) -> bool{ 
         self.bounding_box.hit(x,y) 
