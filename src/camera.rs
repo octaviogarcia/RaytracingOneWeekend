@@ -53,8 +53,17 @@ impl Camera{
     pub fn get_ray(&self,u: f32,v: f32) -> Ray{
         let rand_in_lens = self.lens_radius * Vec3::rand_in_unit_disc();
         let offset = self.u_of_plane*rand_in_lens.x() + self.v_of_plane*rand_in_lens.y();
-        let direction = self.lower_left_corner + u*self.horizontal + v*self.vertical - self.origin;
+        let direction = self.uv_to_dir().dot(&Vec4::new(u,v,0.,1.)).xyz();
         return Ray::new(&(self.origin+offset),&(direction-offset).unit());
+    }
+    #[inline]
+    pub fn uv_to_dir(&self) -> Mat4x4 {
+        Mat4x4::new_4vec_vert(
+            &Vec4::new_v3(&self.horizontal),
+            &Vec4::new_v3(&self.vertical),
+            &Vec4::ZERO,
+            &Vec4::new_p3(&(self.lower_left_corner-self.origin)),
+        )
     }
     pub fn viewmatrix(&self) -> Mat4x4 {
         //Syntax doesnt help much but this is actually 

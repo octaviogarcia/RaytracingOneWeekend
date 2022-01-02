@@ -20,8 +20,7 @@ impl BoundingBox {
     //pub fn empty() -> Self { Self::new(0.,0.,0.,0.) }
     pub fn draw_always() -> Self { Self::new(-INF,-INF,INF,INF) }
     pub fn new(bottomleft_x: f32,bottomleft_y: f32,topright_x: f32,topright_y: f32) -> Self { 
-        Self{bottomleft_x: bottomleft_x,bottomleft_y: bottomleft_y,
-               topright_x:   topright_x,  topright_y:   topright_y} 
+        Self{bottomleft_x, bottomleft_y, topright_x, topright_y} 
     }
     pub fn hit(&self,x: f32,y: f32) -> bool {
         return self.bottomleft_x <= x && x <= self.topright_x 
@@ -53,8 +52,8 @@ impl Sphere {
 pub trait Traced {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
     fn get_id(&self) -> u64;
-    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> ();
-    fn hit_bounding_box(&self,r: &Ray,t_min: f32,t_max: f32) -> bool;
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> ();
+    fn hit_bounding_box(&self,x:f32,y:f32) -> bool;
 }
 
 impl Traced for Sphere {
@@ -83,7 +82,7 @@ impl Traced for Sphere {
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> () {
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> () {
         let m_local_to_camera = m_world_to_camera.dot_mat(&self.m_local_to_world);
         //Since it could rotate, they are not guaranteed to keep being top-bottom/left-right
         let cam1 = m_local_to_camera.dot_p3(&Point3::new( 1., 1.,-1.));
@@ -104,12 +103,17 @@ impl Traced for Sphere {
         let p8 = -cam8/cam8.z();
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
-        self.bounding_box = BoundingBox::new(minp.x(),minp.y(),maxp.x(),maxp.y());//@BUG: Not working, I think the camera matrix is wrong
+        self.bounding_box = BoundingBox::new(
+            (minp.x()+1.)/2.,
+            (minp.y()+1.)/2.,
+            (maxp.x()+1.)/2.,
+            (maxp.y()+1.)/2.
+        );//@BUG: Not working, I think the camera matrix is wrong
         println!("{:?}",self.bounding_box);
         //self.bounding_box = BoundingBox::draw_always();
     }
-    fn hit_bounding_box(&self,r: &Ray,_t_min: f32,_t_max: f32) -> bool{ 
-        self.bounding_box.hit(r.orig.x(),r.orig.y()) 
+    fn hit_bounding_box(&self,x:f32,y:f32) -> bool{ 
+        self.bounding_box.hit(x,y) 
     }
 }
 
@@ -152,8 +156,8 @@ impl Traced for InfinitePlane {
         return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> () {}
-    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
+    fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_x:f32,_y:f32) -> bool{ true }
 }
 
 #[derive(Copy, Clone)]
@@ -244,8 +248,8 @@ impl <const BT: usize> Traced for Barycentric<BT> {
         return self.hit_aux(r,t_min,t_max);
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> () {}
-    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
+    fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_x:f32,_y:f32) -> bool{ true }
 }
 
 pub type Parallelogram = Barycentric<0>;
@@ -322,6 +326,6 @@ impl Traced for Cube {
         return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,aspect_ratio: f32,m_world_to_camera: &Mat4x4) -> () {}
-    fn hit_bounding_box(&self,_r: &Ray,_t_min: f32,_t_max: f32) -> bool{ true }
+    fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4) -> () {}
+    fn hit_bounding_box(&self,_x:f32,_y:f32) -> bool{ true }
 }

@@ -52,7 +52,7 @@ pub fn scramble(obj_id: u64) -> u64 {//maps 0 to 0
     id2 ^= id2 << 13;
     id2 ^= id2 >> 17;
     id2 ^= id2 <<  5;
-    return (id2 << 32)^id1^(id1*id2);
+    return (id2 << 32)^id1^u64::wrapping_mul(id1,id2);
 }
 
 #[inline]
@@ -66,6 +66,10 @@ pub fn u64_to_color(id: u64) -> (u8,u8,u8) {
     let b7: u8 = ((id >> 48) & 0b11111111) as u8;
     let b8: u8 = ((id >> 56) & 0b11111111) as u8;
     return (b1 ^ b8 ^ b4,b2 ^ b5 ^ b6,b3 ^ b7);
+}
+
+fn wrap_u64_madd(x: u64,m: u64,a: u64) -> u64{
+    u64::wrapping_add(u64::wrapping_mul(x,m),a)
 }
 
 #[derive(Copy,Clone)]
@@ -90,15 +94,15 @@ impl BloomFilter {
     fn get_hash(id: u64) -> u64{
         let mut ret = 0;
         let bit = (id != 0) as u64;//If id == 0, doesnt set anything
-        ret |= bit << (scramble((id* 456894789+  348764781)%17287318477382145149) % 64);
-        ret |= bit << (scramble((id*     56456+       2345)%10520185020478678957) % 64);
-        ret |= bit << (scramble((id*     12337+       7878)% 6100366985798845493) % 64);
-        ret |= bit << (scramble((id*7438554325+       2554)% 2581451885731034521) % 64);
-        ret |= bit << (scramble((id*      12345+ 123123044)% 2015400956511055807) % 64);
-        ret |= bit << (scramble((id* 6373412378+     12452)% 8800267423223100703) % 64);
-        ret |= bit << (scramble((id*    3453453+7874856378)% 7039701875810786467) % 64);
-        ret |= bit << (scramble((id*     999465+       143)% 3008457310659543551) % 64);
-        ret |= bit << (scramble((id*      14444+    111345)% 5935720376112203207) % 64);
+        ret |= bit << (scramble(wrap_u64_madd(id, 456894789,  348764781)%17287318477382145149) % 64);
+        ret |= bit << (scramble(wrap_u64_madd(id,     56456,       2345)%10520185020478678957) % 64);
+        ret |= bit << (scramble(wrap_u64_madd(id,     12337,       7878)% 6100366985798845493) % 64);
+        ret |= bit << (scramble(wrap_u64_madd(id,7438554325,       2554)% 2581451885731034521) % 64);
+        ret |= bit << (scramble(wrap_u64_madd(id,      12345, 123123044)% 2015400956511055807) % 64);
+        ret |= bit << (scramble(wrap_u64_madd(id, 6373412378,     12452)% 8800267423223100703) % 64);
+        ret |= bit << (scramble(wrap_u64_madd(id,    3453453,7874856378)% 7039701875810786467) % 64);
+        ret |= bit << (scramble(wrap_u64_madd(id,     999465,       143)% 3008457310659543551) % 64);
+        ret |= bit << (scramble(wrap_u64_madd(id,      14444,    111345)% 5935720376112203207) % 64);
         return ret;
     }
 }

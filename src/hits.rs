@@ -89,10 +89,10 @@ impl FrozenHittableList{
         let viewmat = cam.viewmatrix();
         let viewmat_inv = viewmat.fast_homogenous_inverse();
         $(for obj in &mut ret.$traced_ident{
-            obj.build_bounding_box(cam.aspect_ratio,&viewmat_inv);
+            obj.build_bounding_box(&viewmat_inv);
         })*
         for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
-           Arc::get_mut(obj).unwrap().build_bounding_box(cam.aspect_ratio,&viewmat_inv);
+           Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
         }
         $(for obj in &mut ret.$marched_ident{
             obj.build_bounding_box(&viewmat_inv);
@@ -103,14 +103,14 @@ impl FrozenHittableList{
         return ret;
     }
 
-    pub fn hit(&self,first_hit: bool,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
+    pub fn hit(&self,first_hit: bool,r: &Ray,t_min: f32,t_max: f32,u:f32,v:f32) -> Option<HitRecord> {
         //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
         $(for obj in &self.$traced_ident{
             //Short circuit when not the first_hit, avoid calling hit_bounding_box
-            let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
+            let hit_bb = !first_hit || obj.hit_bounding_box(u,v);
             if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
@@ -118,7 +118,7 @@ impl FrozenHittableList{
             }
         })*
         for obj in &self.traced_objects{
-            let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
+            let hit_bb = !first_hit || obj.hit_bounding_box(u,v);
             if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
