@@ -70,7 +70,7 @@ impl Camera{
         //[u v w origin]
         //[0 0 0      1]
         return Mat4x4::new_4vec_vert(
-            &Vec4::new_v3(&(self.horizontal)), &Vec4::new_v3(&(self.vertical)),&Vec4::new_v3(&(self.w_of_plane*self.focus_dist)),&Vec4::new_p3(&self.origin)
+            &Vec4::new_v3(&(self.horizontal)), &Vec4::new_v3(&(self.vertical)),&Vec4::new_v3(&(self.w_of_plane*self.focus_dist)),&Vec4::new_p3(&self.lower_left_corner)
         );
     }
 }

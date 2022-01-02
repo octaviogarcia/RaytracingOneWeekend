@@ -28,6 +28,12 @@ impl BoundingBox {
     }
 }
 
+#[derive(Copy,Clone,Debug)]
+struct BoundingBox3D {
+    pub minp: Point3,
+    pub maxp: Point3,
+}
+
 #[derive(Copy, Clone)]
 pub struct Sphere {
     pub m_local_to_world: Mat4x4,
@@ -46,6 +52,21 @@ impl Sphere {
         .dot_mat(&Mat4x4::new_scale(&Vec3::new(r,r,r)));
         Sphere{m_local_to_world: m,m_word_to_local: m.fast_homogenous_inverse(),material: *mat
               ,bounding_box: BoundingBox::draw_always()}
+    }
+    
+    fn build_world_bounding_box(&mut self) -> BoundingBox3D {
+        let p1 = self.m_local_to_world.dot_p3(&Point3::new( 1., 1., 1.));
+        let p2 = self.m_local_to_world.dot_p3(&Point3::new( 1., 1.,-1.));
+        let p3 = self.m_local_to_world.dot_p3(&Point3::new( 1.,-1., 1.));
+        let p4 = self.m_local_to_world.dot_p3(&Point3::new( 1.,-1.,-1.));
+        let p5 = self.m_local_to_world.dot_p3(&Point3::new(-1., 1., 1.));
+        let p6 = self.m_local_to_world.dot_p3(&Point3::new(-1., 1.,-1.));
+        let p7 = self.m_local_to_world.dot_p3(&Point3::new(-1.,-1., 1.));
+        let p8 = self.m_local_to_world.dot_p3(&Point3::new(-1.,-1.,-1.));
+        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
+        let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
+        println!("{:?}",BoundingBox3D{minp,maxp});
+        return BoundingBox3D{minp,maxp};
     }
 }
 
@@ -83,31 +104,31 @@ impl Traced for Sphere {
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
     fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> () {
-        let m_local_to_camera = m_world_to_camera.dot_mat(&self.m_local_to_world);
         //Since it could rotate, they are not guaranteed to keep being top-bottom/left-right
-        let cam1 = m_local_to_camera.dot_p3(&Point3::new( 1., 1.,-1.));
-        let cam2 = m_local_to_camera.dot_p3(&Point3::new(-1., 1.,-1.));
-        let cam3 = m_local_to_camera.dot_p3(&Point3::new(-1.,-1.,-1.));
-        let cam4 = m_local_to_camera.dot_p3(&Point3::new( 1.,-1.,-1.));
-        let cam5 = m_local_to_camera.dot_p3(&Point3::new( 1., 1., 1.));
-        let cam6 = m_local_to_camera.dot_p3(&Point3::new(-1., 1., 1.));
-        let cam7 = m_local_to_camera.dot_p3(&Point3::new(-1.,-1., 1.));
-        let cam8 = m_local_to_camera.dot_p3(&Point3::new( 1.,-1., 1.));
-        let p1 = -cam1/cam1.z();
-        let p2 = -cam2/cam2.z();
-        let p3 = -cam3/cam3.z();
-        let p4 = -cam4/cam4.z();
-        let p5 = -cam5/cam5.z();
-        let p6 = -cam6/cam6.z();
-        let p7 = -cam7/cam7.z();
-        let p8 = -cam8/cam8.z();
+        let bb3d = self.build_world_bounding_box();
+        let p1 = m_world_to_camera.dot_p3(&bb3d.minp);
+        let p2 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.minp.y(),bb3d.maxp.z()));
+        let p3 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.maxp.y(),bb3d.minp.z()));
+        let p4 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.maxp.y(),bb3d.maxp.z()));
+        let p5 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.minp.z()));
+        let p6 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.maxp.z()));
+        let p7 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.maxp.y(),bb3d.minp.z()));
+        let p8 = m_world_to_camera.dot_p3(&bb3d.maxp);
+        let p1 = p1/p1.z();
+        let p2 = p2/p2.z();
+        let p3 = p3/p3.z();
+        let p4 = p4/p4.z();
+        let p5 = p5/p5.z();
+        let p6 = p6/p6.z();
+        let p7 = p7/p7.z();
+        let p8 = p8/p8.z();
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
         self.bounding_box = BoundingBox::new(
-            (minp.x()+1.)/2.,
-            (minp.y()+1.)/2.,
-            (maxp.x()+1.)/2.,
-            (maxp.y()+1.)/2.
+            minp.x(),
+            minp.y(),
+            maxp.x(),
+            maxp.y(),
         );//@BUG: Not working, I think the camera matrix is wrong
         println!("{:?}",self.bounding_box);
         //self.bounding_box = BoundingBox::draw_always();
