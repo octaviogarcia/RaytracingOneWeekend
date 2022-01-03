@@ -103,7 +103,7 @@ impl Traced for Sphere {
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,viewport_width: f32,viewport_height: f32,_focus_dist: f32) -> () {
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {
         //Since it could rotate, they are not guaranteed to keep being top-bottom/left-right
         let bb3d = self.build_world_bounding_box();
         let p1 = m_world_to_camera.dot_p3(&bb3d.minp);
@@ -114,23 +114,23 @@ impl Traced for Sphere {
         let p6 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.maxp.z()));
         let p7 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.maxp.y(),bb3d.minp.z()));
         let p8 = m_world_to_camera.dot_p3(&bb3d.maxp);
-        let p1 = p1/p1.z();
-        let p2 = p2/p2.z();
-        let p3 = p3/p3.z();
-        let p4 = p4/p4.z();
-        let p5 = p5/p5.z();
-        let p6 = p6/p6.z();
-        let p7 = p7/p7.z();
-        let p8 = p8/p8.z();
+        let p1 = p1.unit();
+        let p2 = p2.unit();
+        let p3 = p3.unit();
+        let p4 = p4.unit();
+        let p5 = p5.unit();
+        let p6 = p6.unit();
+        let p7 = p7.unit();
+        let p8 = p8.unit();
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
-        println!("{}",viewport_width);
+        /*println!("{}",viewport_width);
         println!("{}",viewport_height);
         println!("{:?}",minp);
-        println!("{:?}",maxp);
+        println!("{:?}",maxp);*/
         self.bounding_box = BoundingBox::new(
-            (minp.x() + viewport_width)/(2.*viewport_width),(minp.y() + viewport_height)/(2.*viewport_height),
-            (maxp.x() + viewport_width)/(2.*viewport_width),(maxp.y() + viewport_height)/(2.*viewport_height),
+            minp.x(),minp.y(),
+            maxp.x(),maxp.y(),
         );//@BUG: Not working, I think the camera matrix is wrong
         println!("{:?}",self.bounding_box);
         //self.bounding_box = BoundingBox::draw_always();
