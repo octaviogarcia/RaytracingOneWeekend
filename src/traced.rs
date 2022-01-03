@@ -73,7 +73,7 @@ pub trait Traced {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
     fn get_id(&self) -> u64;
     fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,viewport_width: f32,viewport_height: f32,focus_dist: f32) -> ();
-    fn hit_bounding_box(&self,dir: &Vec3) -> bool;
+    fn hit_bounding_box(&self,dir_from_camera_in_z1: &Vec3) -> bool;
 }
 
 impl Traced for Sphere {
@@ -105,22 +105,14 @@ impl Traced for Sphere {
     fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {
         //Since it could rotate, they are not guaranteed to keep being top-bottom/left-right
         let bb3d = self.build_world_bounding_box();
-        let p1 = m_world_to_camera.dot_p3(&bb3d.minp);
-        let p2 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.minp.y(),bb3d.maxp.z()));
-        let p3 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.maxp.y(),bb3d.minp.z()));
-        let p4 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.maxp.y(),bb3d.maxp.z()));
-        let p5 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.minp.z()));
-        let p6 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.maxp.z()));
-        let p7 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.maxp.y(),bb3d.minp.z()));
-        let p8 = m_world_to_camera.dot_p3(&bb3d.maxp);
-        let p1 = p1.unit();
-        let p2 = p2.unit();
-        let p3 = p3.unit();
-        let p4 = p4.unit();
-        let p5 = p5.unit();
-        let p6 = p6.unit();
-        let p7 = p7.unit();
-        let p8 = p8.unit();
+        let p1 = m_world_to_camera.dot_p3(&bb3d.minp).to_z1();
+        let p2 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.minp.y(),bb3d.maxp.z())).to_z1();
+        let p3 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.maxp.y(),bb3d.minp.z())).to_z1();
+        let p4 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.maxp.y(),bb3d.maxp.z())).to_z1();
+        let p5 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.minp.z())).to_z1();
+        let p6 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.maxp.z())).to_z1();
+        let p7 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.maxp.y(),bb3d.minp.z())).to_z1();
+        let p8 = m_world_to_camera.dot_p3(&bb3d.maxp).to_z1();
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
         self.bounding_box = BoundingBox::new(

@@ -38,6 +38,9 @@ impl Vec3{
     pub fn unit(&self) -> Self {
         *self / self.length()
     }
+    pub fn to_z1(&self) -> Self {
+        *self / self.z()
+    }
     pub fn abs(&self) -> Self {
         Vec3::new(self.x().abs(),self.y().abs(),self.z().abs())
     }

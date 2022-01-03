@@ -110,9 +110,10 @@ impl FrozenHittableList{
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
+        let dir_from_camera = self.m_world_to_camera.dot_v3(&r.dir).to_z1();
         $(for obj in &self.$traced_ident{
             //Short circuit when not the first_hit, avoid calling hit_bounding_box
-            let hit_bb = !first_hit || obj.hit_bounding_box(&self.m_world_to_camera.dot_v3(&r.dir).unit());
+            let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
             if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
@@ -120,7 +121,7 @@ impl FrozenHittableList{
             }
         })*
         for obj in &self.traced_objects{
-            let hit_bb = !first_hit || obj.hit_bounding_box(&self.m_world_to_camera.dot_v3(&r.dir).unit());
+            let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
             if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
