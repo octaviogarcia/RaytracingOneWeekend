@@ -124,13 +124,13 @@ impl Traced for Sphere {
         let p8 = p8/p8.z();
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
-        /*println!("{}",viewport_width);
+        println!("{}",viewport_width);
         println!("{}",viewport_height);
         println!("{:?}",minp);
-        println!("{:?}",maxp);*/
+        println!("{:?}",maxp);
         self.bounding_box = BoundingBox::new(
-            (minp.x() + 0.5*viewport_width)/viewport_width,(minp.y() + 0.5*viewport_height)/viewport_height,
-            (maxp.x() + 0.5*viewport_width)/viewport_width,(maxp.y()+ 0.5*viewport_height)/viewport_height,
+            (minp.x() + viewport_width)/(2.*viewport_width),(minp.y() + viewport_height)/(2.*viewport_height),
+            (maxp.x() + viewport_width)/(2.*viewport_width),(maxp.y() + viewport_height)/(2.*viewport_height),
         );//@BUG: Not working, I think the camera matrix is wrong
         println!("{:?}",self.bounding_box);
         //self.bounding_box = BoundingBox::draw_always();
