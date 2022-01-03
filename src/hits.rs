@@ -89,10 +89,10 @@ impl FrozenHittableList{
         let viewmat = cam.viewmatrix();
         let viewmat_inv = viewmat.fast_homogenous_inverse();
         $(for obj in &mut ret.$traced_ident{
-            obj.build_bounding_box(&viewmat_inv);
+            obj.build_bounding_box(&viewmat_inv,cam.viewport_width,cam.viewport_height,cam.focus_dist);
         })*
         for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
-           Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
+           Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv,cam.viewport_width,cam.viewport_height,cam.focus_dist);
         }
         $(for obj in &mut ret.$marched_ident{
             obj.build_bounding_box(&viewmat_inv);

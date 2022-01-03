@@ -18,7 +18,12 @@ pub struct Camera{
     w_of_plane: UnitVec3,//Normal unit plane vector
     lens_radius: f32,//How far is the focal point from the plane
     pub aspect_ratio: f32,
-    focus_dist: f32,
+    #[allow(dead_code)]
+    pub focus_dist: f32,
+    #[allow(dead_code)]
+    pub viewport_width: f32,
+    #[allow(dead_code)]
+    pub viewport_height: f32,
 }
 
 impl Camera{
@@ -46,9 +51,10 @@ impl Camera{
         let v   = viewport_height * v_of_plane;
 
         let llc = o - h/2. - v/2. - focus_dist*w_of_plane;
-
+        println!("Viewport {} by {} at {}",viewport_width,viewport_height,focus_dist);
         return Camera{ origin: o, horizontal: h, vertical: v, lower_left_corner: llc,
-            u_of_plane: u_of_plane,v_of_plane: v_of_plane,w_of_plane: w_of_plane, lens_radius: aperture / 2.0, aspect_ratio: aspect_ratio,focus_dist: focus_dist};
+            u_of_plane: u_of_plane,v_of_plane: v_of_plane,w_of_plane: w_of_plane, lens_radius: aperture / 2.0, aspect_ratio: aspect_ratio,
+            focus_dist: focus_dist,viewport_width: viewport_width,viewport_height: viewport_height};
     }
     pub fn get_ray(&self,u: f32,v: f32) -> Ray{
         let rand_in_lens = self.lens_radius * Vec3::rand_in_unit_disc();
@@ -70,7 +76,8 @@ impl Camera{
         //[u v w origin]
         //[0 0 0      1]
         let coords = Mat4x4::new_4vec_vert(
-            &Vec4::new_v3(&(self.horizontal)), &Vec4::new_v3(&(self.vertical)),&Vec4::new_v3(&(-self.w_of_plane*self.focus_dist)),&Vec4::new(0.,0.,0.,1.),
+            &Vec4::new_v3(&(self.u_of_plane)), &Vec4::new_v3(&(self.v_of_plane)),&Vec4::new_v3(&(-self.w_of_plane)),&Vec4::new(0.,0.,0.,1.),
+            //&Vec4::new_v3(&(self.horizontal)), &Vec4::new_v3(&(self.vertical)),&Vec4::new_v3(&(-self.w_of_plane*self.focus_dist)),&Vec4::new(0.,0.,0.,1.),
         );
         let translate = Mat4x4::new_translate(&self.origin);
         return translate.dot_mat(&coords);
