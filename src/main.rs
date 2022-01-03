@@ -130,7 +130,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 fn main() {
     //IMAGE
     let aspect_ratio: f32 = 3.0 / 2.0;
-    let image_width:    u32 = 500;
+    let image_width:    u32 = 1000;
     let image_width_f:  f32 = image_width as f32;
     let image_height_f: f32 = image_width_f/ aspect_ratio;
     let image_height:   u32 = image_height_f as u32;
@@ -138,19 +138,20 @@ fn main() {
 
     let camera: Camera;
     {
-        camera = Camera::world_camera(90.,aspect_ratio);
-        /*let lookfrom = Point3::new(13.,2.,3.);
+        //camera = Camera::world_camera(90.,aspect_ratio);
+        //camera = Camera::new(Point3::new(0.,2.,-2.),Point3::new(0.,0.,-2.),Point3::new(0.,0.,-1.),90.,aspect_ratio,0.,1.);
+        let lookfrom = Point3::new(13.,2.,3.);
         let lookat   = Point3::new(0.,0.,0.);
         let vup      =   Vec3::new(0.,1.,0.);
         let vfov = 20.;
         let aperture = 0.1;
         let dist_to_focus = 10.;
-        camera = Camera::new(lookfrom,lookat,vup,vfov,aspect_ratio,aperture,dist_to_focus);*/
+        camera = Camera::new(lookfrom,lookat,vup,vfov,aspect_ratio,aperture,dist_to_focus);
     }
 
     let samples_per_pixel: u32 = 200;
     let max_depth: u32 = 50;
-    let mut world = basic_scene();
+    let mut world = random_scene();
     let samples_atomic = AtomicU64::new(0);
     let arc_samples_atomic = Arc::new(samples_atomic);
     

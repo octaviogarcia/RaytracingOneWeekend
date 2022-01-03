@@ -51,7 +51,6 @@ impl Camera{
         let v   = viewport_height * v_of_plane;
 
         let llc = o - h/2. - v/2. - focus_dist*w_of_plane;
-        println!("Viewport {} by {} at {}",viewport_width,viewport_height,focus_dist);
         return Camera{ origin: o, horizontal: h, vertical: v, lower_left_corner: llc,
             u_of_plane: u_of_plane,v_of_plane: v_of_plane,w_of_plane: w_of_plane, lens_radius: aperture / 2.0, aspect_ratio: aspect_ratio,
             focus_dist: focus_dist,viewport_width: viewport_width,viewport_height: viewport_height};

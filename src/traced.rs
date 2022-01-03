@@ -22,9 +22,9 @@ impl BoundingBox {
     pub fn new(bottomleft_x: f32,bottomleft_y: f32,topright_x: f32,topright_y: f32) -> Self { 
         Self{bottomleft_x, bottomleft_y, topright_x, topright_y} 
     }
-    pub fn hit(&self,x: f32,y: f32) -> bool {
-        return self.bottomleft_x <= x && x <= self.topright_x 
-          &&   self.bottomleft_y <= y && y <= self.topright_y; 
+    pub fn hit(&self,dir: &Vec3) -> bool {
+        return self.bottomleft_x <= dir.x() && dir.x() <= self.topright_x 
+          &&   self.bottomleft_y <= dir.y() && dir.y() <= self.topright_y; 
     }
 }
 
@@ -65,7 +65,6 @@ impl Sphere {
         let p8 = self.m_local_to_world.dot_p3(&Point3::new(-1.,-1.,-1.));
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
-        println!("{:?}",BoundingBox3D{minp,maxp});
         return BoundingBox3D{minp,maxp};
     }
 }
@@ -74,7 +73,7 @@ pub trait Traced {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
     fn get_id(&self) -> u64;
     fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,viewport_width: f32,viewport_height: f32,focus_dist: f32) -> ();
-    fn hit_bounding_box(&self,x:f32,y:f32) -> bool;
+    fn hit_bounding_box(&self,dir: &Vec3) -> bool;
 }
 
 impl Traced for Sphere {
@@ -124,19 +123,13 @@ impl Traced for Sphere {
         let p8 = p8.unit();
         let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
-        /*println!("{}",viewport_width);
-        println!("{}",viewport_height);
-        println!("{:?}",minp);
-        println!("{:?}",maxp);*/
         self.bounding_box = BoundingBox::new(
             minp.x(),minp.y(),
             maxp.x(),maxp.y(),
-        );//@BUG: Not working, I think the camera matrix is wrong
-        println!("{:?}",self.bounding_box);
-        //self.bounding_box = BoundingBox::draw_always();
+        );
     }
-    fn hit_bounding_box(&self,x:f32,y:f32) -> bool{ 
-        self.bounding_box.hit(x,y) 
+    fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
+        self.bounding_box.hit(dir) 
     }
 }
 
@@ -180,7 +173,7 @@ impl Traced for InfinitePlane {
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
     fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {}
-    fn hit_bounding_box(&self,_x:f32,_y:f32) -> bool{ true }
+    fn hit_bounding_box(&self,_dir: &Vec3) -> bool{ true }
 }
 
 #[derive(Copy, Clone)]
@@ -272,7 +265,7 @@ impl <const BT: usize> Traced for Barycentric<BT> {
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
     fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {}
-    fn hit_bounding_box(&self,_x:f32,_y:f32) -> bool{ true }
+    fn hit_bounding_box(&self,_dir: &Vec3) -> bool{ true }
 }
 
 pub type Parallelogram = Barycentric<0>;
@@ -350,5 +343,5 @@ impl Traced for Cube {
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
     fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {}
-    fn hit_bounding_box(&self,_x:f32,_y:f32) -> bool{ true }
+    fn hit_bounding_box(&self,_dir: &Vec3) -> bool{ true }
 }

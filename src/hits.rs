@@ -32,6 +32,7 @@ pub struct FrozenHittableList{
     marched_objects: Vec<Arc<dyn Marched + Send + Sync>>,
     $($traced_ident: Vec<$traced>,)*
     $($marched_ident: Vec<$marched>,)*
+    m_world_to_camera: crate::math::mat4x4::Mat4x4,
 }
 
 impl HittableList {
@@ -80,14 +81,15 @@ const HIT_SIZE: f32 = 0.001;
 
 impl FrozenHittableList{
     pub fn new(hl: &mut HittableList,cam: &Camera) -> Self{
+        let viewmat = cam.viewmatrix();
+        let viewmat_inv = viewmat.fast_homogenous_inverse();
         let mut ret = Self{
             traced_objects: hl.traced_objects.clone(),
             marched_objects: hl.marched_objects.clone(),
             $($traced_ident: hl.$traced_ident.clone(),)*
             $($marched_ident: hl.$marched_ident.clone(),)*
+            m_world_to_camera: viewmat_inv,
         }; 
-        let viewmat = cam.viewmatrix();
-        let viewmat_inv = viewmat.fast_homogenous_inverse();
         $(for obj in &mut ret.$traced_ident{
             obj.build_bounding_box(&viewmat_inv,cam.viewport_width,cam.viewport_height,cam.focus_dist);
         })*
@@ -103,14 +105,14 @@ impl FrozenHittableList{
         return ret;
     }
 
-    pub fn hit(&self,first_hit: bool,r: &Ray,t_min: f32,t_max: f32,u:f32,v:f32) -> Option<HitRecord> {
+    pub fn hit(&self,first_hit: bool,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
         $(for obj in &self.$traced_ident{
             //Short circuit when not the first_hit, avoid calling hit_bounding_box
-            let hit_bb = !first_hit || obj.hit_bounding_box(r.dir.x(),r.dir.y());
+            let hit_bb = !first_hit || obj.hit_bounding_box(&self.m_world_to_camera.dot_v3(&r.dir).unit());
             if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
@@ -118,7 +120,7 @@ impl FrozenHittableList{
             }
         })*
         for obj in &self.traced_objects{
-            let hit_bb = !first_hit || obj.hit_bounding_box(r.dir.x(),r.dir.y());
+            let hit_bb = !first_hit || obj.hit_bounding_box(&self.m_world_to_camera.dot_v3(&r.dir).unit());
             if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
