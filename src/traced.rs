@@ -103,7 +103,7 @@ impl Traced for Sphere {
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,viewport_width: f32,viewport_height: f32,focus_dist: f32) -> () {
         //Since it could rotate, they are not guaranteed to keep being top-bottom/left-right
         let bb3d = self.build_world_bounding_box();
         let p1 = m_world_to_camera.dot_p3(&bb3d.minp);
@@ -114,24 +114,35 @@ impl Traced for Sphere {
         let p6 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.maxp.z()));
         let p7 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.maxp.y(),bb3d.minp.z()));
         let p8 = m_world_to_camera.dot_p3(&bb3d.maxp);
-        let p1 = p1.unit();
-        let p2 = p2.unit();
-        let p3 = p3.unit();
-        let p4 = p4.unit();
-        let p5 = p5.unit();
-        let p6 = p6.unit();
-        let p7 = p7.unit();
-        let p8 = p8.unit();
-        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
+        let p1 = p1 / p1.z();
+        let p2 = p2 / p2.z();
+        let p3 = p3 / p3.z();
+        let p4 = p4 / p4.z();
+        let p5 = p5 / p5.z();
+        let p6 = p6 / p6.z();
+        let p7 = p7 / p7.z();
+        let p8 = p8 / p8.z();
+        let lower_left_corner = Vec3::new(-viewport_width,-viewport_height,focus_dist);
+        let p1 = p1 - lower_left_corner;
+        let p2 = p2 - lower_left_corner;
+        let p3 = p3 - lower_left_corner;
+        let p4 = p4 - lower_left_corner;
+        let p5 = p5 - lower_left_corner;
+        let p6 = p6 - lower_left_corner;
+        let p7 = p7 - lower_left_corner;
+        let p8 = p8 - lower_left_corner;
+        let scale = Vec3::new(1./(focus_dist*viewport_width),1./(focus_dist*viewport_height),1.);
+        let p1 = p1*scale/2.;
+        let p2 = p2*scale/2.;
+        let p3 = p3*scale/2.;
+        let p4 = p4*scale/2.;
+        let p5 = p5*scale/2.;
+        let p6 = p6*scale/2.;
+        let p7 = p7*scale/2.;
+        let p8 = p8*scale/2.;
+        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));//Get the biggest square in (camera pov) plane z = -1
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
-        /*println!("{}",viewport_width);
-        println!("{}",viewport_height);
-        println!("{:?}",minp);
-        println!("{:?}",maxp);*/
-        self.bounding_box = BoundingBox::new(
-            minp.x(),minp.y(),
-            maxp.x(),maxp.y(),
-        );//@BUG: Not working, I think the camera matrix is wrong
+        self.bounding_box = BoundingBox::new(minp.x()-0.1,minp.y()-0.1,maxp.x()+0.1,maxp.y()+0.1);
         println!("{:?}",self.bounding_box);
         //self.bounding_box = BoundingBox::draw_always();
     }

@@ -76,10 +76,8 @@ impl Camera{
         //[u v w origin]
         //[0 0 0      1]
         let coords = Mat4x4::new_4vec_vert(
-            &Vec4::new_v3(&(self.u_of_plane)), &Vec4::new_v3(&(self.v_of_plane)),&Vec4::new_v3(&(-self.w_of_plane)),&Vec4::new(0.,0.,0.,1.),
-            //&Vec4::new_v3(&(self.horizontal)), &Vec4::new_v3(&(self.vertical)),&Vec4::new_v3(&(-self.w_of_plane*self.focus_dist)),&Vec4::new(0.,0.,0.,1.),
+            &Vec4::new_v3(&self.u_of_plane), &Vec4::new_v3(&self.v_of_plane),&Vec4::new_v3(&-self.w_of_plane),&Vec4::new_p3(&self.origin),
         );
-        let translate = Mat4x4::new_translate(&self.origin);
-        return translate.dot_mat(&coords);
+        return coords;
     }
 }

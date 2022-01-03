@@ -111,7 +111,7 @@ fn random_scene() -> HittableList{
 fn basic_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
-    world+=&Sphere::new_with_radius(&Point3::new(0.,  0.,-2.),1.,&mat_ground);
+    world+=&Sphere::new_with_radius(&Point3::new(-0., -0.,-2.),1.,&mat_ground);
     world+=&Sphere::new_with_radius(&Point3::new(-2., 0.,-2.),1.,&mat_ground);
     return world;
 }
@@ -129,7 +129,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 fn main() {
     //IMAGE
-    let aspect_ratio: f32 = 3.0 / 2.0;
+    let aspect_ratio: f32 = 2.0 / 2.0;
     let image_width:    u32 = 500;
     let image_width_f:  f32 = image_width as f32;
     let image_height_f: f32 = image_width_f/ aspect_ratio;
@@ -139,6 +139,8 @@ fn main() {
     let camera: Camera;
     {
         camera = Camera::world_camera(90.,aspect_ratio);
+        //camera = Camera::new(Point3::ZERO,Point3::new(0.,0.,-1.),Vec3::new(0.,1.,0.),90.,aspect_ratio,0.1,1.);
+        //camera = Camera::new(Point3::new(0.,2.,-2.),Point3::new(0.,0.,-2.),Vec3::new(0.,0.,-1.),120.,aspect_ratio,0.1,10.);
         /*let lookfrom = Point3::new(13.,2.,3.);
         let lookat   = Point3::new(0.,0.,0.);
         let vup      =   Vec3::new(0.,1.,0.);
