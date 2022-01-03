@@ -33,7 +33,61 @@ pub struct FrozenHittableList{
     $($traced_ident: Vec<$traced>,)*
     $($marched_ident: Vec<$marched>,)*
     m_world_to_camera: crate::math::mat4x4::Mat4x4,
+    //camera_hash: CameraHash, 
 }
+/*
+const MAX_OBJECTS_PER_CELL: usize = 20;
+
+#[derive(Copy,Clone)]
+struct CellList{
+    arr: [usize;MAX_OBJECTS_PER_CELL],
+    count: usize,
+}
+
+impl CellList {
+    pub fn new() -> Self { Self{arr: [0;MAX_OBJECTS_PER_CELL],count: 0} }
+    pub fn add(&mut self,idx: usize) -> () {
+        self.arr[self.count] = idx;
+        self.count+=1;
+    }
+}
+
+#[derive(Copy,Clone)]
+struct CameraHashCell{
+    pub traced_objects:   CellList,
+    pub marched_objects:  CellList,
+    pub $($traced_ident:  CellList,)*
+    pub $($marched_ident: CellList,)*
+}
+
+impl CameraHashCell {
+    pub fn new() -> Self { 
+        Self{ 
+            traced_objects:   CellList::new(),
+            marched_objects:  CellList::new(),
+            $($traced_ident:  CellList::new(),)*
+            $($marched_ident: CellList::new(),)*
+        }
+    }
+}
+
+const CAMERA_HASH_SIZE: usize = 100;
+
+struct CameraHash{
+    cells: [[CameraHashCell;CAMERA_HASH_SIZE];CAMERA_HASH_SIZE],
+    min: Vec3,
+    max: Vec3,
+}
+
+impl CameraHash{
+    pub fn new() -> Self {
+        Self{
+            cells: [[CameraHashCell::new();CAMERA_HASH_SIZE];CAMERA_HASH_SIZE],
+            min: Vec3::new(INF,INF,INF),
+            max: Vec3::new(-INF,-INF,-INF)
+        }
+    }
+}*/
 
 impl HittableList {
     pub fn new() -> Self{
@@ -89,6 +143,7 @@ impl FrozenHittableList{
             $($traced_ident: hl.$traced_ident.clone(),)*
             $($marched_ident: hl.$marched_ident.clone(),)*
             m_world_to_camera: viewmat_inv,
+            //camera_hash: CameraHash::new(),
         }; 
         $(for obj in &mut ret.$traced_ident{
             obj.build_bounding_box(&viewmat_inv,cam.viewport_width,cam.viewport_height,cam.focus_dist);
