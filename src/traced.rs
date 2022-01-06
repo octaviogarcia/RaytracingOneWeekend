@@ -1,6 +1,7 @@
 
 
 use crate::math::vec3::{Vec3,UnitVec3,Point3};
+use crate::math::vec4::{Vec4};
 use crate::math::mat3x3::{Mat3x3};
 use crate::math::mat4x4::{Mat4x4};
 use crate::utils::{INF};
@@ -9,7 +10,7 @@ use crate::hits::HitRecord;
 use crate::materials::Material;
 
 #[derive(Copy,Clone,Debug)]
-struct BoundingBox {
+pub struct BoundingBox {
     pub bottomleft_x: f32,
     pub bottomleft_y: f32,
     pub topright_x: f32,
@@ -17,7 +18,6 @@ struct BoundingBox {
 }
 
 impl BoundingBox {
-    //pub fn empty() -> Self { Self::new(0.,0.,0.,0.) }
     pub fn draw_always() -> Self { Self::new(-INF,-INF,INF,INF) }
     pub fn new(bottomleft_x: f32,bottomleft_y: f32,topright_x: f32,topright_y: f32) -> Self { 
         Self{bottomleft_x, bottomleft_y, topright_x, topright_y} 
@@ -29,9 +29,43 @@ impl BoundingBox {
 }
 
 #[derive(Copy,Clone,Debug)]
-struct BoundingBox3D {
+pub struct BoundingBox3D {
     pub minp: Point3,
     pub maxp: Point3,
+}
+
+impl BoundingBox3D {
+    pub fn draw_always() -> Self {Self::new(&Point3::new(-INF,-INF,-INF),&Point3::new(INF,INF,INF))}
+    pub fn new(minp: &Point3,maxp: &Point3) -> Self { Self{minp: *minp,maxp: *maxp} }
+    pub fn dot(&self,m: &Mat4x4) -> Self {
+        let p1 = m.dot_p3(&self.minp);
+        let p2 = m.dot_p3(&Point3::new(self.minp.x(),self.minp.y(),self.maxp.z()));
+        let p3 = m.dot_p3(&Point3::new(self.minp.x(),self.maxp.y(),self.minp.z()));
+        let p4 = m.dot_p3(&Point3::new(self.minp.x(),self.maxp.y(),self.maxp.z()));
+        let p5 = m.dot_p3(&Point3::new(self.maxp.x(),self.minp.y(),self.minp.z()));
+        let p6 = m.dot_p3(&Point3::new(self.maxp.x(),self.minp.y(),self.maxp.z()));
+        let p7 = m.dot_p3(&Point3::new(self.maxp.x(),self.maxp.y(),self.minp.z()));
+        let p8 = m.dot_p3(&self.maxp);
+        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
+        let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
+        return BoundingBox3D{minp,maxp};
+    }
+    pub fn to_bounding_box(&self,m_to_camera: &Mat4x4) -> BoundingBox{
+        let p1 = m_to_camera.dot_p3(&self.minp).to_z1();
+        let p2 = m_to_camera.dot_p3(&Point3::new(self.minp.x(),self.minp.y(),self.maxp.z())).to_z1();
+        let p3 = m_to_camera.dot_p3(&Point3::new(self.minp.x(),self.maxp.y(),self.minp.z())).to_z1();
+        let p4 = m_to_camera.dot_p3(&Point3::new(self.minp.x(),self.maxp.y(),self.maxp.z())).to_z1();
+        let p5 = m_to_camera.dot_p3(&Point3::new(self.maxp.x(),self.minp.y(),self.minp.z())).to_z1();
+        let p6 = m_to_camera.dot_p3(&Point3::new(self.maxp.x(),self.minp.y(),self.maxp.z())).to_z1();
+        let p7 = m_to_camera.dot_p3(&Point3::new(self.maxp.x(),self.maxp.y(),self.minp.z())).to_z1();
+        let p8 = m_to_camera.dot_p3(&self.maxp).to_z1();
+        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
+        let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
+        return BoundingBox::new(
+            minp.x(),minp.y(),
+            maxp.x(),maxp.y(),
+        );
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -53,25 +87,12 @@ impl Sphere {
         Sphere{m_local_to_world: m,m_word_to_local: m.fast_homogenous_inverse(),material: *mat
               ,bounding_box: BoundingBox::draw_always()}
     }
-    
-    fn build_world_bounding_box(&mut self) -> BoundingBox3D {
-        let p1 = self.m_local_to_world.dot_p3(&Point3::new( 1., 1., 1.));
-        let p2 = self.m_local_to_world.dot_p3(&Point3::new( 1., 1.,-1.));
-        let p3 = self.m_local_to_world.dot_p3(&Point3::new( 1.,-1., 1.));
-        let p4 = self.m_local_to_world.dot_p3(&Point3::new( 1.,-1.,-1.));
-        let p5 = self.m_local_to_world.dot_p3(&Point3::new(-1., 1., 1.));
-        let p6 = self.m_local_to_world.dot_p3(&Point3::new(-1., 1.,-1.));
-        let p7 = self.m_local_to_world.dot_p3(&Point3::new(-1.,-1., 1.));
-        let p8 = self.m_local_to_world.dot_p3(&Point3::new(-1.,-1.,-1.));
-        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
-        let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
-        return BoundingBox3D{minp,maxp};
-    }
 }
 
 pub trait Traced {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
     fn get_id(&self) -> u64;
+    fn build_world_bounding_box(&self) -> BoundingBox3D;
     fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,viewport_width: f32,viewport_height: f32,focus_dist: f32) -> ();
     fn hit_bounding_box(&self,dir_from_camera_in_z1: &Vec3) -> bool;
 }
@@ -102,23 +123,11 @@ impl Traced for Sphere {
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+    fn build_world_bounding_box(&self) -> BoundingBox3D {
+        return BoundingBox3D::new(&Point3::new(-1.,-1.,-1.),&Point3::new(1.,1.,1.)).dot(&self.m_local_to_world);
+    }
     fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {
-        //Since it could rotate, they are not guaranteed to keep being top-bottom/left-right
-        let bb3d = self.build_world_bounding_box();
-        let p1 = m_world_to_camera.dot_p3(&bb3d.minp).to_z1();
-        let p2 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.minp.y(),bb3d.maxp.z())).to_z1();
-        let p3 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.maxp.y(),bb3d.minp.z())).to_z1();
-        let p4 = m_world_to_camera.dot_p3(&Point3::new(bb3d.minp.x(),bb3d.maxp.y(),bb3d.maxp.z())).to_z1();
-        let p5 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.minp.z())).to_z1();
-        let p6 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.minp.y(),bb3d.maxp.z())).to_z1();
-        let p7 = m_world_to_camera.dot_p3(&Point3::new(bb3d.maxp.x(),bb3d.maxp.y(),bb3d.minp.z())).to_z1();
-        let p8 = m_world_to_camera.dot_p3(&bb3d.maxp).to_z1();
-        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
-        let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
-        self.bounding_box = BoundingBox::new(
-            minp.x(),minp.y(),
-            maxp.x(),maxp.y(),
-        );
+        self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
     }
     fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
         self.bounding_box.hit(dir) 
@@ -164,6 +173,7 @@ impl Traced for InfinitePlane {
         return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+    fn build_world_bounding_box(&self) -> BoundingBox3D { BoundingBox3D::draw_always() }
     fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {}
     fn hit_bounding_box(&self,_dir: &Vec3) -> bool{ true }
 }
@@ -176,9 +186,11 @@ pub struct Barycentric<const BT: usize>{
     pub v: UnitVec3,
     pub v_length: f32,
     pub uxv: UnitVec3,
+    pub uxvxu: UnitVec3,
     pub base_inv: Mat3x3,//Transforms a point (X,Y,Z) to the plane 2d coordinates
     pub v_in_base: Vec3,//Vec2, Z is 0 @SPEED
     pub material: Material,
+    pub bounding_box: BoundingBox,
 }
 
 //Current rust version doesn't suport direct const enum templates... so I use an usize...
@@ -192,8 +204,8 @@ impl <const BT: usize> Barycentric<BT> {
         let base_inv = Mat3x3::new_3vec_vert(&u_unit,&uxv,&uxvxu).transpose();//.inverse();
         let v_in_base = base_inv.dot(&v_unit);
         return Self{origin: *origin,material: *material,
-            u: u_unit,u_length: u_length,v: v_unit,v_length: v_length,uxv: uxv,
-            base_inv: base_inv, v_in_base: v_in_base
+            u: u_unit,u_length: u_length,v: v_unit,v_length: v_length,uxv: uxv,uxvxu: uxvxu,
+            base_inv: base_inv, v_in_base: v_in_base, bounding_box: BoundingBox::draw_always()
         };
     }
     pub fn new3points(origin: &Point3,upoint: &Point3,vpoint: &Point3,material: &Material) -> Self{
@@ -256,8 +268,23 @@ impl <const BT: usize> Traced for Barycentric<BT> {
         return self.hit_aux(r,t_min,t_max);
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {}
-    fn hit_bounding_box(&self,_dir: &Vec3) -> bool{ true }
+    fn build_world_bounding_box(&self) -> BoundingBox3D {
+        let a = self.u * self.u_length;
+        let b = self.uxvxu * ((self.v*self.v_length).dot(self.uxvxu));
+        let c = self.uxv;
+        let m_local_to_world = Mat4x4::new_4vec_vert(
+            &Vec4::new_v3(&a),&Vec4::new_v3(&b),&Vec4::new_v3(&c),&Vec4::new_p3(&self.origin)
+        );
+        let mul = 1. + (BT == 0) as u32 as f32;
+        let end = Point3::new(mul,mul,0.1);//@HACK: this may be wrong... didn't really think about it
+        return BoundingBox3D::new(&Point3::new(0.,0.,0.),&end).dot(&m_local_to_world);
+    }
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {
+        self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
+    }
+    fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
+        self.bounding_box.hit(dir) 
+    }
 }
 
 pub type Parallelogram = Barycentric<0>;
@@ -268,18 +295,19 @@ pub type Triangle = Barycentric<1>;
 pub struct Cube {
     pub m_local_to_world: Mat4x4,
     pub m_word_to_local: Mat4x4,
-    pub material: Material
+    pub material: Material,
+    pub bounding_box: BoundingBox,
 }
 impl Cube {
     #[allow(dead_code)]
     pub fn new(m_local_to_world: &Mat4x4,mat: &Material) -> Self{
-        Self{m_local_to_world: *m_local_to_world,m_word_to_local: m_local_to_world.fast_homogenous_inverse(),material: *mat}
+        Self{m_local_to_world: *m_local_to_world,m_word_to_local: m_local_to_world.fast_homogenous_inverse(),material: *mat,bounding_box: BoundingBox::draw_always()}
     }
     #[allow(dead_code)]
     pub fn new_with_length(o: &Point3,length: f32,mat: &Material) -> Self {
         let m = Mat4x4::new_translate(&o)
         .dot_mat(&Mat4x4::new_scale(&Vec3::new(length,length,length)));
-        Self{m_local_to_world: m,m_word_to_local: m.fast_homogenous_inverse(),material: *mat}
+        Self{m_local_to_world: m,m_word_to_local: m.fast_homogenous_inverse(),material: *mat,bounding_box: BoundingBox::draw_always()}
     }
 }
 /*
@@ -334,6 +362,13 @@ impl Traced for Cube {
         return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
     fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {}
-    fn hit_bounding_box(&self,_dir: &Vec3) -> bool{ true }
+    fn build_world_bounding_box(&self) -> BoundingBox3D {
+        return BoundingBox3D::new(&Point3::new(-1.,-1.,-1.),&Point3::new(1.,1.,1.)).dot(&self.m_local_to_world);
+    }
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {
+        self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
+    }
+    fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
+        self.bounding_box.hit(dir) 
+    }
 }
