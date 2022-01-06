@@ -241,20 +241,20 @@ impl FrozenHittableList{
         let mut new_t = t;
         let mut d = f32::INFINITY;
         let p = r.at(t);
-        let mut marched: Option<*const (dyn Marched + Send + Sync)> = None;
+        let mut marched: Option<&(dyn Marched + Send + Sync)> = None;
 
         $(for obj in &self.$marched_ident{
             let nd = obj.sdf(&p).abs();//Not an actual vtable call, just a normal fast function call
             if nd < d {
                 d = nd;
-                marched = Some(obj as *const (dyn Marched + Send + Sync));
+                marched = Some(obj);
             }
         })*
         for obj in &self.marched_objects {
             let nd = obj.sdf(&p).abs();
             if nd < d {
                 d = nd;
-                marched = Some(Arc::as_ptr(obj));
+                marched = Some(obj.as_ref());
             }
         }
 
@@ -262,7 +262,7 @@ impl FrozenHittableList{
         if marched.is_none() { return f32::INFINITY; }//No marched objects on the Scene... return what we already
         while aux < HIT_SIZE {
             new_t += MIN_STEP_SIZE;
-            aux = unsafe{marched.unwrap().as_ref()}.unwrap().sdf(&r.at(new_t)).abs();
+            aux = marched.unwrap().sdf(&r.at(new_t)).abs();
         }
         return new_t;
     }
