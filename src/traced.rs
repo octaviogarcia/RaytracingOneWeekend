@@ -4,7 +4,7 @@ use crate::math::vec3::{Vec3,UnitVec3,Point3};
 use crate::math::vec4::{Vec4};
 use crate::math::mat3x3::{Mat3x3};
 use crate::math::mat4x4::{Mat4x4};
-use crate::utils::{INF};
+use crate::utils::{INF,get_id};
 use crate::ray::Ray;
 use crate::hits::HitRecord;
 use crate::materials::Material;
@@ -33,7 +33,6 @@ impl Sphere {
 
 pub trait Traced: Bounded {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
-    fn get_id(&self) -> u64 { (self as *const Self as *const ()) as u64 }
 }
 
 impl Traced for Sphere {
@@ -59,7 +58,7 @@ impl Traced for Sphere {
         let point = self.m_local_to_world.dot_p3(&local_point);
         let outward_normal = self.m_local_to_world.dot_v3(&local_point).unit();
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
-        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
+        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: get_id(self)});
     }
 }
 
@@ -111,7 +110,7 @@ impl Traced for InfinitePlane {
         }
         let outward_normal = normal_against_direction(&self.normal,normal_dot_dir);
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
-        return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material,obj_id: self.get_id()});
+        return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material,obj_id: get_id(self)});
     }
 }
 impl Bounded for InfinitePlane {}
@@ -197,7 +196,7 @@ impl <const BT: usize> Barycentric<BT> {
             return None;
         }
         let outward_normal = normal_against_direction(&self.uxv,normal_dot_dir);
-        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
+        return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: get_id(self)});
     }
 }
 
@@ -298,7 +297,7 @@ impl Traced for Cube {
                                   *(1. as f32).copysign(new_r.at(smallest_t)[idx]);
         let point = self.m_local_to_world.dot_p3(&local_point);
         let outward_normal = self.m_local_to_world.dot_v3(&local_outward_normal);
-        return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
+        return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material,obj_id: get_id(self)});
     }
 }
 

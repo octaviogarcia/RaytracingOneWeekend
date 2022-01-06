@@ -106,3 +106,5 @@ impl BloomFilter {
         return ret;
     }
 }
+
+pub fn get_id<O: ?Sized>(obj: &O) -> u64 { (obj as *const O as *const ()) as u64 }

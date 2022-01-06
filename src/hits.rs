@@ -1,5 +1,5 @@
 use crate::math::vec3::{Vec3,UnitVec3,Point3};
-use crate::utils::INF;
+use crate::utils::{INF,get_id};
 use crate::ray::Ray;
 use crate::materials::Material;
 use crate::traced::*;
@@ -207,7 +207,7 @@ impl FrozenHittableList{
                     distance = d;
                     normal = obj.get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
                     material = Some(obj.material);
-                    id = obj.get_id();
+                    id = get_id(obj);
                 }
             })*
             for obj in &self.marched_objects {
@@ -218,7 +218,7 @@ impl FrozenHittableList{
                     distance = d;
                     normal = obj.get_outward_normal(&point);
                     material = Some(*obj.material());
-                    id = obj.get_id();
+                    id = get_id(obj.as_ref());
                 }
             }
 

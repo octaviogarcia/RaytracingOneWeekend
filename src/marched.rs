@@ -9,7 +9,6 @@ pub trait Marched: Bounded {
     fn get_outward_normal(&self,p: &Point3) -> Vec3;
     fn material(&self) -> &Material;
     fn center(&self) -> &Point3;
-    fn get_id(&self) -> u64 { (self as *const Self as *const ()) as u64 }
 }
 
 pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> UnitVec3{
