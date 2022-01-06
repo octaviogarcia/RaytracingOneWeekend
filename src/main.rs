@@ -25,6 +25,7 @@ mod materials;
 use materials::*;
 
 mod render_thread;
+mod bounding_box;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
