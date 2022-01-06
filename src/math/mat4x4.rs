@@ -121,6 +121,33 @@ impl Mat4x4 {
                   Vec4{e:[0.,0.,1.,0.]},
                   Vec4{e:[0.,0.,0.,1.]}] }
     }
+    //Decomposes into TRS, so if you invert them individually you need to apply like this S^-1 R^-1 T^-1
+    pub fn decompose_into_translate_rotate_scale(&self) -> (Self,Self,Self){
+        //@WARNING: Doesn't work if scaling is negative (or shearing... I think)!!! maybe assert() on the auxiliary creation functions
+        let a = self.at_col(0).xyz();
+        let b = self.at_col(1).xyz();
+        let c = self.at_col(2).xyz();
+        let d = self.at_col(3).xyz();
+        let al = a.length();
+        let bl = b.length();
+        let cl = c.length();
+        let translate = Mat4x4::new_4vec_vert(
+            &Vec4::new(1.,0.,0.,0.),&Vec4::new(0.,1.,0.,0.),&Vec4::new(0.,0.,1.,0.),&Vec4::new_p3(&d)
+        );
+        let rotate    = Mat4x4::new_4vec_vert(
+            &Vec4::new_v3(&(a/al)),&Vec4::new_v3(&(b/bl)),&Vec4::new_v3(&(c/cl)),&Vec4::new_p3(&Vec3::ZERO)
+        );
+        let scale     = Mat4x4::new_4vec(
+            &Vec4::new(al,0.,0.,0.),
+            &Vec4::new(0.,bl,0.,0.),
+            &Vec4::new(0.,0.,cl,0.),
+            &Vec4::new(0.,0.,0.,1.),
+        ); 
+        return (translate,rotate,scale);
+    }
+    pub fn diag(&self) -> Vec4{
+        return Vec4::new(self.at_row(0).x(),self.at_row(1).y(),self.at_row(2).z(),self.at_row(3).w());
+    }
 }
 
 use std::ops::{Mul,Div,BitXor};

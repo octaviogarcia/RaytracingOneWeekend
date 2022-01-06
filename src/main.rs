@@ -71,19 +71,13 @@ fn random_scene() -> HittableList{
     }
     {
         let mat = Material::new_dielectric(1.5);
-        //world+=&Sphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat};
-        //world+=&MarchedSphere{center: Point3::new(0.,1.,0.), radius: 1., material: mat};
-        //world+=&MarchedBox{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat};
         //world+=Arc::new(MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat}) as Arc<dyn Marched + Send + Sync>;
-        world+=&MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat};
-        //world+=&InfinitePlane{center: Point3::new(0.,1.,0.),normal: Vec3::new(0.,0.,1.), material: mat};
+        let local_to_world = m4x4!(TR 0.,1.,0.)
+        ^m4x4!(RX f32::rand()*2.*PI)^m4x4!(RY f32::rand()*2.*PI)^m4x4!(RZ f32::rand()*2.*PI)
+        ^m4x4!(SC f32::rand()+1.,f32::rand()+1.,f32::rand()+1.);//Scale randomly
+        world+=&MarchedTorus::new(&local_to_world,&Vec3::new(0.5,0.1,0.1),&mat);
     }
     {
-        //let mat = Material::new_lambertian(Color::new(0.4,0.2,0.1));
-        //world+=&Sphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat};
-        //world+=&MarchedSphere{center: Point3::new(-4.,1.,0.), radius: 1., material: mat};
-        //world+=&MarchedBox{center: Point3::new(-4.,1.,0.), sizes: Vec3::new(0.3,0.3,0.3), material: mat};
-        //world+=&InfinitePlane::new(&Point3::new(-4.,1.,0.),&Vec3::new(0.,0.,1.),&mat};
         let p1 = Point3::new(7.,1.,0.);
         let p2 = Point3::new(6.,1.1,0.5);
         let p3 = Point3::new(6.,1.5,0.);
@@ -96,14 +90,9 @@ fn random_scene() -> HittableList{
     }
     {
         let mat = Material::new_metal(Color::new(0.7,0.6,0.5));
-        //world+=&Sphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat};
-        //world+=&MarchedSphere{center: Point3::new(4.,1.,0.), radius: 1., material: mat};
-        //world+=&MarchedBox{center: Point3::new(4.,1.,0.), sizes: Vec3::new(0.5,0.5,0.5), material: mat};
         let m_local_to_world = m4x4!(TR 4.,1.,0.)//Move it
         ^m4x4!(RX f32::rand()*2.*PI)^m4x4!(RY f32::rand()*2.*PI)^m4x4!(RZ f32::rand()*2.*PI);//Rotate randomly
         world+=&Cube::new(&m_local_to_world,&mat);
-        //world+=&Cube::new_with_length(&Point3::new(4.,1.,0.),1.,&mat);
-        //world+=&InfinitePlane{center: Point3::new(4.,1.,0.),normal: Vec3::new(0.,0.,1.), material:  Material::new_metal(Color::new(1.,1.,1.))};
     }
     return world;
 }

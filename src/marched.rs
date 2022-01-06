@@ -1,5 +1,6 @@
 
 use crate::math::vec3::{Vec3,UnitVec3,Point3};
+use crate::math::mat4x4::Mat4x4;
 use crate::ray::Ray;
 use crate::materials::Material;
 use crate::bounding_box::*;
@@ -8,7 +9,7 @@ pub trait Marched: Bounded {
     fn sdf(&self,p: &Point3) -> f32;
     fn get_outward_normal(&self,p: &Point3) -> Vec3;
     fn material(&self) -> &Material;
-    fn center(&self) -> &Point3;
+    fn center(&self) -> Point3;
 }
 
 pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> UnitVec3{
@@ -22,7 +23,7 @@ pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> UnitVec
     let normal = Vec3::new(x,y,z).unit();
 
     //Flip the sign so always the SDF grows in the direction of the normal
-    let test_ray = Ray::new(marched.center(),&normal);
+    let test_ray = Ray::new(&marched.center(),&normal);
     let start     = test_ray.at(0.);
     let start_val = marched.sdf(&start);
     let end     = test_ray.at(1.);
@@ -49,8 +50,8 @@ impl Marched for MarchedSphere {
     fn material(&self) -> &Material{
         return &self.material;
     }
-    fn center(&self) -> &Point3{
-        return &self.center;
+    fn center(&self) -> Point3{
+        return self.center;
     }
 }
 impl Bounded for MarchedSphere {}
@@ -73,24 +74,50 @@ impl Marched for MarchedBox {
     fn material(&self) -> &Material{
         return &self.material;
     }
-    fn center(&self) -> &Point3{
-        return &self.center;
+    fn center(&self) -> Point3{
+        return self.center;
     }
 }
 impl Bounded for MarchedBox {}
 
 #[derive(Copy, Clone)]
 pub struct MarchedTorus {
-    pub center: Point3,
+    pub m_local_to_world_translate_rotate: Mat4x4,
+    pub m_world_to_local_translate_rotate: Mat4x4,
+    pub m_local_to_world_scale: Vec3,
+    pub m_world_to_local_scale: Vec3,
     pub sizes: Vec3,//Vec2... actualy
     pub material: Material
 }
 
-impl Marched for MarchedTorus {
-    fn sdf(&self,p: &Point3) -> f32 {
-        let p2 = *p - self.center;
+impl MarchedTorus {
+    pub fn new(m_local_to_world: &Mat4x4,local_sizes: &Vec3,mat: &Material) -> Self{
+        let (t,r,s) = m_local_to_world.decompose_into_translate_rotate_scale();//TRS
+        let translate_rotate = t.dot_mat(&r);//TR
+        let scale = s.diag().xyz();
+        let scale_inv = Vec3::new(1./scale.x(),1./scale.y(),1./scale.z());
+        Self{
+            m_local_to_world_translate_rotate: translate_rotate,//TR
+            m_world_to_local_translate_rotate: translate_rotate.fast_homogenous_inverse(),//R^-1 T^-1
+            m_local_to_world_scale: scale,
+            m_world_to_local_scale: scale_inv,
+            sizes: *local_sizes,
+            material: *mat
+        }
+    }
+    fn local_sdf(&self,p: &Point3) -> f32 {
+        let p2 = *p;//- center, that is Point3::ZERO in local coords
         let q = Vec3::new(Vec3::new(p2.x(),p2.z(),0.).length()-self.sizes.x(),p2.y(),0.);
         return q.length() - self.sizes.y();
+    }
+}
+
+impl Marched for MarchedTorus {
+    fn sdf(&self,p: &Point3) -> f32 {
+        //http://jamie-wong.com/2016/07/15/ray-marching-signed-distance-functions/#non-uniform-scaling-and-beyond
+        let local_point = self.m_world_to_local_translate_rotate.dot_p3(&(*p*self.m_world_to_local_scale));
+        let min_scale = self.m_local_to_world_scale.min_val();//@SPEED: if non uniform scaling, the marching is suboptimal
+        return self.local_sdf(&local_point)*min_scale;
     }
     fn get_outward_normal(&self,p: &Point3) -> Vec3 {
         return get_outward_numeric_normal(self,p);
@@ -98,8 +125,8 @@ impl Marched for MarchedTorus {
     fn material(&self) -> &Material{
         return &self.material;
     }
-    fn center(&self) -> &Point3{
-        return &self.center;
+    fn center(&self) -> Point3{
+        return self.m_local_to_world_translate_rotate.dot_p3(&Point3::ZERO);
     }
 }
 impl Bounded for MarchedTorus {}
