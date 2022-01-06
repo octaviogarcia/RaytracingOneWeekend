@@ -5,6 +5,7 @@ use crate::materials::Material;
 use crate::traced::*;
 use crate::marched::*;
 use crate::camera::Camera;
+use crate::bounding_box::Bounded;
 
 pub struct HitRecord {
     pub point: Point3,
@@ -146,10 +147,10 @@ impl FrozenHittableList{
             //camera_hash: CameraHash::new(),
         }; 
         $(for obj in &mut ret.$traced_ident{
-            obj.build_bounding_box(&viewmat_inv,cam.viewport_width,cam.viewport_height,cam.focus_dist);
+            obj.build_bounding_box(&viewmat_inv);
         })*
         for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
-           Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv,cam.viewport_width,cam.viewport_height,cam.focus_dist);
+           Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
         }
         $(for obj in &mut ret.$marched_ident{
             obj.build_bounding_box(&viewmat_inv);
@@ -190,6 +191,7 @@ impl FrozenHittableList{
             return rec;
         }
         let mut max_march_iter = 1024;
+
         while t < t_max && t < closest_so_far && max_march_iter > 0 {
             max_march_iter-=1;
             let point = r.at(t);
@@ -198,7 +200,7 @@ impl FrozenHittableList{
             let mut id       = 0;
             let mut material: Option<Material> = None;
             $(for obj in &self.$marched_ident{
-                let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
+                let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
                 if !hit_bb { continue; }
                 let d = obj.sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
                 if d < distance {
@@ -209,7 +211,7 @@ impl FrozenHittableList{
                 }
             })*
             for obj in &self.marched_objects {
-                let hit_bb = !first_hit || obj.hit_bounding_box(r,t_min,closest_so_far);
+                let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
                 if !hit_bb { continue; }
                 let d = obj.sdf(&point).abs();
                 if d < distance {

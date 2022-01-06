@@ -31,12 +31,9 @@ impl Sphere {
     }
 }
 
-pub trait Traced {
+pub trait Traced: Bounded {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord>;
-    fn get_id(&self) -> u64;
-    fn build_world_bounding_box(&self) -> BoundingBox3D;
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,viewport_width: f32,viewport_height: f32,focus_dist: f32) -> ();
-    fn hit_bounding_box(&self,dir_from_camera_in_z1: &Vec3) -> bool;
+    fn get_id(&self) -> u64 { (self as *const Self as *const ()) as u64 }
 }
 
 impl Traced for Sphere {
@@ -64,11 +61,13 @@ impl Traced for Sphere {
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
         return Some(HitRecord{t: root,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
-    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+}
+
+impl Bounded for Sphere {
     fn build_world_bounding_box(&self) -> BoundingBox3D {
         return BoundingBox3D::new(&Point3::new(-1.,-1.,-1.),&Point3::new(1.,1.,1.)).dot(&self.m_local_to_world);
     }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> () {
         self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
     }
     fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
@@ -114,11 +113,8 @@ impl Traced for InfinitePlane {
         //Maybe its faster to send some sort of reference/pointer to material? Probably not, since its so small
         return Some(HitRecord{t: root,point: r.at(root),normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
-    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
-    fn build_world_bounding_box(&self) -> BoundingBox3D { BoundingBox3D::draw_always() }
-    fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {}
-    fn hit_bounding_box(&self,_dir: &Vec3) -> bool{ true }
 }
+impl Bounded for InfinitePlane {}
 
 #[derive(Copy, Clone)]
 pub struct Barycentric<const BT: usize>{
@@ -209,7 +205,8 @@ impl <const BT: usize> Traced for Barycentric<BT> {
     fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         return self.hit_aux(r,t_min,t_max);
     }
-    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+}
+impl <const BT: usize> Bounded for Barycentric<BT>{
     fn build_world_bounding_box(&self) -> BoundingBox3D {
         let a = self.u * self.u_length;
         let b = self.uxvxu * ((self.v*self.v_length).dot(self.uxvxu));
@@ -221,7 +218,7 @@ impl <const BT: usize> Traced for Barycentric<BT> {
         let end = Point3::new(mul,mul,0.1);//@HACK: this may be wrong... didn't really think about it
         return BoundingBox3D::new(&Point3::new(0.,0.,0.),&end).dot(&m_local_to_world);
     }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> () {
         self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
     }
     fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
@@ -303,11 +300,13 @@ impl Traced for Cube {
         let outward_normal = self.m_local_to_world.dot_v3(&local_outward_normal);
         return Some(HitRecord{t: smallest_t,point: point,normal: outward_normal,material: self.material,obj_id: self.get_id()});
     }
-    fn get_id(&self) -> u64 { (self as *const Self) as u64 }
+}
+
+impl Bounded for Cube {
     fn build_world_bounding_box(&self) -> BoundingBox3D {
         return BoundingBox3D::new(&Point3::new(-1.,-1.,-1.),&Point3::new(1.,1.,1.)).dot(&self.m_local_to_world);
     }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4,_viewport_width: f32,_viewport_height: f32,_focus_dist: f32) -> () {
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> () {
         self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
     }
     fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
