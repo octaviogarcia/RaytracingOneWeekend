@@ -26,6 +26,7 @@ use materials::*;
 
 mod render_thread;
 mod bounding_box;
+mod camera_hash;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
