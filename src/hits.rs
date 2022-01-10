@@ -192,6 +192,30 @@ impl FrozenHittableList{
         }
         let mut max_march_iter = 1024;
 
+        //@SPEED: Replace this with a geohash at construction
+        $(
+            let mut $marched_ident: ([usize; 16],usize) = ([0;16],0);
+            let mut idx = 0;
+            for obj in &self.$marched_ident{
+                let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
+                if hit_bb {
+                    $marched_ident.0[$marched_ident.1] = idx;
+                    $marched_ident.1 += 1;
+                }
+                idx+=1;
+            }
+        )*
+        let mut marched_objects: ([usize; 16],usize) = ([0;16],0);
+        let mut idx = 0;
+        for obj in &self.marched_objects{
+            let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
+            if hit_bb {
+                marched_objects.0[marched_objects.1] = idx;
+                marched_objects.1 += 1;
+            }
+            idx+=1;
+        }
+
         while t < t_max && t < closest_so_far && max_march_iter > 0 {
             max_march_iter-=1;
             let point = r.at(t);
@@ -199,26 +223,26 @@ impl FrozenHittableList{
             let mut normal   = Vec3::ZERO;
             let mut id       = 0;
             let mut material: Option<Material> = None;
-            $(for obj in &self.$marched_ident{
-                let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
-                if !hit_bb { continue; }
-                let d = obj.sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
-                if d < distance {
-                    distance = d;
-                    normal = obj.get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
-                    material = Some(obj.material);
-                    id = get_id(obj);
+            $(
+                for idx_idx in 0..$marched_ident.1{
+                    let idx = $marched_ident.0[idx_idx];
+                    let d = self.$marched_ident[idx].sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
+                    if d < distance {
+                        distance = d;
+                        normal = self.$marched_ident[idx].get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
+                        material = Some(self.$marched_ident[idx].material);
+                        id = get_id(&self.$marched_ident[idx]);
+                    }
                 }
-            })*
-            for obj in &self.marched_objects {
-                let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
-                if !hit_bb { continue; }
-                let d = obj.sdf(&point).abs();
+            )*
+            for idx_idx in 0..marched_objects.1{
+                let idx = marched_objects.0[idx_idx];
+                let d = self.marched_objects[idx].sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
                 if d < distance {
                     distance = d;
-                    normal = obj.get_outward_normal(&point);
-                    material = Some(*obj.material());
-                    id = get_id(obj.as_ref());
+                    normal = self.marched_objects[idx].get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
+                    material = Some(*self.marched_objects[idx].material());
+                    id = get_id(self.marched_objects[idx].as_ref());
                 }
             }
 

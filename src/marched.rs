@@ -44,7 +44,7 @@ pub trait Marched: Bounded {
     }
 }
 //For now, just always draw the marched
-impl<T: Marched> Bounded for T {}
+
 
 #[derive(Copy, Clone)]
 pub struct MarchedSphere {
@@ -52,7 +52,7 @@ pub struct MarchedSphere {
     pub radius: f32,
     pub material: Material
 }
-
+impl Bounded for MarchedSphere {}
 impl Marched for MarchedSphere {
     fn local_sdf(&self,p: &Point3) -> f32 {
         return p.length() - self.radius;
@@ -81,7 +81,7 @@ pub struct MarchedBox {
     pub sizes: Vec3,
     pub material: Material
 }
-
+impl Bounded for MarchedBox {}
 impl Marched for MarchedBox {
     fn local_sdf(&self,p: &Point3) -> f32 {
         let q = p.abs() - self.sizes;
@@ -108,7 +108,8 @@ pub struct MarchedTorus {
     pub m_local_to_world_scale: Vec4,
     pub m_world_to_local_scale: Vec4,
     pub sizes: Vec3,//Vec2... actualy
-    pub material: Material
+    pub material: Material,
+    pub bounding_box: BoundingBox,
 }
 
 impl MarchedTorus {
@@ -123,7 +124,8 @@ impl MarchedTorus {
             m_local_to_world_scale: scale,
             m_world_to_local_scale: scale_inv,
             sizes: *local_sizes,
-            material: *mat
+            material: *mat,
+            bounding_box: BoundingBox::draw_always(),
         }
     }
 }
@@ -145,5 +147,19 @@ impl Marched for MarchedTorus {
     }
     fn to_world_f(&self,f: f32) -> f32{//http://jamie-wong.com/2016/07/15/ray-marching-signed-distance-functions/#non-uniform-scaling-and-beyond
         return f*self.m_local_to_world_scale.xyz().min_val();
+    }
+}
+impl Bounded for MarchedTorus {
+    fn build_world_bounding_box(&self) -> BoundingBox3D {
+        let size = self.sizes.x().max(self.sizes.y());
+        let vsize = Vec3::new(size,size,size)*self.m_local_to_world_scale.xyz();
+        let bb = BoundingBox3D::new(&-vsize,&vsize).dot(&self.m_local_to_world_translate_rotate);
+        return bb;
+    }
+    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> () {
+        self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
+    }
+    fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
+        self.bounding_box.hit(dir) 
     }
 }
