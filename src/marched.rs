@@ -12,15 +12,13 @@ pub trait Marched: Bounded {
     fn to_world_f(&self,f: f32) -> f32;
     fn local_sdf(&self,p: &Point3) -> f32;
     fn sdf(&self,p: &Point3) -> f32{
-        let p = self.to_local(&Vec4::new_p3(p));
-        let local_sdf = self.local_sdf(&p.xyz());
+        let p = self.to_local(&Vec4::new_p3(p)).xyz();
+        let local_sdf = self.local_sdf(&p);
         return self.to_world_f(local_sdf);
-        /*let n = Vec4::new_v3(&self.get_outward_local_normal(&p.xyz()));
-        let world_n = self.to_world(&n).xyz().unit();*/
     }
     fn get_outward_normal(&self,p: &Point3) -> UnitVec3{
-        let p = self.to_local(&Vec4::new_p3(p));
-        let n = Vec4::new_v3(&self.get_outward_local_normal(&p.xyz()));
+        let p = self.to_local(&Vec4::new_p3(p)).xyz();
+        let n = Vec4::new_v3(&self.get_outward_local_normal(&p));
         let world_n = self.to_world(&n);
         return world_n.xyz().unit();
     }
@@ -34,13 +32,13 @@ pub trait Marched: Bounded {
         let z = self.local_sdf(&(*p+ez)) - self.local_sdf(&(*p-ez));
         let normal = Vec3::new(x,y,z).unit();
         //Flip the sign so always the SDF grows in the direction of the normal
-        // This should work in local and word coords as long its concave
+        // This should work in local and word coords as long its convex
         // and there is no inversion or shearing or something like that
         let test_ray = Ray::new(&Point3::ZERO,&normal);//Ray::new(&self.center(),&normal);
         let start     = test_ray.at(0.);
-        let start_val = self.sdf(&start);
+        let start_val = self.local_sdf(&start);
         let end     = test_ray.at(1.);
-        let end_val = self.sdf(&end);
+        let end_val = self.local_sdf(&end);
         let sign = [-1.,1.][(end_val > start_val) as usize];//If it grows, keep the sign. Else flip it
         return normal*sign;
     }
@@ -67,10 +65,10 @@ impl Marched for MarchedSphere {
         return &self.material;
     }
     fn to_local(&self,p: &Vec4) -> Vec4 {
-        return *p - Vec4::new_v3(&self.center);
+        return *p - p.w()*Vec4::new_v3(&self.center);
     }
     fn to_world(&self,p: &Vec4) -> Vec4{
-        return *p + Vec4::new_v3(&self.center);
+        return *p + p.w()*Vec4::new_v3(&self.center);
     }
     fn to_world_f(&self,f: f32) -> f32{
         return f;
@@ -93,10 +91,10 @@ impl Marched for MarchedBox {
         return &self.material;
     }
     fn to_local(&self,p: &Vec4) -> Vec4 {
-        return *p - Vec4::new_v3(&self.center);
+        return *p - p.w()*Vec4::new_v3(&self.center);
     }
     fn to_world(&self,p: &Vec4) -> Vec4{
-        return *p + Vec4::new_v3(&self.center);
+        return *p + p.w()*Vec4::new_v3(&self.center);
     }
     fn to_world_f(&self,f: f32) -> f32{
         return f;
@@ -145,7 +143,7 @@ impl Marched for MarchedTorus {
     fn to_world(&self,p: &Vec4) -> Vec4{
         return self.m_local_to_world_translate_rotate.dot(p)*self.m_local_to_world_scale;
     }
-    fn to_world_f(&self,f: f32) -> f32{
+    fn to_world_f(&self,f: f32) -> f32{//http://jamie-wong.com/2016/07/15/ray-marching-signed-distance-functions/#non-uniform-scaling-and-beyond
         return f*self.m_local_to_world_scale.xyz().min_val();
     }
 }
