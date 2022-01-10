@@ -64,6 +64,7 @@ impl BoundingBox3D {
 
 pub trait Bounded {
     fn build_world_bounding_box(&self) -> BoundingBox3D { BoundingBox3D::draw_always() }
-    fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4) -> () {}
+    fn build_bounding_box(&mut self,_m_world_to_camera: &Mat4x4) -> BoundingBox { BoundingBox::draw_always() }
+    fn get_bounding_box(&self) -> BoundingBox { BoundingBox::draw_always() }
     fn hit_bounding_box(&self,_dir: &Vec3) -> bool{ true }
 }

@@ -37,13 +37,19 @@ impl CameraHash{
             topright_y: -INF,
         }
     }
-    pub fn set_size(&mut self,bb: &BoundingBox) -> (){
+    pub fn set_borders(&mut self,bb: &BoundingBox) -> (){
+        if self.bottomleft_x.is_infinite() || self.bottomleft_y.is_infinite() 
+        || self.topright_x.is_infinite()   || self.topright_y.is_infinite(){
+            return;
+        }
         self.bottomleft_x = bb.bottomleft_x.min(self.bottomleft_x);
         self.bottomleft_y = bb.bottomleft_y.min(self.bottomleft_y);
         self.topright_x   = bb.topright_x.max(self.topright_x);
         self.topright_y   = bb.topright_y.max(self.topright_y);
     }
     pub fn add(&mut self,obj_idx: usize,bb: &BoundingBox) -> (){
+        assert!(self.bottomleft_x.is_finite() && self.bottomleft_y.is_finite() 
+        &&      self.topright_x.is_finite()   && self.topright_y.is_finite());
         let x_step = (self.topright_x-self.bottomleft_x)/(CAMERA_HASH_SIZE as f32);
         let y_step = (self.topright_y-self.bottomleft_y)/(CAMERA_HASH_SIZE as f32);
         let min_i = (bb.bottomleft_x/x_step) as usize;

@@ -35,8 +35,8 @@ pub struct FrozenHittableList{
     $($traced_ident: Vec<$traced>,)*
     $($marched_ident: Vec<$marched>,)*
     m_world_to_camera: crate::math::mat4x4::Mat4x4,
-    #[allow(dead_code)]
-    camera_hash: CameraHashes, 
+    //#[allow(dead_code)]
+    //camera_hash: CameraHashes, 
 }
 
 pub struct CameraHashes{
@@ -118,7 +118,7 @@ impl FrozenHittableList{
             $($traced_ident: hl.$traced_ident.clone(),)*
             $($marched_ident: hl.$marched_ident.clone(),)*
             m_world_to_camera: viewmat_inv,
-            camera_hash: CameraHashes::new(),
+            //camera_hash: CameraHashes::new(),
         }; 
         $(
             for obj in &mut ret.$traced_ident{
@@ -126,7 +126,7 @@ impl FrozenHittableList{
             }
         )*
         for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
-           Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
+            Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
         }
         $(
             for obj in &mut ret.$marched_ident{
@@ -136,6 +136,7 @@ impl FrozenHittableList{
         for obj in &mut ret.marched_objects {
             Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
         }
+
         return ret;
     }
 
