@@ -70,10 +70,10 @@ fn random_scene() -> HittableList{
         }
     }
     {
-        let mat = Material::new_dielectric(1.5);
+        let mat = Material::new_lambertian(Color::new(0.5,0.5,0.5));//Material::new_dielectric(1.5);
         //world+=Arc::new(MarchedTorus{center: Point3::new(0.,1.,0.), sizes: Vec3::new(0.5,0.1,0.1), material: mat}) as Arc<dyn Marched + Send + Sync>;
         let local_to_world = m4x4!(TR 0.,1.,0.)
-        ^m4x4!(SC 1.,2.,1.)//@BUG: Not rendering properly, maybe the algoritm doesn't handle scaling after rotating(?)
+        //^m4x4!(SC 1.,2.,1.)//@BUG: Not rendering properly, maybe the algoritm doesn't handle scaling after rotating(?)
         ^m4x4!(RX 0.6)^m4x4!(RZ 1.33*2.*PI);
         world+=&MarchedTorus::new(&local_to_world,&Vec3::new(0.5,0.1,0.1),&mat);
     }

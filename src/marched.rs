@@ -1,36 +1,52 @@
 
 use crate::math::vec3::{Vec3,UnitVec3,Point3};
 use crate::math::mat4x4::Mat4x4;
+use crate::math::vec4::Vec4;
 use crate::ray::Ray;
 use crate::materials::Material;
 use crate::bounding_box::*;
-
 pub trait Marched: Bounded {
-    fn sdf(&self,p: &Point3) -> f32;
-    fn get_outward_normal(&self,p: &Point3) -> Vec3;
     fn material(&self) -> &Material;
-    fn center(&self) -> Point3;
+    fn to_local(&self,p: &Vec4) -> Vec4;
+    fn to_world(&self,p: &Vec4) -> Vec4;
+    fn to_world_f(&self,f: f32) -> f32;
+    fn local_sdf(&self,p: &Point3) -> f32;
+    fn sdf(&self,p: &Point3) -> f32{
+        let p = self.to_local(&Vec4::new_p3(p));
+        let local_sdf = self.local_sdf(&p.xyz());
+        return self.to_world_f(local_sdf);
+        /*let n = Vec4::new_v3(&self.get_outward_local_normal(&p.xyz()));
+        let world_n = self.to_world(&n).xyz().unit();*/
+    }
+    fn get_outward_normal(&self,p: &Point3) -> UnitVec3{
+        let p = self.to_local(&Vec4::new_p3(p));
+        let n = Vec4::new_v3(&self.get_outward_local_normal(&p.xyz()));
+        let world_n = self.to_world(&n);
+        return world_n.xyz().unit();
+    }
+    fn get_outward_local_normal(&self,p: &Point3) -> UnitVec3 {
+        let eps = 0.0000001;
+        let ex = Point3::new(eps, 0., 0.);
+        let ey = Point3::new( 0.,eps, 0.);
+        let ez = Point3::new( 0., 0.,eps);
+        let x = self.local_sdf(&(*p+ex)) - self.local_sdf(&(*p-ex));
+        let y = self.local_sdf(&(*p+ey)) - self.local_sdf(&(*p-ey));
+        let z = self.local_sdf(&(*p+ez)) - self.local_sdf(&(*p-ez));
+        let normal = Vec3::new(x,y,z).unit();
+        //Flip the sign so always the SDF grows in the direction of the normal
+        // This should work in local and word coords as long its concave
+        // and there is no inversion or shearing or something like that
+        let test_ray = Ray::new(&Point3::ZERO,&normal);//Ray::new(&self.center(),&normal);
+        let start     = test_ray.at(0.);
+        let start_val = self.sdf(&start);
+        let end     = test_ray.at(1.);
+        let end_val = self.sdf(&end);
+        let sign = [-1.,1.][(end_val > start_val) as usize];//If it grows, keep the sign. Else flip it
+        return normal*sign;
+    }
 }
-
-pub fn get_outward_numeric_normal<M: Marched>(marched: &M,p: &Point3) -> UnitVec3{
-    let eps = 0.0000001;
-    let ex = Point3::new(eps, 0., 0.);
-    let ey = Point3::new( 0.,eps, 0.);
-    let ez = Point3::new( 0., 0.,eps);
-    let x = marched.sdf(&(*p+ex)) - marched.sdf(&(*p-ex));
-    let y = marched.sdf(&(*p+ey)) - marched.sdf(&(*p-ey));
-    let z = marched.sdf(&(*p+ez)) - marched.sdf(&(*p-ez));
-    let normal = Vec3::new(x,y,z).unit();
-
-    //Flip the sign so always the SDF grows in the direction of the normal
-    let test_ray = Ray::new(&marched.center(),&normal);
-    let start     = test_ray.at(0.);
-    let start_val = marched.sdf(&start);
-    let end     = test_ray.at(1.);
-    let end_val = marched.sdf(&end);
-    let sign = [-1.,1.][(end_val > start_val) as usize];//If it grows, keep the sign. Else flip it
-    return normal*sign;
-}
+//For now, just always draw the marched
+impl<T: Marched> Bounded for T {}
 
 #[derive(Copy, Clone)]
 pub struct MarchedSphere {
@@ -40,8 +56,8 @@ pub struct MarchedSphere {
 }
 
 impl Marched for MarchedSphere {
-    fn sdf(&self,p: &Point3) -> f32 {
-        return (*p - self.center).length() - self.radius;
+    fn local_sdf(&self,p: &Point3) -> f32 {
+        return p.length() - self.radius;
     }
     fn get_outward_normal(&self,p: &Point3) -> Vec3 {
         let normal = (*p - self.center).unit();
@@ -50,11 +66,16 @@ impl Marched for MarchedSphere {
     fn material(&self) -> &Material{
         return &self.material;
     }
-    fn center(&self) -> Point3{
-        return self.center;
+    fn to_local(&self,p: &Vec4) -> Vec4 {
+        return *p - Vec4::new_v3(&self.center);
+    }
+    fn to_world(&self,p: &Vec4) -> Vec4{
+        return *p + Vec4::new_v3(&self.center);
+    }
+    fn to_world_f(&self,f: f32) -> f32{
+        return f;
     }
 }
-impl Bounded for MarchedSphere {}
 
 #[derive(Copy, Clone)]
 pub struct MarchedBox {
@@ -64,28 +85,30 @@ pub struct MarchedBox {
 }
 
 impl Marched for MarchedBox {
-    fn sdf(&self,p: &Point3) -> f32 {
-        let q = (&(*p-self.center)).abs() - self.sizes;
+    fn local_sdf(&self,p: &Point3) -> f32 {
+        let q = p.abs() - self.sizes;
         return q.max(&Vec3::ZERO).length() + q.x().max(q.y().max(q.z())).min(0.);
-    }
-    fn get_outward_normal(&self,p: &Point3) -> Vec3 {
-        return get_outward_numeric_normal(self,p);
     }
     fn material(&self) -> &Material{
         return &self.material;
     }
-    fn center(&self) -> Point3{
-        return self.center;
+    fn to_local(&self,p: &Vec4) -> Vec4 {
+        return *p - Vec4::new_v3(&self.center);
+    }
+    fn to_world(&self,p: &Vec4) -> Vec4{
+        return *p + Vec4::new_v3(&self.center);
+    }
+    fn to_world_f(&self,f: f32) -> f32{
+        return f;
     }
 }
-impl Bounded for MarchedBox {}
 
 #[derive(Copy, Clone)]
 pub struct MarchedTorus {
     pub m_local_to_world_translate_rotate: Mat4x4,
     pub m_world_to_local_translate_rotate: Mat4x4,
-    pub m_local_to_world_scale: Vec3,
-    pub m_world_to_local_scale: Vec3,
+    pub m_local_to_world_scale: Vec4,
+    pub m_world_to_local_scale: Vec4,
     pub sizes: Vec3,//Vec2... actualy
     pub material: Material
 }
@@ -94,8 +117,8 @@ impl MarchedTorus {
     pub fn new(m_local_to_world: &Mat4x4,local_sizes: &Vec3,mat: &Material) -> Self{
         let (t,r,s) = m_local_to_world.decompose_into_translate_rotate_scale();//TRS
         let translate_rotate = t.dot_mat(&r);//TR
-        let scale = s.diag().xyz();
-        let scale_inv = Vec3::new(1./scale.x(),1./scale.y(),1./scale.z());
+        let scale = s.diag();//w value should be 1.
+        let scale_inv = Vec4::new(1./scale.x(),1./scale.y(),1./scale.z(),1./scale.w());//w value should be 1.
         Self{
             m_local_to_world_translate_rotate: translate_rotate,//TR
             m_world_to_local_translate_rotate: translate_rotate.fast_homogenous_inverse(),//R^-1 T^-1
@@ -105,28 +128,24 @@ impl MarchedTorus {
             material: *mat
         }
     }
-    fn local_sdf(&self,p: &Point3) -> f32 {
-        let p2 = *p;//- center, that is Point3::ZERO in local coords
-        let q = Vec3::new(Vec3::new(p2.x(),p2.z(),0.).length()-self.sizes.x(),p2.y(),0.);
-        return q.length() - self.sizes.y();
-    }
 }
 
 impl Marched for MarchedTorus {
-    fn sdf(&self,p: &Point3) -> f32 {
-        //http://jamie-wong.com/2016/07/15/ray-marching-signed-distance-functions/#non-uniform-scaling-and-beyond
-        let local_point = self.m_world_to_local_translate_rotate.dot_p3(&(*p*self.m_world_to_local_scale));
-        let min_scale = self.m_local_to_world_scale.min_val();//@SPEED: if non uniform scaling, the marching is suboptimal
-        return self.local_sdf(&local_point)*min_scale;
-    }
-    fn get_outward_normal(&self,p: &Point3) -> Vec3 {
-        return get_outward_numeric_normal(self,p);
+    fn local_sdf(&self,p: &Point3) -> f32 {
+        let p2 = *p;//- center, that is (0,0,0) in local coords
+        let q = Vec3::new(Vec3::new(p2.x(),p2.z(),0.).length()-self.sizes.x(),p2.y(),0.);
+        return q.length() - self.sizes.y();
     }
     fn material(&self) -> &Material{
         return &self.material;
     }
-    fn center(&self) -> Point3{
-        return self.m_local_to_world_translate_rotate.dot_p3(&Point3::ZERO);
+    fn to_local(&self,p: &Vec4) -> Vec4{
+        return self.m_world_to_local_translate_rotate.dot(&(*p*self.m_world_to_local_scale));
+    }
+    fn to_world(&self,p: &Vec4) -> Vec4{
+        return self.m_local_to_world_translate_rotate.dot(p)*self.m_local_to_world_scale;
+    }
+    fn to_world_f(&self,f: f32) -> f32{
+        return f*self.m_local_to_world_scale.xyz().min_val();
     }
 }
-impl Bounded for MarchedTorus {}
