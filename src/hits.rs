@@ -1,12 +1,12 @@
 use crate::math::vec3::{Vec3,UnitVec3,Point3};
-use crate::utils::{INF,get_id};
+use crate::utils::{INF,get_id,VecIndexes};
 use crate::ray::Ray;
 use crate::materials::Material;
 use crate::traced::*;
 use crate::marched::*;
 use crate::camera::Camera;
 use crate::bounding_box::Bounded;
-use crate::camera_hash::CameraHash;
+use crate::camera_hash::*;
 
 pub struct HitRecord {
     pub point: Point3,
@@ -29,38 +29,31 @@ pub struct HittableList{
     $($marched_ident: Vec<$marched>,)*
 }
 
+const MAX_INDEXES_HASH: usize = 100;
+#[derive(Copy,Clone,Debug)]
+struct CameraHashCell {
+    pub traced_objects: VecIndexes<MAX_INDEXES_HASH>,
+    pub marched_objects: VecIndexes<MAX_INDEXES_HASH>,
+    $(pub $traced_ident: VecIndexes<MAX_INDEXES_HASH>,)*
+    $(pub $marched_ident: VecIndexes<MAX_INDEXES_HASH>,)*
+}
+
+impl CellEmptyInitializable for CameraHashCell {
+    fn empty(&mut self) -> () {
+        self.traced_objects.empty();
+        self.marched_objects.empty();
+        $(self.$traced_ident.empty();)*
+        $(self.$marched_ident.empty();)*
+    }
+}
+
 pub struct FrozenHittableList{
     traced_objects: Vec<Arc<dyn Traced + Send + Sync>>,
     marched_objects: Vec<Arc<dyn Marched + Send + Sync>>,
     $($traced_ident: Vec<$traced>,)*
     $($marched_ident: Vec<$marched>,)*
     m_world_to_camera: crate::math::mat4x4::Mat4x4,
-    //#[allow(dead_code)]
-    //camera_hash: CameraHashes, 
-}
-
-pub struct CameraHashes{
-    #[allow(dead_code)]
-    traced_objects: CameraHash,
-    #[allow(dead_code)]
-    marched_objects: CameraHash,
-    $(#[allow(dead_code)]
-    $traced_ident: CameraHash,
-    )*
-    $(#[allow(dead_code)]
-    $marched_ident: CameraHash,
-    )*
-}
-
-impl CameraHashes{
-    pub fn new() -> Self{
-        Self {
-            traced_objects: CameraHash::new(),
-            marched_objects: CameraHash::new(),
-            $($traced_ident: CameraHash::new(),)*
-            $($marched_ident: CameraHash::new(),)*
-        }
-    }
+    camera_hash: Box<CameraHash<CameraHashCell>>, 
 }
 
 impl HittableList {
@@ -118,24 +111,92 @@ impl FrozenHittableList{
             $($traced_ident: hl.$traced_ident.clone(),)*
             $($marched_ident: hl.$marched_ident.clone(),)*
             m_world_to_camera: viewmat_inv,
-            //camera_hash: CameraHashes::new(),
-        }; 
+            camera_hash: unsafe {//Rust is just awful, all this mess just to init on the heap
+                let layout = std::alloc::Layout::new::<CameraHash<CameraHashCell>>();
+                let ptr = std::alloc::alloc(layout) as *mut CameraHash<CameraHashCell>;
+                (*ptr).empty(); 
+                Box::from_raw(ptr)
+            },
+        };
+
         $(
-            for obj in &mut ret.$traced_ident{
-                obj.build_bounding_box(&viewmat_inv);
-            }
+        for obj in &mut ret.$traced_ident{
+            let bb = obj.build_bounding_box(&viewmat_inv);
+            ret.camera_hash.set_borders(&bb);
+        }
         )*
+
         for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
-            Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
+            let bb = Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
+            ret.camera_hash.set_borders(&bb);
         }
+
         $(
-            for obj in &mut ret.$marched_ident{
-                obj.build_bounding_box(&viewmat_inv);
-            }
-        )*
-        for obj in &mut ret.marched_objects {
-            Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
+        for obj in &mut ret.$marched_ident{
+            let bb = obj.build_bounding_box(&viewmat_inv);
+            ret.camera_hash.set_borders(&bb);
         }
+        )*
+
+        for obj in &mut ret.marched_objects {
+            let bb = Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
+            ret.camera_hash.set_borders(&bb);
+        }
+
+        /*
+        $({
+            let mut idx = 0;
+            for obj in &mut ret.$traced_ident{
+                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.get_bounding_box());
+                println!("{} {} {} {}",mini,maxi,minj,maxj);
+                for i in mini..=maxi{
+                    for j in minj..=maxj{
+                        ret.camera_hash.cells[i][j].$traced_ident.add(idx);
+                    }
+                }
+                idx +=1;
+            }
+        })*
+
+        
+        {
+            let mut idx = 0;
+            for obj in &mut ret.traced_objects{
+                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.get_bounding_box());
+                for i in mini..=maxi{
+                    for j in minj..=maxj{
+                        ret.camera_hash.cells[i][j].traced_objects.add(idx);
+                    }
+                }
+                idx +=1;
+            }
+        }
+
+        $({
+            let mut idx = 0;
+            for obj in &mut ret.$marched_ident{
+                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.get_bounding_box());
+                for i in mini..=maxi{
+                    for j in minj..=maxj{
+                        ret.camera_hash.cells[i][j].$marched_ident.add(idx);
+                    }
+                }
+                idx +=1;
+            }
+        })*
+
+        {
+            let mut idx = 0;
+            for obj in &mut ret.marched_objects{
+                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.get_bounding_box());
+                for i in mini..=maxi{
+                    for j in minj..=maxj{
+                        ret.camera_hash.cells[i][j].marched_objects.add(idx);
+                    }
+                }
+                idx +=1;
+            }
+        }*/
 
         return ret;
     }

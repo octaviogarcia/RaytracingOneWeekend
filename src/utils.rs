@@ -108,3 +108,23 @@ impl BloomFilter {
 }
 
 pub fn get_id<O: ?Sized>(obj: &O) -> u64 { (obj as *const O as *const ()) as u64 }
+
+
+
+#[derive(Copy,Clone,Debug)]
+pub struct VecIndexes<const SIZE: usize>{
+    pub arr: [usize;SIZE],
+    pub count: usize,
+}
+impl <const SIZE: usize> VecIndexes<SIZE>{
+    pub fn add(&mut self,x: usize) -> () {
+        self.arr[self.count] = x;
+        self.count += 1;
+    }
+    pub fn empty(&mut self) -> (){
+        for i in 0..SIZE{
+            self.arr[i] = 0;
+        }
+        self.count = 0;
+    }
+}

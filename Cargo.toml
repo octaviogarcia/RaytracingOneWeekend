@@ -1,3 +1,11 @@
+[profile.fulldebug]
+inherits = "dev"
+opt-level = 0
+debug = 2
+debug-assertions = true
+overflow-checks = true
+lto = "off"
+
 [package]
 name = "raytracer"
 version = "0.1.0"
