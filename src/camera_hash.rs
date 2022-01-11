@@ -48,11 +48,10 @@ impl <Cell: CellEmptyInitializable> CameraHash<Cell>{
         let down  = (bb.bottomleft_y - self.bottomleft_y)/(self.topright_y-self.bottomleft_y);
         let up    = (bb.topright_y   - self.bottomleft_y)/(self.topright_y-self.bottomleft_y);
         const CAMERA_HASH_SIZE_F: f32 = CAMERA_HASH_SIZE as f32;
-        return (
-            (clamp(left, 0.,0.999)*CAMERA_HASH_SIZE_F) as usize,
-            (clamp(right,0.,0.999)*CAMERA_HASH_SIZE_F) as usize,
-            (clamp(down ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize,
-            (clamp(up   ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize
-        );
+        let left  = (clamp(left, 0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        let right = (clamp(right,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        let down  = (clamp(down ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        let up    = (clamp(up   ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        return (left.min(right),left.max(right),down.min(up),down.max(up));
     }
 }

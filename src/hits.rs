@@ -119,13 +119,16 @@ impl FrozenHittableList{
             },
         };
 
-        ret.camera_hash.set_borders(&cam.build_bounding_box(&viewmat_inv));
-        //println!("{},{} {},{}",ret.camera_hash.bottomleft_x,ret.camera_hash.bottomleft_y,ret.camera_hash.topright_x,ret.camera_hash.topright_y);
+        ret.camera_hash.set_borders(&cam.build_bounding_box());
+        println!("{},{} {},{}",ret.camera_hash.bottomleft_x,ret.camera_hash.bottomleft_y,ret.camera_hash.topright_x,ret.camera_hash.topright_y);
 
         $({
             let mut idx = 0;
             for obj in &mut ret.$traced_ident{
-                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.build_bounding_box(&viewmat_inv));
+                let bb = obj.build_bounding_box(&viewmat_inv);
+                println!("{},{} {},{}",bb.bottomleft_x,bb.bottomleft_y,bb.topright_x,bb.topright_y);
+                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&bb);
+                println!("{},{} {},{}",mini,maxi,minj,maxj);
                 for i in mini..=maxi{
                     for j in minj..=maxj{
                         ret.camera_hash.cells[i][j].$traced_ident.add(idx);
