@@ -1,5 +1,5 @@
 
-use crate::utils::INF;
+use crate::utils::{INF,clamp};
 use crate::bounding_box::BoundingBox;
 
 pub trait CellEmptyInitializable: Copy {
@@ -43,16 +43,16 @@ impl <Cell: CellEmptyInitializable> CameraHash<Cell>{
         }
     }
     pub fn get_indexes(&self,bb: &BoundingBox) -> (usize,usize,usize,usize){
-        let x_step = (self.topright_x-self.bottomleft_x)/(CAMERA_HASH_SIZE as f32);
-        let y_step = (self.topright_y-self.bottomleft_y)/(CAMERA_HASH_SIZE as f32);
-        let left_dis  = bb.bottomleft_x - self.bottomleft_x;
-        let right_dis =   bb.topright_x - self.bottomleft_x;
-        let down_dis  = bb.bottomleft_y - self.bottomleft_y;
-        let up_dis    =   bb.topright_y - self.bottomleft_y;
-        let min_i =  (left_dis/x_step).max(0.) as usize;
-        let max_i = ((right_dis/x_step) as usize).min(CAMERA_HASH_SIZE-1);
-        let min_j =  (down_dis/y_step).max(0.) as usize;
-        let max_j = ((up_dis/y_step) as usize).min(CAMERA_HASH_SIZE-1);
-        return (min_i,max_i,min_j,max_j);
+        let left  = (bb.bottomleft_x - self.bottomleft_x)/(self.topright_x-self.bottomleft_x);
+        let right = (bb.topright_x   - self.bottomleft_x)/(self.topright_x-self.bottomleft_x);
+        let down  = (bb.bottomleft_y - self.bottomleft_y)/(self.topright_y-self.bottomleft_y);
+        let up    = (bb.topright_y   - self.bottomleft_y)/(self.topright_y-self.bottomleft_y);
+        const CAMERA_HASH_SIZE_F: f32 = CAMERA_HASH_SIZE as f32;
+        return (
+            (clamp(left, 0.,0.999)*CAMERA_HASH_SIZE_F) as usize,
+            (clamp(right,0.,0.999)*CAMERA_HASH_SIZE_F) as usize,
+            (clamp(down ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize,
+            (clamp(up   ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize
+        );
     }
 }

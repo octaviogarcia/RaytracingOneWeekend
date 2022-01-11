@@ -3,6 +3,7 @@ use crate::math::vec4::*;
 use crate::math::mat4x4::*;
 use crate::ray::*;
 use crate::utils::degrees_to_radians;
+use crate::bounding_box::BoundingBox;
 
 #[derive(Copy,Clone)]
 pub struct Camera{
@@ -76,6 +77,23 @@ impl Camera{
         //[0 0 0      1]
         return Mat4x4::new_4vec_vert(
             &Vec4::new_v3(&(self.u_of_plane)), &Vec4::new_v3(&(self.v_of_plane)),&Vec4::new_v3(&(-self.w_of_plane)),&Vec4::new_p3(&self.origin),
+        );
+    }
+    pub fn build_bounding_box(&self,m_to_camera: &Mat4x4) -> BoundingBox {
+        let a = self.lower_left_corner - self.origin;
+        let b = a + self.horizontal + self.vertical;
+        let p1 = m_to_camera.dot_p3(&a).to_z1();
+        let p2 = m_to_camera.dot_p3(&Point3::new(a.x(),a.y(),b.z())).to_z1();
+        let p3 = m_to_camera.dot_p3(&Point3::new(a.x(),b.y(),a.z())).to_z1();
+        let p4 = m_to_camera.dot_p3(&Point3::new(a.x(),b.y(),b.z())).to_z1();
+        let p5 = m_to_camera.dot_p3(&Point3::new(b.x(),a.y(),a.z())).to_z1();
+        let p6 = m_to_camera.dot_p3(&Point3::new(b.x(),b.y(),a.z())).to_z1();
+        let p7 = m_to_camera.dot_p3(&b).to_z1();
+        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7))))));
+        let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7))))));
+        return BoundingBox::new(
+            minp.x(),minp.y(),
+            maxp.x(),maxp.y(),
         );
     }
 }

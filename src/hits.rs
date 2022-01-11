@@ -29,7 +29,7 @@ pub struct HittableList{
     $($marched_ident: Vec<$marched>,)*
 }
 
-const MAX_INDEXES_HASH: usize = 100;
+const MAX_INDEXES_HASH: usize = 16;
 #[derive(Copy,Clone,Debug)]
 struct CameraHashCell {
     pub traced_objects: VecIndexes<MAX_INDEXES_HASH>,
@@ -119,84 +119,61 @@ impl FrozenHittableList{
             },
         };
 
-        $(
-        for obj in &mut ret.$traced_ident{
-            let bb = obj.build_bounding_box(&viewmat_inv);
-            ret.camera_hash.set_borders(&bb);
-        }
-        )*
+        ret.camera_hash.set_borders(&cam.build_bounding_box(&viewmat_inv));
+        //println!("{},{} {},{}",ret.camera_hash.bottomleft_x,ret.camera_hash.bottomleft_y,ret.camera_hash.topright_x,ret.camera_hash.topright_y);
 
-        for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
-            let bb = Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
-            ret.camera_hash.set_borders(&bb);
-        }
-
-        $(
-        for obj in &mut ret.$marched_ident{
-            let bb = obj.build_bounding_box(&viewmat_inv);
-            ret.camera_hash.set_borders(&bb);
-        }
-        )*
-
-        for obj in &mut ret.marched_objects {
-            let bb = Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
-            ret.camera_hash.set_borders(&bb);
-        }
-
-        /*
         $({
             let mut idx = 0;
             for obj in &mut ret.$traced_ident{
-                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.get_bounding_box());
-                println!("{} {} {} {}",mini,maxi,minj,maxj);
+                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.build_bounding_box(&viewmat_inv));
                 for i in mini..=maxi{
                     for j in minj..=maxj{
                         ret.camera_hash.cells[i][j].$traced_ident.add(idx);
                     }
                 }
-                idx +=1;
+                idx += 1;
+                //println!("{} {} {} {}",mini,maxi,minj,maxj);
             }
         })*
 
-        
         {
             let mut idx = 0;
-            for obj in &mut ret.traced_objects{
-                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.get_bounding_box());
+            for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
+                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv));
                 for i in mini..=maxi{
                     for j in minj..=maxj{
                         ret.camera_hash.cells[i][j].traced_objects.add(idx);
                     }
                 }
-                idx +=1;
+                idx += 1;
             }
         }
 
         $({
             let mut idx = 0;
             for obj in &mut ret.$marched_ident{
-                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.get_bounding_box());
+                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.build_bounding_box(&viewmat_inv));
                 for i in mini..=maxi{
                     for j in minj..=maxj{
                         ret.camera_hash.cells[i][j].$marched_ident.add(idx);
                     }
                 }
-                idx +=1;
+                idx += 1;
             }
         })*
 
         {
             let mut idx = 0;
-            for obj in &mut ret.marched_objects{
-                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.get_bounding_box());
+            for obj in &mut ret.marched_objects {
+                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv));
                 for i in mini..=maxi{
                     for j in minj..=maxj{
                         ret.camera_hash.cells[i][j].marched_objects.add(idx);
                     }
                 }
-                idx +=1;
+                idx += 1;
             }
-        }*/
+        }
 
         return ret;
     }
