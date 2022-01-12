@@ -36,4 +36,12 @@ impl <Cell: CellEmptyInitializable> CameraHash<Cell>{
         let up    = (clamp(up   ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
         return (left.min(right),left.max(right),down.min(up),down.max(up));
     }
+    pub fn get_index(&self,x: f32,y: f32) -> (usize,usize){
+        let i = (x - self.bb.bottomleft_x)/(self.bb.topright_x-self.bb.bottomleft_x);
+        let j = (y - self.bb.bottomleft_x)/(self.bb.topright_y-self.bb.bottomleft_y);
+        const CAMERA_HASH_SIZE_F: f32 = CAMERA_HASH_SIZE as f32;
+        let i = (clamp(i,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        let j = (clamp(j,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        return (i,j);
+    }
 }

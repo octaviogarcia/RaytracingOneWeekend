@@ -172,24 +172,101 @@ impl FrozenHittableList{
         return ret;
     }
 
-    pub fn hit(&self,first_hit: bool,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
+    pub fn first_hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
         //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
         let dir_from_camera = self.m_world_to_camera.dot_v3(&r.dir).to_z1();
+        let hash_index = self.camera_hash.get_index(dir_from_camera.x(),dir_from_camera.y());
+        $({
+            let arr = &self.camera_hash.cells[hash_index.0][hash_index.1].$traced_ident;
+            for idx_idx in 0..arr.count{
+                let idx = arr.arr[idx_idx];
+                if let Some(hr) = self.$traced_ident[idx].hit(r,t_min,closest_so_far) {
+                    closest_so_far = hr.t;
+                    rec = Some(hr);
+                }
+            }
+        })*
+        {
+            let arr = &self.camera_hash.cells[hash_index.0][hash_index.1].traced_objects;
+            for idx_idx in 0..arr.count{
+                let idx = arr.arr[idx_idx];
+                if let Some(hr) = self.traced_objects[idx].hit(r,t_min,closest_so_far) {
+                    closest_so_far = hr.t;
+                    rec = Some(hr);
+                }
+            }
+        }
+
+        let mut t = self.unstuck(t_min,r);//If we started stuck in a object... unstuck ourselves
+        if t.is_infinite() {//No marched objects in the scene. return raycasted result
+            return rec;
+        }
+        let mut max_march_iter = 1024;
+
+        while t < t_max && t < closest_so_far && max_march_iter > 0 {
+            max_march_iter-=1;
+            let point = r.at(t);
+            let mut distance = INF;
+            let mut normal   = Vec3::ZERO;
+            let mut id       = 0;
+            let mut material: Option<Material> = None;
+            $({
+                let arr = self.camera_hash.cells[hash_index.0][hash_index.1].$marched_ident;
+                for idx_idx in 0..arr.count{
+                    let idx = arr.arr[idx_idx];
+                    let obj = &self.$marched_ident[idx];
+                    let d = obj.sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
+                    if d < distance {
+                        distance = d;
+                        normal = obj.get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
+                        material = Some(obj.material);
+                        id = get_id(obj);
+                    }
+                }
+            })*
+            {
+                let arr = self.camera_hash.cells[hash_index.0][hash_index.1].marched_objects;
+                for idx_idx in 0..arr.count{
+                    let idx = arr.arr[idx_idx];
+                    let obj = &self.marched_objects[idx];
+                    let d = obj.sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
+                    if d < distance {
+                        distance = d;
+                        normal = obj.get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
+                        material = Some(*obj.material());
+                        id = get_id(obj.as_ref());
+                    }
+                }
+            }
+
+            //Should never happen the only raymarched object gets deleted mid transition between unstucking and raymarching
+            if material.is_none() { return rec; }
+
+            if distance < HIT_SIZE {//We hit something
+                rec = Some(HitRecord{t: t,point: point,normal: normal, material: material.unwrap(),obj_id: id});
+                break;
+            }
+            else { //Move forward
+                t += distance;//This only works if our direction in our Ray is unit length!!!
+            }
+        }
+        return rec; 
+    }
+
+    pub fn hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
+        //Ray tracing section
+        let mut closest_so_far = t_max;
+        let mut rec: Option<HitRecord>  = None;
         $(for obj in &self.$traced_ident{
-            //Short circuit when not the first_hit, avoid calling hit_bounding_box
-            let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
-            if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
                 rec = Some(hr);
             }
         })*
         for obj in &self.traced_objects{
-            let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
-            if !hit_bb { continue; }
             if let Some(hr) = obj.hit(r,t_min,closest_so_far) {
                 closest_so_far = hr.t;
                 rec = Some(hr);
@@ -203,30 +280,6 @@ impl FrozenHittableList{
         }
         let mut max_march_iter = 1024;
 
-        //@SPEED: Replace this with a geohash at construction
-        $(
-            let mut $marched_ident: ([usize; 16],usize) = ([0;16],0);
-            let mut idx = 0;
-            for obj in &self.$marched_ident{
-                let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
-                if hit_bb {
-                    $marched_ident.0[$marched_ident.1] = idx;
-                    $marched_ident.1 += 1;
-                }
-                idx+=1;
-            }
-        )*
-        let mut marched_objects: ([usize; 16],usize) = ([0;16],0);
-        let mut idx = 0;
-        for obj in &self.marched_objects{
-            let hit_bb = !first_hit || obj.hit_bounding_box(&dir_from_camera);
-            if hit_bb {
-                marched_objects.0[marched_objects.1] = idx;
-                marched_objects.1 += 1;
-            }
-            idx+=1;
-        }
-
         while t < t_max && t < closest_so_far && max_march_iter > 0 {
             max_march_iter-=1;
             let point = r.at(t);
@@ -235,25 +288,23 @@ impl FrozenHittableList{
             let mut id       = 0;
             let mut material: Option<Material> = None;
             $(
-                for idx_idx in 0..$marched_ident.1{
-                    let idx = $marched_ident.0[idx_idx];
-                    let d = self.$marched_ident[idx].sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
+                for obj in &self.$marched_ident{
+                    let d = obj.sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
                     if d < distance {
                         distance = d;
-                        normal = self.$marched_ident[idx].get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
-                        material = Some(self.$marched_ident[idx].material);
-                        id = get_id(&self.$marched_ident[idx]);
+                        normal = obj.get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
+                        material = Some(obj.material);
+                        id = get_id(obj);
                     }
                 }
             )*
-            for idx_idx in 0..marched_objects.1{
-                let idx = marched_objects.0[idx_idx];
-                let d = self.marched_objects[idx].sdf(&point).abs();//Not an actual vtable call, just a normal fast function call
+            for obj in &self.marched_objects{
+                let d = obj.sdf(&point).abs();
                 if d < distance {
                     distance = d;
-                    normal = self.marched_objects[idx].get_outward_normal(&point);//Not an actual vtable call, just a normal fast function call
-                    material = Some(*self.marched_objects[idx].material());
-                    id = get_id(self.marched_objects[idx].as_ref());
+                    normal = obj.get_outward_normal(&point);
+                    material = Some(*obj.material());
+                    id = get_id(obj.as_ref());
                 }
             }
 

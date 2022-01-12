@@ -103,7 +103,7 @@ impl Camera{
         while the middle ball has 
         BoundingBox { bottomleft_x: -1.0, bottomleft_y: -1.0, topright_x: 1.0, topright_y: 1.0 }
         */
-        return BoundingBox::new(
+        return BoundingBox::new(//doesn't focus_dist move the viewport farther?
             -self.viewport_width,-self.viewport_height,
              self.viewport_width, self.viewport_height
         );
