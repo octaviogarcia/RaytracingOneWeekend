@@ -19,7 +19,7 @@ pub struct HitRecord {
 use std::sync::Arc;
 
 
-macro_rules! set_hash_indexes {
+macro_rules! set_hash_index {
     ($camera_hash:expr,$bb:expr,$idx:expr,$ident:ident) => {
         let (mini,maxi,minj,maxj) = $camera_hash.get_indexes(&$bb);
         for i in mini..=maxi{
@@ -114,8 +114,8 @@ const HIT_SIZE: f32 = 0.001;
 
 impl FrozenHittableList{
     pub fn new(hl: &mut HittableList,cam: &Camera) -> Self{
-        let viewmat = cam.viewmatrix();
-        let viewmat_inv = viewmat.fast_homogenous_inverse();
+        let world_to_camera = cam.world_to_camera();
+        let project = cam.project_matrix();
 
         let mut ret = Self{
             traced_objects: hl.traced_objects.clone(),

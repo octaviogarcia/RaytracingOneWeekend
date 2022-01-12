@@ -71,13 +71,22 @@ impl Camera{
             &Vec4::new_p3(&(self.lower_left_corner-self.origin)),
         )
     }
-    pub fn viewmatrix(&self) -> Mat4x4 {
+    pub fn camera_to_world(&self) -> Mat4x4 {
         //Syntax doesnt help much but this is actually 
         //[u v w origin]
         //[0 0 0      1]
         return Mat4x4::new_4vec_vert(
             &Vec4::new_v3(&(self.u_of_plane)), &Vec4::new_v3(&(self.v_of_plane)),&Vec4::new_v3(&(-self.w_of_plane)),&Vec4::new_p3(&self.origin),
         );
+    }
+    pub fn world_to_camera(&self) -> Mat4x4{
+        return self.camera_to_world().fast_homogenous_inverse();
+    }
+    pub fn project_matrix(&self,v: &Vec3) -> Mat4x4 {//http://medialab.di.unipi.it/web/IUM/Waterloo/node47.html#SECTION00810000000000000000
+        //(x,y,z) -> (xn/z,yn/z,n)
+        let n = self.focus_dist;
+        let ratio = n/v.z();
+        return Mat4x4::new_scale(&Vec3::new(ratio,ratio,ratio));
     }
     pub fn build_bounding_box(&self,_m_world_to_camera: &Mat4x4) -> BoundingBox {
         //println!("{:?}",m_world_to_camera);
