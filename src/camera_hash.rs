@@ -1,5 +1,5 @@
 
-use crate::utils::{INF,clamp};
+use crate::utils::clamp;
 use crate::bounding_box::BoundingBox;
 
 pub trait CellEmptyInitializable: Copy {
@@ -10,10 +10,7 @@ const CAMERA_HASH_SIZE: usize = 100;
 #[derive(Debug)]
 pub struct CameraHash<Cell>{
     pub cells: [[Cell;CAMERA_HASH_SIZE];CAMERA_HASH_SIZE],
-    pub bottomleft_x: f32,
-    pub bottomleft_y: f32,
-    pub topright_x: f32,
-    pub topright_y: f32,
+    pub bb: BoundingBox,
 }
 
 impl <Cell: CellEmptyInitializable> CameraHash<Cell>{
@@ -23,30 +20,15 @@ impl <Cell: CellEmptyInitializable> CameraHash<Cell>{
                 self.cells[i][j].empty();
             }
         }
-        self.bottomleft_x =  INF;
-        self.bottomleft_y =  INF;
-        self.topright_x   = -INF;
-        self.topright_y   = -INF;
-    }
-    pub fn set_borders(&mut self,bb: &BoundingBox) -> (){
-        if bb.bottomleft_x.is_finite(){
-            self.bottomleft_x = bb.bottomleft_x.min(self.bottomleft_x);
-        }
-        if bb.bottomleft_y.is_finite(){
-            self.bottomleft_y = bb.bottomleft_y.min(self.bottomleft_y);
-        }
-        if bb.topright_x.is_finite(){
-            self.topright_x   = bb.topright_x.max(self.topright_x);
-        }
-        if bb.topright_y.is_finite(){
-            self.topright_y   = bb.topright_y.max(self.topright_y);
-        }
+        self.bb = BoundingBox::draw_always();
     }
     pub fn get_indexes(&self,bb: &BoundingBox) -> (usize,usize,usize,usize){
-        let left  = (bb.bottomleft_x - self.bottomleft_x)/(self.topright_x-self.bottomleft_x);
-        let right = (bb.topright_x   - self.bottomleft_x)/(self.topright_x-self.bottomleft_x);
-        let down  = (bb.bottomleft_y - self.bottomleft_y)/(self.topright_y-self.bottomleft_y);
-        let up    = (bb.topright_y   - self.bottomleft_y)/(self.topright_y-self.bottomleft_y);
+        let width_inv  = 1./(self.bb.topright_x-self.bb.bottomleft_x);
+        let height_inv = 1./(self.bb.topright_y-self.bb.bottomleft_y);
+        let left  = (bb.bottomleft_x - self.bb.bottomleft_x)*width_inv;
+        let right = (bb.topright_x   - self.bb.bottomleft_x)*width_inv;
+        let down  = (bb.bottomleft_y - self.bb.bottomleft_y)*height_inv;
+        let up    = (bb.topright_y   - self.bb.bottomleft_y)*height_inv;
         const CAMERA_HASH_SIZE_F: f32 = CAMERA_HASH_SIZE as f32;
         let left  = (clamp(left, 0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
         let right = (clamp(right,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;

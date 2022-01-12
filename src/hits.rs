@@ -18,6 +18,18 @@ pub struct HitRecord {
 
 use std::sync::Arc;
 
+
+macro_rules! set_hash_indexes {
+    ($camera_hash:expr,$bb:expr,$idx:expr,$ident:ident) => {
+        let (mini,maxi,minj,maxj) = $camera_hash.get_indexes(&$bb);
+        for i in mini..=maxi{
+            for j in minj..=maxj{
+                $camera_hash.cells[i][j].$ident.add($idx);
+            }
+        }
+    }
+}
+
 macro_rules! hittable_list {
 ($($traced_ident:ident ; $traced:ty),* | $($marched_ident:ident ; $marched:ty),*) => {
 
@@ -119,35 +131,22 @@ impl FrozenHittableList{
             },
         };
 
-        ret.camera_hash.set_borders(&cam.build_bounding_box());
-        println!("{},{} {},{}",ret.camera_hash.bottomleft_x,ret.camera_hash.bottomleft_y,ret.camera_hash.topright_x,ret.camera_hash.topright_y);
-
+        ret.camera_hash.bb = cam.build_bounding_box(&viewmat_inv);
+        //println!("{:?}",ret.camera_hash.bb);
         $({
             let mut idx = 0;
             for obj in &mut ret.$traced_ident{
                 let bb = obj.build_bounding_box(&viewmat_inv);
-                println!("{},{} {},{}",bb.bottomleft_x,bb.bottomleft_y,bb.topright_x,bb.topright_y);
-                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&bb);
-                println!("{},{} {},{}",mini,maxi,minj,maxj);
-                for i in mini..=maxi{
-                    for j in minj..=maxj{
-                        ret.camera_hash.cells[i][j].$traced_ident.add(idx);
-                    }
-                }
+                set_hash_indexes!(ret.camera_hash,bb,idx,$traced_ident);
                 idx += 1;
-                //println!("{} {} {} {}",mini,maxi,minj,maxj);
             }
         })*
 
         {
             let mut idx = 0;
             for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
-                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv));
-                for i in mini..=maxi{
-                    for j in minj..=maxj{
-                        ret.camera_hash.cells[i][j].traced_objects.add(idx);
-                    }
-                }
+                let bb = Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
+                set_hash_indexes!(ret.camera_hash,bb,idx,traced_objects);
                 idx += 1;
             }
         }
@@ -155,12 +154,8 @@ impl FrozenHittableList{
         $({
             let mut idx = 0;
             for obj in &mut ret.$marched_ident{
-                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&obj.build_bounding_box(&viewmat_inv));
-                for i in mini..=maxi{
-                    for j in minj..=maxj{
-                        ret.camera_hash.cells[i][j].$marched_ident.add(idx);
-                    }
-                }
+                let bb = obj.build_bounding_box(&viewmat_inv);
+                set_hash_indexes!(ret.camera_hash,bb,idx,$marched_ident);
                 idx += 1;
             }
         })*
@@ -168,12 +163,8 @@ impl FrozenHittableList{
         {
             let mut idx = 0;
             for obj in &mut ret.marched_objects {
-                let (mini,maxi,minj,maxj) = ret.camera_hash.get_indexes(&Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv));
-                for i in mini..=maxi{
-                    for j in minj..=maxj{
-                        ret.camera_hash.cells[i][j].marched_objects.add(idx);
-                    }
-                }
+                let bb = Arc::get_mut(obj).unwrap().build_bounding_box(&viewmat_inv);
+                set_hash_indexes!(ret.camera_hash,bb,idx,marched_objects);
                 idx += 1;
             }
         }

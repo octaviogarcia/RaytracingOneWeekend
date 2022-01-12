@@ -59,7 +59,7 @@ impl Camera{
     pub fn get_ray(&self,u: f32,v: f32) -> Ray{
         let rand_in_lens = self.lens_radius * Vec3::rand_in_unit_disc();
         let offset = self.u_of_plane*rand_in_lens.x() + self.v_of_plane*rand_in_lens.y();
-        let direction = self.uv_to_dir().dot(&Vec4::new(u,v,0.,1.)).xyz();
+        let direction = self.uv_to_dir().dot(&Vec4::new(u,v,0.,1.)).xyz();        
         return Ray::new(&(self.origin+offset),&(direction-offset).unit());
     }
     #[inline]
@@ -79,14 +79,33 @@ impl Camera{
             &Vec4::new_v3(&(self.u_of_plane)), &Vec4::new_v3(&(self.v_of_plane)),&Vec4::new_v3(&(-self.w_of_plane)),&Vec4::new_p3(&self.origin),
         );
     }
-    pub fn build_bounding_box(&self) -> BoundingBox {
-        let a = self.uv_to_dir().dot(&Vec4::new(0.,0.,0.,1.)).xyz().to_z1();
-        let b = self.uv_to_dir().dot(&Vec4::new(1.,1.,0.,1.)).xyz().to_z1();
-        let minp = a.min(&b);
-        let maxp = a.max(&b);
+    pub fn build_bounding_box(&self,_m_world_to_camera: &Mat4x4) -> BoundingBox {
+        //println!("{:?}",m_world_to_camera);
+        /*let world_d1 = self.uv_to_dir().dot(&Vec4::new(0.,0.,0.,1.)).xyz().unit();
+        let world_d2 = self.uv_to_dir().dot(&Vec4::new(0.,1.,0.,1.)).xyz().unit();
+        let world_d3 = self.uv_to_dir().dot(&Vec4::new(1.,0.,0.,1.)).xyz().unit();
+        let world_d4 = self.uv_to_dir().dot(&Vec4::new(1.,1.,0.,1.)).xyz().unit();
+        let a = m_world_to_camera.dot_v3(&world_d1).to_z1();
+        let b = m_world_to_camera.dot_v3(&world_d2).to_z1();
+        let c = m_world_to_camera.dot_v3(&world_d3).to_z1();
+        let d = m_world_to_camera.dot_v3(&world_d4).to_z1();
+        let minp = a.min(&b.min(&c.min(&d)));
+        let maxp = a.max(&b.max(&c.max(&d)));
         return BoundingBox::new(
             minp.x(),minp.y(),
             maxp.x(),maxp.y(),
+        );*/
+        /* @HACK @HACK @HACK
+        ^^^ wrong
+        gives 
+        BoundingBox { bottomleft_x: -1.5, bottomleft_y: -1.0, topright_x: 1.5, topright_y: 1.0 }
+        on the basic case...
+        while the middle ball has 
+        BoundingBox { bottomleft_x: -1.0, bottomleft_y: -1.0, topright_x: 1.0, topright_y: 1.0 }
+        */
+        return BoundingBox::new(
+            -self.viewport_width,-self.viewport_height,
+             self.viewport_width, self.viewport_height
         );
     }
 }
