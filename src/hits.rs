@@ -142,7 +142,7 @@ impl FrozenHittableList{
                 let bb = obj.build_world_bounding_box();
                 let bb = bb.dot(&world_to_camera);
                 let bb = bb.project(cam.focus_dist);
-                let bb = bb.scale(1./(2.*cam.viewport_width),1./(2.*cam.viewport_height));//[-1;1]
+                let bb = bb.scale(1./cam.viewport_width,1./cam.viewport_height);//[-1;1]
                 let bb = bb.translate(1.,1.);//[0;2]
                 let bb = bb.scale(0.5,0.5);
                 println!("{:?}",bb);
@@ -200,7 +200,7 @@ impl FrozenHittableList{
         //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
-        //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
+        //println!("{},{} -> {},{}",u,v,r.dir.to_z1().x(),r.dir.to_z1().y());
         let cell = self.camera_hash.at(u,v);
         $({
             let arr = &cell.$traced_ident;
