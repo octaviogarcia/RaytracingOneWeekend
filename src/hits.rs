@@ -113,8 +113,6 @@ const HIT_SIZE: f32 = 0.001;
 
 impl FrozenHittableList{
     pub fn new(hl: &mut HittableList,cam: &Camera) -> Self{
-        let world_to_camera = cam.world_to_camera();
-
         let mut ret = Self{
             traced_objects: hl.traced_objects.clone(),
             marched_objects: hl.marched_objects.clone(),
@@ -128,7 +126,7 @@ impl FrozenHittableList{
             },
         };
 
-        //ret.camera_hash.bb 
+        let world_to_camera = cam.world_to_camera();
         let bb = cam.viewport_world_bounding_box();
         let bb = bb.dot(&world_to_camera);
         let bb = bb.project(cam.focus_dist);//[-viewport*0.5;viewport*0.5]
@@ -142,7 +140,7 @@ impl FrozenHittableList{
                 let bb = obj.build_world_bounding_box();
                 let bb = bb.dot(&world_to_camera);
                 let bb = bb.project(cam.focus_dist);
-                let bb = bb.scale(1./cam.viewport_width,1./cam.viewport_height);//[-1;1]
+                let bb = bb.scale(2./cam.viewport_width,2./cam.viewport_height);//[-1;1]
                 let bb = bb.translate(1.,1.);//[0;2]
                 let bb = bb.scale(0.5,0.5);
                 println!("{:?}",bb);
