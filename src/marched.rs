@@ -156,10 +156,6 @@ impl Bounded for MarchedTorus {
         let bb = BoundingBox3D::new(&-vsize,&vsize).dot(&self.m_local_to_world_translate_rotate);
         return bb;
     }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> BoundingBox {
-        self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
-        return self.bounding_box;
-    }
     fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
         self.bounding_box.hit(dir) 
     }

@@ -3,7 +3,7 @@ use crate::math::vec4::*;
 use crate::math::mat4x4::*;
 use crate::ray::*;
 use crate::utils::degrees_to_radians;
-use crate::bounding_box::BoundingBox;
+use crate::bounding_box::BoundingBox3D;
 
 #[derive(Copy,Clone)]
 pub struct Camera{
@@ -82,39 +82,14 @@ impl Camera{
     pub fn world_to_camera(&self) -> Mat4x4{
         return self.camera_to_world().fast_homogenous_inverse();
     }
-    pub fn project_matrix(&self,v: &Vec3) -> Mat4x4 {//http://medialab.di.unipi.it/web/IUM/Waterloo/node47.html#SECTION00810000000000000000
-        //(x,y,z) -> (xn/z,yn/z,n)
-        let n = self.focus_dist;
-        let ratio = n/v.z();
-        return Mat4x4::new_scale(&Vec3::new(ratio,ratio,ratio));
-    }
-    pub fn build_bounding_box(&self,_m_world_to_camera: &Mat4x4) -> BoundingBox {
-        //println!("{:?}",m_world_to_camera);
-        /*let world_d1 = self.uv_to_dir().dot(&Vec4::new(0.,0.,0.,1.)).xyz().unit();
-        let world_d2 = self.uv_to_dir().dot(&Vec4::new(0.,1.,0.,1.)).xyz().unit();
-        let world_d3 = self.uv_to_dir().dot(&Vec4::new(1.,0.,0.,1.)).xyz().unit();
-        let world_d4 = self.uv_to_dir().dot(&Vec4::new(1.,1.,0.,1.)).xyz().unit();
-        let a = m_world_to_camera.dot_v3(&world_d1).to_z1();
-        let b = m_world_to_camera.dot_v3(&world_d2).to_z1();
-        let c = m_world_to_camera.dot_v3(&world_d3).to_z1();
-        let d = m_world_to_camera.dot_v3(&world_d4).to_z1();
-        let minp = a.min(&b.min(&c.min(&d)));
-        let maxp = a.max(&b.max(&c.max(&d)));
-        return BoundingBox::new(
-            minp.x(),minp.y(),
-            maxp.x(),maxp.y(),
-        );*/
-        /* @HACK @HACK @HACK
-        ^^^ wrong
-        gives 
-        BoundingBox { bottomleft_x: -1.5, bottomleft_y: -1.0, topright_x: 1.5, topright_y: 1.0 }
-        on the basic case...
-        while the middle ball has 
-        BoundingBox { bottomleft_x: -1.0, bottomleft_y: -1.0, topright_x: 1.0, topright_y: 1.0 }
-        */
-        return BoundingBox::new(//doesn't focus_dist move the viewport farther?
-            -self.viewport_width,-self.viewport_height,
-             self.viewport_width, self.viewport_height
+    pub fn viewport_world_bounding_box(&self) -> BoundingBox3D {
+        let p1 = self.lower_left_corner;
+        let p2 = self.lower_left_corner + self.horizontal;
+        let p3 = self.lower_left_corner + self.vertical;
+        let p4 = self.lower_left_corner + self.vertical + self.horizontal;
+        return BoundingBox3D::new(
+            &(p1.min(&p2).min(&p3).min(&p4)),
+            &(p1.max(&p2).max(&p3).max(&p4)),
         );
     }
 }

@@ -66,10 +66,6 @@ impl Bounded for Sphere {
     fn build_world_bounding_box(&self) -> BoundingBox3D {
         return BoundingBox3D::new(&Point3::new(-1.,-1.,-1.),&Point3::new(1.,1.,1.)).dot(&self.m_local_to_world);
     }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> BoundingBox {
-        self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
-        return self.bounding_box;
-    }
     fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
         self.bounding_box.hit(dir) 
     }
@@ -219,10 +215,6 @@ impl <const BT: usize> Bounded for Barycentric<BT>{
         let end = Point3::new(mul,mul,0.1);//@HACK: this may be wrong... didn't really think about it
         return BoundingBox3D::new(&Point3::new(0.,0.,0.),&end).dot(&m_local_to_world);
     }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> BoundingBox {
-        self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
-        return self.bounding_box;
-    }
     fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
         self.bounding_box.hit(dir) 
     }
@@ -307,10 +299,6 @@ impl Traced for Cube {
 impl Bounded for Cube {
     fn build_world_bounding_box(&self) -> BoundingBox3D {
         return BoundingBox3D::new(&Point3::new(-1.,-1.,-1.),&Point3::new(1.,1.,1.)).dot(&self.m_local_to_world);
-    }
-    fn build_bounding_box(&mut self,m_world_to_camera: &Mat4x4) -> BoundingBox {
-        self.bounding_box = self.build_world_bounding_box().to_bounding_box(m_world_to_camera);
-        return self.bounding_box;
     }
     fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
         self.bounding_box.hit(dir) 
