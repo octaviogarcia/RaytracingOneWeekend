@@ -7,10 +7,10 @@ pub trait CellEmptyInitializable: Copy {
 }
 
 const CAMERA_HASH_SIZE: usize = 100;
+const CAMERA_HASH_SIZE_F: f32 = CAMERA_HASH_SIZE as f32;
 #[derive(Debug)]
 pub struct CameraHash<Cell>{
     pub cells: [[Cell;CAMERA_HASH_SIZE];CAMERA_HASH_SIZE],
-    pub bb: BoundingBox,
 }
 
 impl <Cell: CellEmptyInitializable> CameraHash<Cell>{
@@ -20,28 +20,22 @@ impl <Cell: CellEmptyInitializable> CameraHash<Cell>{
                 self.cells[i][j].empty();
             }
         }
-        self.bb = BoundingBox::draw_always();
     }
-    pub fn get_indexes(&self,bb: &BoundingBox) -> (usize,usize,usize,usize){
-        let width_inv  = 1./(self.bb.topright_x-self.bb.bottomleft_x);
-        let height_inv = 1./(self.bb.topright_y-self.bb.bottomleft_y);
-        let left  = (bb.bottomleft_x - self.bb.bottomleft_x)*width_inv;
-        let right = (bb.topright_x   - self.bb.bottomleft_x)*width_inv;
-        let down  = (bb.bottomleft_y - self.bb.bottomleft_y)*height_inv;
-        let up    = (bb.topright_y   - self.bb.bottomleft_y)*height_inv;
-        const CAMERA_HASH_SIZE_F: f32 = CAMERA_HASH_SIZE as f32;
-        let left  = (clamp(left, 0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
-        let right = (clamp(right,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
-        let down  = (clamp(down ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
-        let up    = (clamp(up   ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
-        return (left.min(right),left.max(right),down.min(up),down.max(up));
+    pub fn get_indexes(&self,bb: &BoundingBox) -> (usize,usize,usize,usize){//bb should be in range [0;1] from screen cords
+        let left  = (clamp(bb.bottomleft_x, 0.,0.999)*CAMERA_HASH_SIZE_F) as usize;//@SPEED: Should I clamp?
+        let right = (clamp(bb.topright_x,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        let down  = (clamp(bb.bottomleft_y ,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        let up    = (clamp(bb.topright_y,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        return (left.min(right),left.max(right),down.min(up),down.max(up));//shouldn't really need to min() and max()
     }
-    pub fn get_index(&self,x: f32,y: f32) -> (usize,usize){
-        let i = (x - self.bb.bottomleft_x)/(self.bb.topright_x-self.bb.bottomleft_x);
-        let j = (y - self.bb.bottomleft_x)/(self.bb.topright_y-self.bb.bottomleft_y);
+    pub fn get_index(&self,u: f32,v: f32) -> (usize,usize){
         const CAMERA_HASH_SIZE_F: f32 = CAMERA_HASH_SIZE as f32;
-        let i = (clamp(i,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
-        let j = (clamp(j,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        let i = (clamp(u,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
+        let j = (clamp(v,0.,0.999)*CAMERA_HASH_SIZE_F) as usize;
         return (i,j);
+    }
+    pub fn at(&self,u: f32,v: f32) -> &Cell {
+        let (i,j) = self.get_index(u,v);
+        return &self.cells[i][j];
     }
 }

@@ -73,22 +73,6 @@ impl BoundingBox3D {
         let maxp = v1.max(&v2).max(&v3).max(&v4).max(&v5).max(&v6).max(&v7).max(&v8);
         return BoundingBox::new(minp.x(),minp.y(),maxp.x(),maxp.y());
     }
-    pub fn to_camera_bounding_box(&self,m_to_camera: &Mat4x4) -> BoundingBox{
-        let p1 = m_to_camera.dot_p3(&self.minp).to_z1();
-        let p2 = m_to_camera.dot_p3(&Point3::new(self.minp.x(),self.minp.y(),self.maxp.z())).to_z1();
-        let p3 = m_to_camera.dot_p3(&Point3::new(self.minp.x(),self.maxp.y(),self.minp.z())).to_z1();
-        let p4 = m_to_camera.dot_p3(&Point3::new(self.minp.x(),self.maxp.y(),self.maxp.z())).to_z1();
-        let p5 = m_to_camera.dot_p3(&Point3::new(self.maxp.x(),self.minp.y(),self.minp.z())).to_z1();
-        let p6 = m_to_camera.dot_p3(&Point3::new(self.maxp.x(),self.minp.y(),self.maxp.z())).to_z1();
-        let p7 = m_to_camera.dot_p3(&Point3::new(self.maxp.x(),self.maxp.y(),self.minp.z())).to_z1();
-        let p8 = m_to_camera.dot_p3(&self.maxp).to_z1();
-        let minp = p1.min(&p2.min(&p3.min(&p4.min(&p5.min(&p6.min(&p7.min(&p8)))))));
-        let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
-        return BoundingBox::new(
-            minp.x(),minp.y(),
-            maxp.x(),maxp.y(),
-        );
-    }
 }
 
 pub trait Bounded {

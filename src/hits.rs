@@ -64,7 +64,6 @@ pub struct FrozenHittableList{
     marched_objects: Vec<Arc<dyn Marched + Send + Sync>>,
     $($traced_ident: Vec<$traced>,)*
     $($marched_ident: Vec<$marched>,)*
-    m_world_to_camera: crate::math::mat4x4::Mat4x4,
     camera_hash: Box<CameraHash<CameraHashCell>>, 
 }
 
@@ -121,7 +120,6 @@ impl FrozenHittableList{
             marched_objects: hl.marched_objects.clone(),
             $($traced_ident: hl.$traced_ident.clone(),)*
             $($marched_ident: hl.$marched_ident.clone(),)*
-            m_world_to_camera: world_to_camera,
             camera_hash: unsafe {//Rust is just awful, all this mess just to init on the heap
                 let layout = std::alloc::Layout::new::<CameraHash<CameraHashCell>>();
                 let ptr = std::alloc::alloc(layout) as *mut CameraHash<CameraHashCell>;
@@ -131,34 +129,37 @@ impl FrozenHittableList{
         };
 
         //ret.camera_hash.bb 
-        let bb = cam.viewport_world_bounding_box()
-        .dot(&world_to_camera)
-        .project(cam.focus_dist)
-        .scale(2./cam.viewport_width,2./cam.viewport_height)//[-1;1]
-        .translate(1.,1.)//[0;2]
-        .scale(0.5,0.5);//--> should be {0.,0.,1.,1.}
+        let bb = cam.viewport_world_bounding_box();
+        let bb = bb.dot(&world_to_camera);
+        let bb = bb.project(cam.focus_dist);//[-viewport*0.5;viewport*0.5]
+        let bb = bb.scale(2./cam.viewport_width,2./cam.viewport_height);//[-1;1]
+        let bb = bb.translate(1.,1.);//[0;2]
+        let bb = bb.scale(0.5,0.5);//--> should be {0.,0.,1.,1.}
         println!("{:?}",bb);
         $({
             let mut idx = 0;
             for obj in &mut ret.$traced_ident{
-                let bb = obj.build_world_bounding_box()
-                .dot(&world_to_camera)
-                .project(cam.focus_dist)
-                .scale(2./cam.viewport_width,2./cam.viewport_height)//[-1;1]
-                .translate(1.,1.)//[0;2]
-                .scale(0.5,0.5);
+                let bb = obj.build_world_bounding_box();
+                let bb = bb.dot(&world_to_camera);
+                let bb = bb.project(cam.focus_dist);
+                let bb = bb.scale(1./(2.*cam.viewport_width),1./(2.*cam.viewport_height));//[-1;1]
+                let bb = bb.translate(1.,1.);//[0;2]
+                let bb = bb.scale(0.5,0.5);
                 println!("{:?}",bb);
-                //set_hash_index!(ret.camera_hash,bb,idx,$traced_ident);
+                set_hash_index!(ret.camera_hash,bb,idx,$traced_ident);
                 idx += 1;
             }
         })*
 
-        return ret;
-        /*
         {
             let mut idx = 0;
             for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
-                let bb = Arc::get_mut(obj).unwrap().build_world_bounding_box().dot(&world_to_camera);
+                let bb = Arc::get_mut(obj).unwrap().build_world_bounding_box();
+                let bb = bb.dot(&world_to_camera);
+                let bb = bb.project(cam.focus_dist);
+                let bb = bb.scale(1./(2.*cam.viewport_width),1./(2.*cam.viewport_height));//[-1;1]
+                let bb = bb.translate(1.,1.);//[0;2]
+                let bb = bb.scale(0.5,0.5);
                 set_hash_index!(ret.camera_hash,bb,idx,traced_objects);
                 idx += 1;
             }
@@ -167,8 +168,13 @@ impl FrozenHittableList{
         $({
             let mut idx = 0;
             for obj in &mut ret.$marched_ident{
-                let bb = obj.build_world_bounding_box().dot(&world_to_camera);
-                set_hash_index!(ret.camera_hash,bb,idx,$marched_ident);
+                let bb = obj.build_world_bounding_box();
+                let bb = bb.dot(&world_to_camera);
+                let bb = bb.project(cam.focus_dist);
+                let bb = bb.scale(1./(2.*cam.viewport_width),1./(2.*cam.viewport_height));//[-1;1]
+                let bb = bb.translate(1.,1.);//[0;2]
+                let bb = bb.scale(0.5,0.5);
+                set_hash_index!(ret.camera_hash,bb,idx,traced_objects);
                 idx += 1;
             }
         })*
@@ -176,25 +182,28 @@ impl FrozenHittableList{
         {
             let mut idx = 0;
             for obj in &mut ret.marched_objects {
-                let bb = Arc::get_mut(obj).unwrap().build_world_bounding_box().dot(&world_to_camera);
-                set_hash_index!(ret.camera_hash,bb,idx,marched_objects);
+                let bb = Arc::get_mut(obj).unwrap().build_world_bounding_box();
+                let bb = bb.dot(&world_to_camera);
+                let bb = bb.project(cam.focus_dist);
+                let bb = bb.scale(1./(2.*cam.viewport_width),1./(2.*cam.viewport_height));//[-1;1]
+                let bb = bb.translate(1.,1.);//[0;2]
+                let bb = bb.scale(0.5,0.5);
+                set_hash_index!(ret.camera_hash,bb,idx,traced_objects);
                 idx += 1;
             }
         }
 
-        return ret;*/
+        return ret;
     }
 
-    pub fn first_hit(&self,r: &Ray,t_min: f32,t_max: f32) -> Option<HitRecord> {
-        return self.hit(r,t_min,t_max);
+    pub fn first_hit(&self,r: &Ray,t_min: f32,t_max: f32,u: f32,v: f32) -> Option<HitRecord> {
         //Ray tracing section
         let mut closest_so_far = t_max;
         let mut rec: Option<HitRecord>  = None;
         //If something isn't rendering properly, it might be because its not checking t_min,t_max in hit()
-        let dir_from_camera = self.m_world_to_camera.dot_v3(&r.dir).to_z1();
-        let hash_index = self.camera_hash.get_index(dir_from_camera.x(),dir_from_camera.y());
+        let cell = self.camera_hash.at(u,v);
         $({
-            let arr = &self.camera_hash.cells[hash_index.0][hash_index.1].$traced_ident;
+            let arr = &cell.$traced_ident;
             for idx_idx in 0..arr.count{
                 let idx = arr.arr[idx_idx];
                 if let Some(hr) = self.$traced_ident[idx].hit(r,t_min,closest_so_far) {
@@ -204,7 +213,7 @@ impl FrozenHittableList{
             }
         })*
         {
-            let arr = &self.camera_hash.cells[hash_index.0][hash_index.1].traced_objects;
+            let arr = &cell.traced_objects;
             for idx_idx in 0..arr.count{
                 let idx = arr.arr[idx_idx];
                 if let Some(hr) = self.traced_objects[idx].hit(r,t_min,closest_so_far) {
@@ -228,7 +237,7 @@ impl FrozenHittableList{
             let mut id       = 0;
             let mut material: Option<Material> = None;
             $({
-                let arr = self.camera_hash.cells[hash_index.0][hash_index.1].$marched_ident;
+                let arr = cell.$marched_ident;
                 for idx_idx in 0..arr.count{
                     let idx = arr.arr[idx_idx];
                     let obj = &self.$marched_ident[idx];
@@ -242,7 +251,7 @@ impl FrozenHittableList{
                 }
             })*
             {
-                let arr = self.camera_hash.cells[hash_index.0][hash_index.1].marched_objects;
+                let arr = cell.marched_objects;
                 for idx_idx in 0..arr.count{
                     let idx = arr.arr[idx_idx];
                     let obj = &self.marched_objects[idx];

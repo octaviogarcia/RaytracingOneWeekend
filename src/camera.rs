@@ -83,10 +83,11 @@ impl Camera{
         return self.camera_to_world().fast_homogenous_inverse();
     }
     pub fn viewport_world_bounding_box(&self) -> BoundingBox3D {
-        let p1 = self.lower_left_corner;
-        let p2 = self.lower_left_corner + self.horizontal;
-        let p3 = self.lower_left_corner + self.vertical;
-        let p4 = self.lower_left_corner + self.vertical + self.horizontal;
+        let o = self.origin - self.focus_dist*self.w_of_plane;
+        let p1 = o + 0.5*self.horizontal + 0.5*self.vertical;
+        let p2 = o - 0.5*self.horizontal + 0.5*self.vertical;
+        let p3 = o - 0.5*self.horizontal - 0.5*self.vertical;
+        let p4 = o + 0.5*self.horizontal - 0.5*self.vertical;
         return BoundingBox3D::new(
             &(p1.min(&p2).min(&p3).min(&p4)),
             &(p1.max(&p2).max(&p3).max(&p4)),

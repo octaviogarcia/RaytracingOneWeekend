@@ -125,11 +125,11 @@ fn handle_hit(hit_record: &mut Option<HitRecord>,curr_ray: &mut Ray,curr_color: 
     return (depth,obj_id);
 }
 
-fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32) -> (Color,f32,u64){
+fn ray_color(r: &Ray,world: &FrozenHittableList, depth: u32,tmin: f32,tmax: f32,u: f32,v: f32) -> (Color,f32,u64){
     let mut curr_color = Color::new(1.,1.,1.);
     let mut curr_ray: Ray = *r;
     //Get the depth with the first hit
-    let (depthf,obj_id) = handle_hit(&mut world.first_hit(&curr_ray,tmin,tmax),&mut curr_ray,&mut curr_color);
+    let (depthf,obj_id) = handle_hit(&mut world.first_hit(&curr_ray,tmin,tmax,u,v),&mut curr_ray,&mut curr_color);
     if depthf.is_infinite(){
         return (curr_color,f32::INFINITY,0);
     }
@@ -190,7 +190,7 @@ pub fn render(camera: &Camera,world: &FrozenHittableList,max_depth: u32,tmin: f3
             let u = (i_f+i_rand)/(image_width_f-1.);
             let v = 1.0 - (j_f+j_rand)/(image_height_f-1.);
             let ray = camera.get_ray(u,v);
-            let (pixel_color,depth,obj_id) = ray_color(&ray,&world,max_depth,tmin,tmax);
+            let (pixel_color,depth,obj_id) = ray_color(&ray,&world,max_depth,tmin,tmax,u,v);
             let done = pixel.stats.add(&pixel_color,depth,obj_id);
             thread_pixels.add_run(idx,done);
             let log_samples = (done as u32)*(samples_per_pixel-pixel.stats.n) + 1;//+1 cause is done post increment
