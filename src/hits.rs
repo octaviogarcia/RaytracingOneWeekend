@@ -22,6 +22,7 @@ use std::sync::Arc;
 macro_rules! set_hash_index {
     ($camera_hash:expr,$bb:expr,$idx:expr,$ident:ident) => {
         let (mini,maxi,minj,maxj) = $camera_hash.get_indexes(&$bb);
+        println!("indexes {},{} - {},{}",mini,minj,maxi,maxj);
         for i in mini..=maxi{
             for j in minj..=maxj{
                 $camera_hash.cells[i][j].$ident.add($idx);
@@ -126,6 +127,7 @@ impl FrozenHittableList{
             },
         };
 
+        let camera_hash = &ret.camera_hash;
         let world_to_camera = cam.world_to_camera();
         /*let bb = cam.viewport_world_bounding_box();
         let bb = bb.dot(&world_to_camera);
@@ -135,8 +137,11 @@ impl FrozenHittableList{
             let mut idx = 0;
             for obj in &mut ret.$traced_ident{
                 let bb = obj.build_world_bounding_box();
+                println!("{:?}",bb);
                 let bb = bb.dot(&world_to_camera);
+                println!("{:?}",bb);
                 let bb = bb.project(cam);
+                println!("{:?}",bb);
                 //println!("{:?}",bb);
                 set_hash_index!(ret.camera_hash,bb,idx,$traced_ident);
                 idx += 1;
