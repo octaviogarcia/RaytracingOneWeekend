@@ -104,10 +104,8 @@ fn basic_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
     world+=&Sphere::new_with_radius(&Point3::new(0.,  0.,-2.),1.,&mat_ground);
-    world+=&Sphere::new_with_radius(&Point3::new(0.,  0.75,-2.),1.,&mat_ground);
     world+=&Sphere::new_with_radius(&Point3::new(-2., 0.,-2.),1.,&mat_ground);
-    world+=&Sphere::new_with_radius(&Point3::new( 0., 2.,-2.),1.,&mat_ground);
-    world+=&Sphere::new_with_radius(&Point3::new( 0.,-2.,-2.),1.,&mat_ground);
+    world+=&Sphere::new_with_radius(&Point3::new( 2., 0.,-2.),1.,&mat_ground);
     return world;
 }
 
@@ -133,8 +131,8 @@ fn main() {
 
     let camera: Camera;
     {
-        camera = Camera::world_camera(90.,aspect_ratio);
-        //camera = Camera::new(Point3::new(0.,2.,-2.),Point3::new(0.,0.,-2.),Point3::new(0.,0.,-1.),90.,aspect_ratio,0.,1.);
+        //camera = Camera::world_camera(90.,aspect_ratio);
+        camera = Camera::new(Point3::new(0.,2.,-2.),Point3::new(0.,0.,-2.),Point3::new(0.,0.,-1.),130.,aspect_ratio,20.,2.);
         /*let lookfrom = Point3::new(13.,2.,3.);
         let lookat   = Point3::new(0.,0.,0.);
         let vup      =   Vec3::new(0.,1.,0.);
