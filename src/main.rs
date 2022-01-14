@@ -104,6 +104,7 @@ fn basic_scene() -> HittableList{
     let mut world = HittableList::new();
     let mat_ground = Material::new_lambertian(Color::new(0.5,0.5,0.5));
     world+=&Sphere::new_with_radius(&Point3::new(0.,  0.,-2.),1.,&mat_ground);
+    world+=&Sphere::new_with_radius(&Point3::new(0.,  0.75,-2.),1.,&mat_ground);
     world+=&Sphere::new_with_radius(&Point3::new(-2., 0.,-2.),1.,&mat_ground);
     world+=&Sphere::new_with_radius(&Point3::new( 0., 2.,-2.),1.,&mat_ground);
     world+=&Sphere::new_with_radius(&Point3::new( 0.,-2.,-2.),1.,&mat_ground);

@@ -64,7 +64,9 @@ impl Traced for Sphere {
 
 impl Bounded for Sphere {
     fn build_world_bounding_box(&self) -> BoundingBox3D {
-        return BoundingBox3D::new(&Point3::new(-1.,-1.,-1.),&Point3::new(1.,1.,1.)).dot(&self.m_local_to_world);
+        let ret = BoundingBox3D::new(&Point3::new(-1.,-1.,-1.),&Point3::new(1.,1.,1.)).dot(&self.m_local_to_world);
+        //println!("{:?}",ret);
+        return ret;
     }
     fn hit_bounding_box(&self,dir: &Vec3) -> bool{ 
         self.bounding_box.hit(dir) 

@@ -2,6 +2,7 @@
 use crate::math::vec3::{Vec3,Point3};
 use crate::math::mat4x4::{Mat4x4};
 use crate::utils::INF;
+use crate::camera::Camera;
 
 #[derive(Copy,Clone,Debug)]
 pub struct BoundingBox {
@@ -19,18 +20,6 @@ impl BoundingBox {
     pub fn hit(&self,dir: &Vec3) -> bool {
         return self.bottomleft_x <= dir.x() && dir.x() <= self.topright_x 
           &&   self.bottomleft_y <= dir.y() && dir.y() <= self.topright_y; 
-    }
-    pub fn scale(&self,scalex: f32,scaley: f32) -> BoundingBox {
-        return BoundingBox::new(
-            self.bottomleft_x*scalex,self.bottomleft_y*scaley,
-              self.topright_x*scalex,self.topright_y*scaley,
-        )
-    }
-    pub fn translate(&self,tx: f32,ty: f32) -> BoundingBox {
-        return BoundingBox::new(
-            self.bottomleft_x+tx,self.bottomleft_y+ty,
-            self.topright_x+tx,self.topright_y+ty,
-        )
     }
 }
 
@@ -56,22 +45,24 @@ impl BoundingBox3D {
         let maxp = p1.max(&p2.max(&p3.max(&p4.max(&p5.max(&p6.max(&p7.max(&p8)))))));
         return BoundingBox3D{minp,maxp};
     }
-    pub fn project(&self,focus_dist: f32) -> BoundingBox {
+    pub fn project(&self,cam: &Camera) -> BoundingBox {
         //http://medialab.di.unipi.it/web/IUM/Waterloo/node47.html#SECTION00810000000000000000
         //(x,y,z) -> (xn/z,yn/z,n)
         let p1 = self.minp;
         let p2 = self.maxp;
-        let v1 = p1.to_z1()*focus_dist;
-        let v2 = Point3::new(p1.x(),p1.y(),p2.z()).to_z1()*focus_dist;
-        let v3 = Point3::new(p1.x(),p2.y(),p1.z()).to_z1()*focus_dist;
-        let v4 = Point3::new(p1.x(),p2.y(),p2.z()).to_z1()*focus_dist;
-        let v5 = Point3::new(p2.x(),p1.y(),p1.z()).to_z1()*focus_dist;
-        let v6 = Point3::new(p2.x(),p1.y(),p2.z()).to_z1()*focus_dist;
-        let v7 = Point3::new(p2.x(),p2.y(),p1.z()).to_z1()*focus_dist;
-        let v8 = p2.to_z1()*focus_dist;
-        let minp = v1.min(&v2).min(&v3).min(&v4).min(&v5).min(&v6).min(&v7).min(&v8);
-        let maxp = v1.max(&v2).max(&v3).max(&v4).max(&v5).max(&v6).max(&v7).max(&v8);
-        return BoundingBox::new(minp.x(),minp.y(),maxp.x(),maxp.y());
+        let v1 = cam.to_uv(&(p1));
+        let v2 = cam.to_uv(&(Point3::new(p1.x(),p1.y(),p2.z())));
+        let v3 = cam.to_uv(&(Point3::new(p1.x(),p2.y(),p1.z())));
+        let v4 = cam.to_uv(&(Point3::new(p1.x(),p2.y(),p2.z())));
+        let v5 = cam.to_uv(&(Point3::new(p2.x(),p1.y(),p1.z())));
+        let v6 = cam.to_uv(&(Point3::new(p2.x(),p1.y(),p2.z())));
+        let v7 = cam.to_uv(&(Point3::new(p2.x(),p2.y(),p1.z())));
+        let v8 = cam.to_uv(&(p2));
+        let minu = v1.0.min(v2.0).min(v3.0).min(v4.0).min(v5.0).min(v6.0).min(v7.0).min(v8.0);
+        let minv = v1.1.min(v2.1).min(v3.1).min(v4.1).min(v5.1).min(v6.1).min(v7.1).min(v8.1);
+        let maxu = v1.0.max(v2.0).max(v3.0).max(v4.0).max(v5.0).max(v6.0).max(v7.0).max(v8.0);
+        let maxv = v1.1.max(v2.1).max(v3.1).max(v4.1).max(v5.1).max(v6.1).max(v7.1).max(v8.1);
+        return BoundingBox::new(minu,minv,maxu,maxv);
     }
 }
 

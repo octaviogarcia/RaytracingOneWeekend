@@ -1,5 +1,6 @@
 use crate::math::vec3::*;
 use crate::math::vec4::*;
+use crate::math::mat3x3::*;
 use crate::math::mat4x4::*;
 use crate::ray::*;
 use crate::utils::degrees_to_radians;
@@ -82,15 +83,28 @@ impl Camera{
     pub fn world_to_camera(&self) -> Mat4x4{
         return self.camera_to_world().fast_homogenous_inverse();
     }
+    #[allow(dead_code)]
     pub fn viewport_world_bounding_box(&self) -> BoundingBox3D {
-        let o = self.origin - self.focus_dist*self.w_of_plane;
-        let p1 = o + 0.5*self.horizontal + 0.5*self.vertical;
-        let p2 = o - 0.5*self.horizontal + 0.5*self.vertical;
-        let p3 = o - 0.5*self.horizontal - 0.5*self.vertical;
-        let p4 = o + 0.5*self.horizontal - 0.5*self.vertical;
-        return BoundingBox3D::new(
+        let p1 = self.lower_left_corner;
+        //println!("{}",self.horizontal);
+        //println!("{}",self.vertical);
+        //println!("{}",self.lower_left_corner);
+        let p2 = self.lower_left_corner + self.horizontal;
+        let p3 = self.lower_left_corner + self.vertical;
+        let p4 = self.lower_left_corner + self.horizontal + self.vertical;
+        let ret = BoundingBox3D::new(
             &(p1.min(&p2).min(&p3).min(&p4)),
             &(p1.max(&p2).max(&p3).max(&p4)),
         );
+        //println!("vport3d {:?}",ret);//Seems about right
+        return ret;
+    }
+    pub fn to_uv(&self,dir: &Vec3) -> (f32,f32) {
+        //println!("{} dir",dir);
+        let to_uvs = Mat3x3::new_3vec_vert(
+            &self.horizontal,&self.vertical,&dir
+        ).inverse();
+        let uvs = to_uvs.dot(&(self.origin-self.lower_left_corner));
+        return (1.0-uvs.x(),1.0-uvs.y());
     }
 }

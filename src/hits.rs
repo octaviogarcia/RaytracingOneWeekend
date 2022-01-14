@@ -127,23 +127,17 @@ impl FrozenHittableList{
         };
 
         let world_to_camera = cam.world_to_camera();
-        let bb = cam.viewport_world_bounding_box();
+        /*let bb = cam.viewport_world_bounding_box();
         let bb = bb.dot(&world_to_camera);
-        let bb = bb.project(cam.focus_dist);//[-viewport*0.5;viewport*0.5]
-        let bb = bb.scale(2./cam.viewport_width,2./cam.viewport_height);//[-1;1]
-        let bb = bb.translate(1.,1.);//[0;2]
-        let bb = bb.scale(0.5,0.5);//--> should be {0.,0.,1.,1.}
-        println!("{:?}",bb);
+        let bb = bb.project(cam);
+        println!("{:?}",bb);*/
         $({
             let mut idx = 0;
             for obj in &mut ret.$traced_ident{
                 let bb = obj.build_world_bounding_box();
                 let bb = bb.dot(&world_to_camera);
-                let bb = bb.project(cam.focus_dist);
-                let bb = bb.scale(2./cam.viewport_width,2./cam.viewport_height);//[-1;1]
-                let bb = bb.translate(1.,1.);//[0;2]
-                let bb = bb.scale(0.5,0.5);
-                println!("{:?}",bb);
+                let bb = bb.project(cam);
+                //println!("{:?}",bb);
                 set_hash_index!(ret.camera_hash,bb,idx,$traced_ident);
                 idx += 1;
             }
@@ -154,10 +148,7 @@ impl FrozenHittableList{
             for obj in &mut ret.traced_objects{//This modifies the base object rather than clone it, not sure how I feel about it
                 let bb = Arc::get_mut(obj).unwrap().build_world_bounding_box();
                 let bb = bb.dot(&world_to_camera);
-                let bb = bb.project(cam.focus_dist);
-                let bb = bb.scale(1./(2.*cam.viewport_width),1./(2.*cam.viewport_height));//[-1;1]
-                let bb = bb.translate(1.,1.);//[0;2]
-                let bb = bb.scale(0.5,0.5);
+                let bb = bb.project(cam);
                 set_hash_index!(ret.camera_hash,bb,idx,traced_objects);
                 idx += 1;
             }
@@ -168,10 +159,7 @@ impl FrozenHittableList{
             for obj in &mut ret.$marched_ident{
                 let bb = obj.build_world_bounding_box();
                 let bb = bb.dot(&world_to_camera);
-                let bb = bb.project(cam.focus_dist);
-                let bb = bb.scale(1./(2.*cam.viewport_width),1./(2.*cam.viewport_height));//[-1;1]
-                let bb = bb.translate(1.,1.);//[0;2]
-                let bb = bb.scale(0.5,0.5);
+                let bb = bb.project(cam);
                 set_hash_index!(ret.camera_hash,bb,idx,traced_objects);
                 idx += 1;
             }
@@ -182,10 +170,7 @@ impl FrozenHittableList{
             for obj in &mut ret.marched_objects {
                 let bb = Arc::get_mut(obj).unwrap().build_world_bounding_box();
                 let bb = bb.dot(&world_to_camera);
-                let bb = bb.project(cam.focus_dist);
-                let bb = bb.scale(1./(2.*cam.viewport_width),1./(2.*cam.viewport_height));//[-1;1]
-                let bb = bb.translate(1.,1.);//[0;2]
-                let bb = bb.scale(0.5,0.5);
+                let bb = bb.project(cam);
                 set_hash_index!(ret.camera_hash,bb,idx,traced_objects);
                 idx += 1;
             }
